@@ -1,193 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Wellness OS</title>
   <style>
     :root {
-      --bg: #f6ecd9;
-      --card: #f4e6d0;
-      --ink: #1f1a17;
-      --shadow: rgba(80, 55, 25, 0.08);
-      --radius: 28px;
+      --bg: #f5eae3;
+      --card-radius: 16px;
+      --gap: 16px;
     }
 
-    * { box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
     body {
-      margin: 0;
+      background-color: var(--bg);
       min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background:
-        radial-gradient(circle at top left, #fbf4e8 0%, #f6ecd9 42%, #efe1c7 100%);
-      font-family: Georgia, "Times New Roman", serif;
-      color: var(--ink);
-      padding: 24px;
-    }
-
-    .frame {
-      width: min(1366px, 100%);
-      aspect-ratio: 1366 / 908;
-      position: relative;
-      background: var(--bg);
-      border-radius: 18px;
-      overflow: hidden;
-      box-shadow: 0 24px 70px rgba(50, 35, 15, 0.12);
-    }
-
-    .card {
-      position: absolute;
-      background: var(--card);
-      border-radius: var(--radius);
-      box-shadow: 0 10px 28px var(--shadow);
-      overflow: hidden;
-    }
-
-    .card .label {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      bottom: 36px;
-      width: calc(100% - 40px);
-      text-align: center;
-      font-size: clamp(18px, 1.8vw, 30px);
-      line-height: 1.1;
-      letter-spacing: 0.2px;
-    }
-
-    .card img {
-      position: absolute;
-      object-fit: contain;
-      user-select: none;
-      -webkit-user-drag: none;
-      pointer-events: none;
-    }
-
-    .hero-title {
-      position: absolute;
-      left: 10.98%;
-      top: 16.34%;
-      width: 16.73%;
-      font-size: clamp(28px, 3vw, 54px);
-      line-height: 0.9;
-      text-align: left;
-      white-space: pre-line;
-      z-index: 3;
-    }
-
-    .hero-dashboard {
-      position: absolute;
-      left: 7.06%;
-      top: 30.47%;
-      width: 20.28%;
-      height: 54.67%;
       display: flex;
       align-items: center;
       justify-content: center;
-      text-align: center;
-      font-size: clamp(20px, 2.1vw, 34px);
-      line-height: 1.1;
-      padding: 32px;
-      z-index: 2;
+      padding: 24px;
     }
 
-    .muted-stroke {
-      opacity: 0.95;
-      filter: saturate(0.92);
+    .container {
+      max-width: 560px;
+      width: 100%;
     }
 
-    @media (max-width: 900px) {
-      body { padding: 10px; }
-      .frame { width: 100%; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gap);
+    }
+
+    .card {
+      display: block;
+      border-radius: var(--card-radius);
+      overflow: hidden;
+      text-decoration: none;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+      aspect-ratio: 1 / 1;
+      opacity: 0;
+      animation: fadeUp 0.45s ease forwards;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 28px rgba(80, 60, 50, 0.12);
+    }
+
+    .card:active {
+      transform: translateY(-1px);
+    }
+
+    .card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card:nth-child(1)  { animation-delay: 0.04s; }
+    .card:nth-child(2)  { animation-delay: 0.10s; }
+    .card:nth-child(3)  { animation-delay: 0.16s; }
+    .card:nth-child(4)  { animation-delay: 0.22s; }
+    .card:nth-child(5)  { animation-delay: 0.28s; }
+    .card:nth-child(6)  { animation-delay: 0.34s; }
+    .card:nth-child(7)  { animation-delay: 0.40s; }
+    .card:nth-child(8)  { animation-delay: 0.46s; }
+    .card:nth-child(9)  { animation-delay: 0.52s; }
+    .card:nth-child(10) { animation-delay: 0.58s; }
+    .card:nth-child(11) { animation-delay: 0.64s; }
+    .card:nth-child(12) { animation-delay: 0.70s; }
+
+    @media (max-width: 480px) {
+      body { padding: 14px; }
+      .grid { gap: 12px; }
+      .card { border-radius: 12px; }
     }
   </style>
 </head>
 <body>
-  <main class="frame" aria-label="Wellness OS dashboard layout recreation">
-    <section class="card" style="left:7.06%; top:16.42%; width:22.62%; height:14.67%; background:#f5ead7;">
-      <img
-        src="https://media-public.canva.com/ylLAk/MADwe8ylLAk/1/full.png"
-        alt="Sketchy beige bellflower"
-        class="muted-stroke"
-        style="left:0; top:0; width:100%; height:100%; object-position:left center;"
-        onerror="this.src='https://media-public.canva.com/ylLAk/MADwe8ylLAk/1/t.png';"
-      />
-    </section>
 
-    <div class="hero-title">Wellness
-  OS</div>
+  <div class="container">
+    <div class="grid">
 
-    <section class="card hero-dashboard" style="background:#f5ead7;">
-      Wellness Dashboard
-      <img
-        src="https://media-public.canva.com/ynNWg/MADxcIynNWg/1/full.png"
-        alt="Organic rainbow illustration"
-        style="left:12%; bottom:18%; width:72%; height:52%; object-position:center bottom;"
-        onerror="this.src='https://media-public.canva.com/ynNWg/MADxcIynNWg/1/t.png';"
-      />
-    </section>
+      <!-- Row 1 -->
+      <a href="#" class="card"><img src="assets/1.png" alt="Wellness OS"></a>
+      <a href="#" class="card"><img src="assets/2.png" alt="Dashboard"></a>
 
-    <section class="card" style="left:28.95%; top:14.86%; width:20.28%; height:33.83%;">
-      <img
-        src="https://media-public.canva.com/h756s/MADtw_h756s/1/full.png"
-        alt="Pineapple illustration"
-        style="left:22%; top:8%; width:56%; height:58%;"
-        onerror="this.src='https://media-public.canva.com/h756s/MADtw_h756s/1/t.png';"
-      />
-      <div class="label">Meals</div>
-    </section>
+      <!-- Row 2 -->
+      <a href="#" class="card"><img src="assets/3.png" alt="Skincare"></a>
+      <a href="#" class="card"><img src="assets/4.png" alt="Learning"></a>
 
-    <section class="card" style="left:28.95%; top:51.31%; width:20.28%; height:33.83%;">
-      <img
-        src="https://media-public.canva.com/gAT7w/MAD3mYgAT7w/1/full.png"
-        alt="Floral face illustration"
-        style="left:24%; top:10%; width:46%; height:54%;"
-        onerror="this.src='https://media-public.canva.com/gAT7w/MAD3mYgAT7w/1/t.png';"
-      />
-      <div class="label">Skincare</div>
-    </section>
+      <!-- Row 3 -->
+      <a href="#" class="card"><img src="assets/5.png" alt="Meals"></a>
+      <a href="#" class="card"><img src="assets/6.png" alt="Finances"></a>
 
-    <section class="card" style="left:50.86%; top:14.86%; width:20.28%; height:33.83%;">
-      <img
-        src="https://media-public.canva.com/Ay6_w/MADxyXAy6_w/1/full.png"
-        alt="Black heart doodle"
-        style="left:31%; top:8%; width:26%; height:58%;"
-        onerror="this.src='https://media-public.canva.com/Ay6_w/MADxyXAy6_w/1/t.png';"
-      />
-      <div class="label">Learning</div>
-    </section>
+      <!-- Row 4 -->
+      <a href="#" class="card"><img src="assets/7.png" alt="Reading"></a>
+      <a href="#" class="card"><img src="assets/8.png" alt="Fitness"></a>
 
-    <section class="card" style="left:50.86%; top:51.31%; width:20.28%; height:33.83%;">
-      <img
-        src="https://media-public.canva.com/8tLWI/MADhBM8tLWI/2/full.png"
-        alt="Mother cat and baby kitten illustration"
-        style="left:21%; top:9%; width:58%; height:60%;"
-        onerror="this.src='https://media-public.canva.com/8tLWI/MADhBM8tLWI/2/t.png';"
-      />
-      <div class="label">Goals</div>
-    </section>
+      <!-- Row 5 -->
+      <a href="#" class="card"><img src="assets/9.png" alt="Beauty"></a>
+      <a href="#" class="card"><img src="assets/10.png" alt="Events"></a>
 
-    <section class="card" style="left:72.76%; top:14.86%; width:20.28%; height:33.83%;">
-      <img
-        src="https://media-public.canva.com/mXIoU/MADw-JmXIoU/1/full.png"
-        alt="Libra zodiac illustration"
-        style="left:14%; top:8%; width:72%; height:58%;"
-        onerror="this.src='https://media-public.canva.com/mXIoU/MADw-JmXIoU/1/t.png';"
-      />
-      <div class="label">Finances</div>
-    </section>
+      <!-- Row 6 -->
+      <a href="#" class="card"><img src="assets/11.png" alt="Body Comp"></a>
+      <a href="#" class="card"><img src="assets/12.png" alt="Goals"></a>
 
-    <section class="card" style="left:72.76%; top:51.31%; width:20.28%; height:33.83%;">
-      <img
-        src="https://media-public.canva.com/DngAo/MADxcHDngAo/1/full.png"
-        alt="Cute love monster illustration"
-        style="left:22%; top:10%; width:52%; height:56%;"
-        onerror="this.src='https://media-public.canva.com/DngAo/MADxcHDngAo/1/t.png';"
-      />
-      <div class="label">Fitness</div>
-    </section>
-  </main>
+    </div>
+  </div>
+
 </body>
 </html>
