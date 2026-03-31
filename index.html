@@ -27,13 +27,13 @@
     }
 
     .container {
-      max-width: 560px;
+      max-width: 1200px;
       width: 100%;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, 1fr);
       gap: var(--gap);
     }
 
@@ -70,17 +70,32 @@
     }
 
     .card:nth-child(1)  { animation-delay: 0.04s; }
-    .card:nth-child(2)  { animation-delay: 0.10s; }
-    .card:nth-child(3)  { animation-delay: 0.16s; }
-    .card:nth-child(4)  { animation-delay: 0.22s; }
-    .card:nth-child(5)  { animation-delay: 0.28s; }
-    .card:nth-child(6)  { animation-delay: 0.34s; }
-    .card:nth-child(7)  { animation-delay: 0.40s; }
-    .card:nth-child(8)  { animation-delay: 0.46s; }
-    .card:nth-child(9)  { animation-delay: 0.52s; }
-    .card:nth-child(10) { animation-delay: 0.58s; }
-    .card:nth-child(11) { animation-delay: 0.64s; }
-    .card:nth-child(12) { animation-delay: 0.70s; }
+    .card:nth-child(2)  { animation-delay: 0.08s; }
+    .card:nth-child(3)  { animation-delay: 0.12s; }
+    .card:nth-child(4)  { animation-delay: 0.16s; }
+    .card:nth-child(5)  { animation-delay: 0.20s; }
+    .card:nth-child(6)  { animation-delay: 0.24s; }
+    .card:nth-child(7)  { animation-delay: 0.28s; }
+    .card:nth-child(8)  { animation-delay: 0.32s; }
+    .card:nth-child(9)  { animation-delay: 0.36s; }
+    .card:nth-child(10) { animation-delay: 0.40s; }
+    .card:nth-child(11) { animation-delay: 0.44s; }
+    .card:nth-child(12) { animation-delay: 0.48s; }
+
+    /* Tablet: 3 columns */
+    @media (min-width: 600px) {
+      .grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    /* Desktop: 6 columns */
+    @media (min-width: 1000px) {
+      .grid {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 18px;
+      }
+    }
 
     @media (max-width: 480px) {
       body { padding: 14px; }
@@ -93,31 +108,18 @@
 
   <div class="container">
     <div class="grid">
-
-      <!-- Row 1 -->
       <a href="#" class="card"><img src="assets/1.png" alt="Wellness OS"></a>
       <a href="#" class="card"><img src="assets/2.png" alt="Dashboard"></a>
-
-      <!-- Row 2 -->
       <a href="#" class="card"><img src="assets/3.png" alt="Skincare"></a>
       <a href="#" class="card"><img src="assets/4.png" alt="Learning"></a>
-
-      <!-- Row 3 -->
       <a href="#" class="card"><img src="assets/5.png" alt="Meals"></a>
       <a href="#" class="card"><img src="assets/6.png" alt="Finances"></a>
-
-      <!-- Row 4 -->
       <a href="#" class="card"><img src="assets/7.png" alt="Reading"></a>
       <a href="#" class="card"><img src="assets/8.png" alt="Fitness"></a>
-
-      <!-- Row 5 -->
       <a href="#" class="card"><img src="assets/9.png" alt="Beauty"></a>
       <a href="#" class="card"><img src="assets/10.png" alt="Events"></a>
-
-      <!-- Row 6 -->
       <a href="#" class="card"><img src="assets/11.png" alt="Body Comp"></a>
       <a href="#" class="card"><img src="assets/12.png" alt="Goals"></a>
-
     </div>
   </div>
 
