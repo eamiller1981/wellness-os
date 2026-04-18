@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Finances | Wellness OS</title>
+<style>
+:root {
+  --blush:      #b77b82;
+  --blush-soft: #f2c4c8;  /* slider track, kept soft */
+  --deep-blush: #c4848e;
+  --cream:      #fdf4ee;
+  --cream-card: #fef9f6;
+  --charcoal:   #3c3232;
+  --rose-gray:  #c4adad;
+  --mint:       #9CAF88;
+  --neg-color:  #F5DDDC;   /* misty rose — under */
+  --pos-color:  #AF9CCB;   /* wisteria — over */
+  --light-gray: #e4e0de;
+  --border:     #e2c8c2;
+  --input-bg:   #fdf0eb;
+  --label:      #8a6a6a;
+  --r-card:     16px;
+  --r-pill:     999px;
+  --r-input:    9px;
+  --serif:      Georgia,'Times New Roman',serif;
+  --sans:       -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--cream);color:var(--charcoal);font-size:15px;line-height:1.6;min-height:100vh;display:block;width:100%}
+
+/* ══ STICKY BAR — centered ② */
+.top-bar{
+  position:sticky;top:0;z-index:100;
+  background:var(--cream-card);border-bottom:1.5px solid var(--border);
+  min-height:66px;display:flex;align-items:center;justify-content:center; /* ① */
+  padding:10px 28px;gap:28px;flex-wrap:wrap;
+}
+.top-bar__item{display:flex;flex-direction:column;align-items:center;gap:2px} /* ① center items */
+.top-bar__label{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--label)}
+.top-bar__value{font-size:15px;font-weight:600;color:var(--charcoal)}
+.top-bar__div{width:1px;height:30px;background:var(--border);flex-shrink:0}
+.wo-home{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:36px;padding:0 14px;border:1.5px solid var(--border);
+  border-radius:var(--r-pill);background:var(--input-bg);
+  color:var(--charcoal);font-size:13px;font-weight:700;text-decoration:none;
+  white-space:nowrap;
+}
+.wo-home:hover,.wo-home:focus-visible{border-color:var(--deep-blush);outline:none}
+
+/* balance pill — 3 states */
+.b-pill{display:inline-flex;align-items:center;padding:6px 20px;border-radius:var(--r-pill);font-weight:700;font-size:15px;white-space:nowrap}
+.b-zero{background:var(--mint);color:var(--charcoal)}
+.b-neg {background:var(--neg-color);color:var(--charcoal)}
+.b-pos {background:var(--pos-color);color:var(--charcoal)}
+
+/* ══ PAGE HEADER — centered ③ */
+.page-header{padding:36px 28px 6px;text-align:center} /* ② */
+.page-header__eye{font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--deep-blush);margin-bottom:6px}
+.page-header__title{font-family:var(--serif);font-size:clamp(38px,6vw,60px);font-weight:normal;color:var(--charcoal);letter-spacing:-.015em;line-height:1.02}
+.page-header__title em{font-style:italic;color:var(--deep-blush)}
+
+/* ③ extended centered ornament */
+.ornament-wrap{display:flex;justify-content:center;padding:12px 28px 4px}
+.ornament-wrap svg{width:min(680px,92vw);height:22px;opacity:.55}
+
+/* ══ GRID */
+.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:14px 28px 60px;max-width:1200px;margin:0 auto}
+.span-full{grid-column:1/-1}
+
+/* ══ CARD — no dashed inner border ⑥, no decorative rose ⑦ */
+.card{
+  background:var(--cream-card);
+  border:1.5px solid var(--border);
+  border-radius:var(--r-card);
+  padding:24px 22px 26px;
+}
+
+/* ══ HEADINGS — no drop-cap accent ⑤, unified font */
+.card__heading{
+  font-family:var(--serif);
+  font-size:21px;font-weight:normal;
+  color:var(--charcoal);letter-spacing:-.01em;
+  margin-bottom:18px;
+}
+
+/* ══ DATE BAR */
+.date-bar-inner{display:flex;gap:24px;align-items:flex-end}
+.date-bar-field{display:flex;flex-direction:column;gap:5px;flex:1}
+.date-bar-field label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--label)}
+
+/* ══ FIELDS */
+.field-stack{display:flex;flex-direction:column;gap:11px}
+.field-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.field-row label{font-size:13px;font-weight:500;color:var(--charcoal);flex:1;white-space:nowrap}
+.field-row .fi{width:132px;flex-shrink:0}
+
+/* ══ INPUTS */
+input[type="text"],input[type="date"],input[type="number"]{
+  width:100%;padding:8px 12px;
+  border:1.5px solid var(--border);border-radius:var(--r-input);
+  background:var(--input-bg);color:var(--charcoal);
+  font-family:var(--sans);font-size:14px;font-weight:500;
+  outline:none;transition:border-color .18s;-webkit-appearance:none;
+}
+input:focus{border-color:var(--deep-blush)}
+input::placeholder{color:var(--rose-gray);font-weight:400}
+
+/* affix wrapper */
+.afx{position:relative;display:inline-flex;align-items:center;width:100%}
+.sym{position:absolute;font-size:12px;color:var(--label);pointer-events:none}
+.sym-l{left:10px}.sym-r{right:10px}
+.afx input.pl{padding-left:20px}
+.afx input.pr{padding-right:20px}
+.fi .afx{width:100%}
+.fi .afx input{width:132px}
+
+/* ══ LARGE H1 PILL (Total / Fixed / Remainder / Balance) */
+.h1pill{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--blush);border-radius:var(--r-pill);
+  padding:14px 22px;margin-top:20px;
+}
+.h1pill.b-neg-pill{background:var(--neg-color)}
+.h1pill.b-pos-pill{background:var(--pos-color)}
+.h1pill.b-zero-pill{background:var(--mint)}
+.h1pill__lbl{font-family:var(--serif);font-size:17px;font-weight:normal;color:#fef9f6}
+.h1pill__val{font-family:var(--serif);font-size:22px;font-weight:bold;color:#fef9f6}
+/* all three balance states use dark text (colors are light/mid) */
+.h1pill.b-neg-pill .h1pill__lbl,.h1pill.b-neg-pill .h1pill__val,
+.h1pill.b-pos-pill .h1pill__lbl,.h1pill.b-pos-pill .h1pill__val,
+.h1pill.b-zero-pill .h1pill__lbl,.h1pill.b-zero-pill .h1pill__val{color:var(--charcoal)}
+
+.field-divider{height:1px;background:var(--border);margin:4px 0}
+
+
+
+
+/* ══ ALLOC BLOCK */
+.ablock{border:1.5px solid var(--border);border-radius:12px;padding:16px 16px 14px;background:var(--input-bg);display:flex;flex-direction:column;gap:13px;margin-top:14px}
+.ablock__title{font-family:var(--serif);font-size:16px;font-weight:normal;color:var(--charcoal)}
+
+/* ══ SLIDER ROW — slider 60% ⑭ */
+.slider-row{display:flex;flex-direction:column;gap:7px}
+.row-label{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--label)}
+
+/* grid: 60% slider | % field | $ field */
+.triple{display:grid;grid-template-columns:60% 100px 128px;align-items:center;gap:10px}
+
+input[type="range"]{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:5px;border-radius:999px;
+  background:var(--blush-soft);outline:none;border:none;cursor:pointer;padding:0;
+}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:var(--deep-blush);border:2.5px solid var(--cream-card);cursor:pointer}
+input[type="range"]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;background:var(--deep-blush);border:2.5px solid var(--cream-card);cursor:pointer}
+
+/* % and $ inputs inside triple */
+.triple .afx{width:100%}
+.triple .afx input.pr{width:100px;text-align:center}
+.triple .afx input.pl{width:128px;text-align:right}
+
+/* sub-row (Savings $, Special Savings $) */
+.sub-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sub-row label{font-size:13px;font-weight:500;color:var(--charcoal);flex:1}
+.sub-row .afx{width:128px;flex-shrink:0}
+.sub-row .afx input{width:128px;text-align:right}
+
+/* ══ FOOTER */
+.footer{padding:24px 0;font-size:11px;color:var(--rose-gray);letter-spacing:.08em;text-align:center;position:relative;left:0;right:0;width:100%}
+
+/* ══ TRANSFERS TABLE */
+.xfer-table{
+  margin-top:18px;
+  border:1.5px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+}
+.xfer-hrow,.xfer-row{
+  display:grid;
+  grid-template-columns:1fr 110px 110px 160px 160px 110px;
+  gap:0;
+}
+.xfer-hrow{background:#fdf4ee;border-bottom:1.5px solid var(--border)}
+.xfer-hcell{
+  padding:9px 14px;
+  font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--label);
+  text-align:left;
+  display:flex;align-items:center;  /* middle-align vertically */
+}
+.xfer-row{border-bottom:1px solid var(--border);background:#fdf9f6}
+.xfer-row:last-child{border-bottom:none}
+.xfer-cell{
+  padding:10px 14px;
+  font-size:13px;font-weight:500;
+  font-family:var(--sans);
+  color:var(--charcoal);
+  display:flex;align-items:center;
+  justify-content:flex-start;
+}
+/* amount: bold, positive = dark sage, negative = deeper rose, zero = muted */
+.xfer-cell.xfer-amt{font-weight:700}
+.xfer-row.xr-pos .xfer-amt{color:#3a5e2a}
+.xfer-row.xr-neg .xfer-amt{color:#8c3a42}
+.xfer-row.xr-zero .xfer-amt{color:var(--rose-gray)}
+/* no row tinting */
+.xfer-row.xr-pos,.xfer-row.xr-neg,.xfer-row.xr-zero{background:#fdf9f6}
+/* routing cells — slightly muted, same charcoal */
+.xfer-cell.xfer-route{font-size:12px;color:var(--charcoal)}
+
+/* ══ RESPONSIVE */
+@media(max-width:740px){
+  .main-grid{grid-template-columns:1fr;padding:12px 14px 48px}
+  .span-full{grid-column:1}
+  .top-bar{padding:10px 16px}
+  .page-header{padding:22px 16px 6px}
+  .triple{grid-template-columns:55% 86px 110px}
+  .date-bar-inner{flex-direction:column;gap:14px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ STICKY BAR ══════════════════════════════════════════ -->
+<div class="top-bar">
+  <a class="wo-home" href="/">Home</a>
+  <div class="top-bar__div"></div>
+  <div class="top-bar__item">
+    <span class="top-bar__label">Pay Date</span>
+    <span class="top-bar__value" id="tb-paydate">—</span>
+  </div>
+  <div class="top-bar__div"></div>
+  <div class="top-bar__item">
+    <span class="top-bar__label">Total Balance</span>
+    <span class="top-bar__value" id="tb-total">$0.00</span>
+  </div>
+  <div class="top-bar__div"></div>
+  <div class="top-bar__item">
+    <span class="top-bar__label">Balance</span>
+    <span class="b-pill b-zero" id="tb-bal">$0.00</span>
+  </div>
+</div>
+
+<!-- ══ PAGE HEADER — centered ══════════════════════════════ -->
+<div class="page-header">
+  <div class="page-header__eye">Budget Workflow</div>
+  <h1 class="page-header__title">Allocation <em>Engine</em></h1>
+</div>
+
+<!-- ③ extended centered ornament -->
+<div class="ornament-wrap">
+  <svg viewBox="0 0 680 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <line x1="0" y1="11" x2="274" y2="11" stroke="#dda0a8" stroke-width="1"/>
+    <path d="M282 11 Q288 5 294 11 Q300 17 306 11 Q312 5 318 11" stroke="#dda0a8" stroke-width="1.2" fill="none"/>
+    <circle cx="340" cy="11" r="4" fill="#dda0a8"/>
+    <circle cx="340" cy="11" r="1.8" fill="#fdf4ee"/>
+    <path d="M362 11 Q368 17 374 11 Q380 5 386 11 Q392 17 398 11" stroke="#dda0a8" stroke-width="1.2" fill="none"/>
+    <line x1="406" y1="11" x2="680" y2="11" stroke="#dda0a8" stroke-width="1"/>
+  </svg>
+</div>
+
+<!-- ══ GRID ════════════════════════════════════════════════ -->
+<div class="main-grid">
+
+  <!-- DATE BAR -->
+  <div class="card span-full" style="padding:18px 24px">
+    <div class="date-bar-inner">
+      <div class="date-bar-field">
+        <label for="paydate">Paydate</label>
+        <input type="date" id="paydate"/>
+      </div>
+      <div class="date-bar-field">
+        <label for="today">Today</label>
+        <input type="date" id="today"/>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: ACCOUNT BALANCES -->
+  <div class="card">
+    <h2 class="card__heading">Account Balances</h2>
+    <div class="field-stack">
+      <div class="field-row"><label for="a7419">7419 Main</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="a7419" class="pl account-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-row"><label for="a7397">7397 Savings</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="a7397" class="pl account-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-row"><label for="a9176">9176 Liz COH</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="a9176" class="pl account-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-row"><label for="a9168">9168 Liz COH Svgs</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="a9168" class="pl account-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-row"><label for="a0458">0458 Matt COH</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="a0458" class="pl account-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-row"><label for="a0466">0466 Matt COH Svgs</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="a0466" class="pl account-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-row"><label for="a0741">0741 Special Svgs</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="a0741" class="pl account-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-row"><label for="a7889">7889 Logan COH</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="a7889" class="pl account-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-row"><label for="a3195">3195 Logan COH Svgs</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="a3195" class="pl account-input" placeholder="0.00" step="0.01"/></div></div>
+    </div>
+    <div class="h1pill">
+      <span class="h1pill__lbl">Total Account Balance</span>
+      <span class="h1pill__val" id="total-bal">$0.00</span>
+    </div>
+  </div>
+
+  <!-- SECTION 2: FIXED EXPENSES -->
+  <div class="card">
+    <h2 class="card__heading">Fixed Expenses</h2>
+    <div class="field-stack">
+      <div class="field-row"><label for="fx-bills">Bills</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-bills" class="pl fixed-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-row"><label for="fx-debt">Debt Paydown</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-debt" class="pl fixed-input" placeholder="0.00" step="0.01"/></div></div>
+      <div class="field-divider"></div>
+      <div class="field-row"><label for="fx-liz-coh">Liz COH</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-liz-coh" class="pl fixed-input" value="300" step="0.01"/></div></div>
+      <div class="field-row"><label for="fx-liz-svgs">Liz COH Svgs</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-liz-svgs" class="pl fixed-input" value="300" step="0.01"/></div></div>
+      <div class="field-row"><label for="fx-matt-coh">Matt COH</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-matt-coh" class="pl fixed-input" value="175" step="0.01"/></div></div>
+      <div class="field-row"><label for="fx-matt-svgs">Matt COH Svgs</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-matt-svgs" class="pl fixed-input" value="175" step="0.01"/></div></div>
+      <div class="field-row"><label for="fx-logan-coh">Logan COH</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-logan-coh" class="pl fixed-input" value="225" step="0.01"/></div></div>
+      <div class="field-row"><label for="fx-logan-svgs">Logan COH Svgs</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-logan-svgs" class="pl fixed-input" value="225" step="0.01"/></div></div>
+      <div class="field-row"><label for="fx-allow">Logan Allowance</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-allow" class="pl fixed-input" value="300" step="0.01"/></div></div>
+      <div class="field-row"><label for="fx-clean">Housecleaning</label><div class="fi afx"><span class="sym sym-l">$</span><input type="number" id="fx-clean" class="pl fixed-input" value="250" step="0.01"/></div></div>
+    </div>
+    <div class="h1pill">
+      <span class="h1pill__lbl">Fixed Expenses</span>
+      <span class="h1pill__val" id="fixed-total">$1,750.00</span>
+    </div>
+  </div>
+
+  <!-- SECTION 3: PAYDAY ALLOCATIONS -->
+  <div class="card span-full">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:0">
+      <h2 class="card__heading" style="margin-bottom:0">Payday Allocations</h2>
+      <div class="h1pill" style="margin-top:0;width:calc(50% - 9px - 22px);flex-shrink:0">
+        <span class="h1pill__lbl">Remainder</span>
+        <span class="h1pill__val" id="remainder">$0.00</span>
+      </div>
+    </div>
+
+    <div class="ablock">
+      <div class="ablock__title">Balance Forward</div>
+      <div class="row-label">% Add to Bal Fwd</div>
+      <div class="triple">
+        <input type="range" id="bf-s" min="0" max="100" value="0" step="1"/>
+        <div class="afx"><span class="sym sym-r">%</span><input type="number" id="bf-p" class="pr" min="0" max="100" value="0" step="1"/></div>
+        <div class="afx"><span class="sym sym-l">$</span><input type="number" id="bf-d" class="pl" placeholder="0.00" step="0.01"/></div>
+      </div>
+    </div>
+
+    <div class="ablock">
+      <div class="ablock__title">Savings</div>
+      <div class="row-label">% Add to Svgs</div>
+      <div class="triple">
+        <input type="range" id="sv-s" min="0" max="100" value="0" step="1"/>
+        <div class="afx"><span class="sym sym-r">%</span><input type="number" id="sv-p" class="pr" min="0" max="100" value="0" step="1"/></div>
+        <div class="afx"><span class="sym sym-l">$</span><input type="number" id="sv-d" class="pl" placeholder="0.00" step="0.01"/></div>
+      </div>
+    </div>
+
+    <div class="ablock">
+      <div class="ablock__title">Special Savings</div>
+      <div class="row-label">% Add to Special Svgs</div>
+      <div class="triple">
+        <input type="range" id="ss-s" min="0" max="100" value="0" step="1"/>
+        <div class="afx"><span class="sym sym-r">%</span><input type="number" id="ss-p" class="pr" min="0" max="100" value="0" step="1"/></div>
+        <div class="afx"><span class="sym sym-l">$</span><input type="number" id="ss-d" class="pl" placeholder="0.00" step="0.01"/></div>
+      </div>
+    </div>
+
+    <div class="ablock">
+      <div class="ablock__title">Investments</div>
+      <div class="row-label">% Add to Investments</div>
+      <div class="triple">
+        <input type="range" id="iv-s" min="0" max="100" value="0" step="1"/>
+        <div class="afx"><span class="sym sym-r">%</span><input type="number" id="iv-p" class="pr" min="0" max="100" value="0" step="1"/></div>
+        <div class="afx"><span class="sym sym-l">$</span><input type="number" id="iv-d" class="pl" placeholder="0.00" step="0.01"/></div>
+      </div>
+    </div>
+
+    <div class="h1pill b-zero-pill" id="bal-pill" style="margin-top:22px">
+      <span class="h1pill__lbl">Balance</span>
+      <span class="h1pill__val" id="bal-val">$0.00</span>
+    </div>
+
+  </div>
+
+</div>
+
+<div class="main-grid" style="padding-top:0">
+<div class="card span-full" style="background:#f0ddd4;border-color:#ddc4bc">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:0">
+    <h2 class="card__heading" style="margin-bottom:0">Transfers</h2>
+    <div class="h1pill b-zero-pill" id="xbal-status-pill" style="margin-top:0;width:calc(50% - 9px - 22px)">
+      <span class="h1pill__lbl">Transfer Balance</span>
+      <span class="h1pill__val" id="xbal-status">—</span>
+    </div>
+  </div>
+
+  <div class="xfer-table">
+
+    <div class="xfer-hrow">
+      <div class="xfer-hcell">Account</div>
+      <div class="xfer-hcell">Current Balance</div>
+      <div class="xfer-hcell">Target</div>
+      <div class="xfer-hcell">From Account</div>
+      <div class="xfer-hcell">To Account</div>
+      <div class="xfer-hcell">Amount ($)</div>
+    </div>
+
+    <div class="xfer-row" id="xrow-7419">
+      <div class="xfer-cell">7419 Main</div>
+      <div class="xfer-cell" id="xcurr-7419">—</div>
+      <div class="xfer-cell" id="xo-7419">—</div>
+      <div class="xfer-cell xfer-route" id="xfrom-7419">—</div>
+      <div class="xfer-cell xfer-route" id="xto-7419">—</div>
+      <div class="xfer-cell xfer-amt" id="xx-7419">—</div>
+    </div>
+    <div class="xfer-row" id="xrow-7397">
+      <div class="xfer-cell">7397 Savings</div>
+      <div class="xfer-cell" id="xcurr-7397">—</div>
+      <div class="xfer-cell" id="xo-7397">—</div>
+      <div class="xfer-cell xfer-route" id="xfrom-7397">—</div>
+      <div class="xfer-cell xfer-route" id="xto-7397">—</div>
+      <div class="xfer-cell xfer-amt" id="xx-7397">—</div>
+    </div>
+    <div class="xfer-row" id="xrow-9176">
+      <div class="xfer-cell">9176 Liz COH</div>
+      <div class="xfer-cell" id="xcurr-9176">—</div>
+      <div class="xfer-cell" id="xo-9176">—</div>
+      <div class="xfer-cell xfer-route" id="xfrom-9176">—</div>
+      <div class="xfer-cell xfer-route" id="xto-9176">—</div>
+      <div class="xfer-cell xfer-amt" id="xx-9176">—</div>
+    </div>
+    <div class="xfer-row" id="xrow-9168">
+      <div class="xfer-cell">9168 Liz COH Svgs</div>
+      <div class="xfer-cell" id="xcurr-9168">—</div>
+      <div class="xfer-cell" id="xo-9168">—</div>
+      <div class="xfer-cell xfer-route" id="xfrom-9168">—</div>
+      <div class="xfer-cell xfer-route" id="xto-9168">—</div>
+      <div class="xfer-cell xfer-amt" id="xx-9168">—</div>
+    </div>
+    <div class="xfer-row" id="xrow-0458">
+      <div class="xfer-cell">0458 Matt COH</div>
+      <div class="xfer-cell" id="xcurr-0458">—</div>
+      <div class="xfer-cell" id="xo-0458">—</div>
+      <div class="xfer-cell xfer-route" id="xfrom-0458">—</div>
+      <div class="xfer-cell xfer-route" id="xto-0458">—</div>
+      <div class="xfer-cell xfer-amt" id="xx-0458">—</div>
+    </div>
+    <div class="xfer-row" id="xrow-0466">
+      <div class="xfer-cell">0466 Matt COH Svgs</div>
+      <div class="xfer-cell" id="xcurr-0466">—</div>
+      <div class="xfer-cell" id="xo-0466">—</div>
+      <div class="xfer-cell xfer-route" id="xfrom-0466">—</div>
+      <div class="xfer-cell xfer-route" id="xto-0466">—</div>
+      <div class="xfer-cell xfer-amt" id="xx-0466">—</div>
+    </div>
+    <div class="xfer-row" id="xrow-0741">
+      <div class="xfer-cell">0741 Special Svgs</div>
+      <div class="xfer-cell" id="xcurr-0741">—</div>
+      <div class="xfer-cell" id="xo-0741">—</div>
+      <div class="xfer-cell xfer-route" id="xfrom-0741">—</div>
+      <div class="xfer-cell xfer-route" id="xto-0741">—</div>
+      <div class="xfer-cell xfer-amt" id="xx-0741">—</div>
+    </div>
+    <div class="xfer-row" id="xrow-7889">
+      <div class="xfer-cell">7889 Logan COH</div>
+      <div class="xfer-cell" id="xcurr-7889">—</div>
+      <div class="xfer-cell" id="xo-7889">—</div>
+      <div class="xfer-cell xfer-route" id="xfrom-7889">—</div>
+      <div class="xfer-cell xfer-route" id="xto-7889">—</div>
+      <div class="xfer-cell xfer-amt" id="xx-7889">—</div>
+    </div>
+    <div class="xfer-row" id="xrow-3195">
+      <div class="xfer-cell">3195 Logan COH Svgs</div>
+      <div class="xfer-cell" id="xcurr-3195">—</div>
+      <div class="xfer-cell" id="xo-3195">—</div>
+      <div class="xfer-cell xfer-route" id="xfrom-3195">—</div>
+      <div class="xfer-cell xfer-route" id="xto-3195">—</div>
+      <div class="xfer-cell xfer-amt" id="xx-3195">—</div>
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+<div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:20px 28px 8px;flex-wrap:wrap">
+  <button id="notion-submit" onclick="saveToNotion()" style="
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    font-size:14px;font-weight:600;
+    background:#b77b82;color:#fef9f6;
+    border:none;border-radius:999px;
+    padding:12px 32px;cursor:pointer;
+    letter-spacing:.03em;transition:opacity .18s;
+  ">Save to Notion</button>
+  <div id="notion-status" style="font-size:12px;color:#8a6a6a;font-style:italic"></div>
+</div>
+
+<div style="text-align:center;padding:24px 0;font-size:11px;color:#c4adad;letter-spacing:.08em">✿ &nbsp; Allocation Engine &nbsp; ✿</div>
+
+<script>
+(function(){
+
+  var fmt = function(n){
+    return '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  };
+  var fmtDate = function(v){
+    if(!v) return '—';
+    var p=v.split('-'); return p[1]+'/'+p[2]+'/'+p[0].slice(2);
+  };
+
+  document.getElementById('today').value = new Date().toISOString().split('T')[0];
+  document.getElementById('paydate').addEventListener('input',function(){
+    document.getElementById('tb-paydate').textContent = fmtDate(this.value);
+  });
+
+  function sumClass(cls){
+    return Array.prototype.slice.call(document.querySelectorAll('.'+cls))
+      .reduce(function(s,el){ return s+(parseFloat(el.value)||0); },0);
+  }
+  function getRemainder(){ return sumClass('account-input')-sumClass('fixed-input'); }
+
+  function setPillState(el,v){
+    el.className = el.className.replace(/\bb-(zero|neg|pos)(-pill)?\b/g,'').trim();
+    var state = v===0?'zero':v<0?'neg':'pos';
+    if(el.classList.contains('h1pill')){
+      el.classList.add('b-'+state+'-pill');
+      var lbl=el.querySelector('.h1pill__lbl'), val=el.querySelector('.h1pill__val');
+      var col = '#3c3232';
+      if(lbl) lbl.style.color=col;
+      if(val) val.style.color=col;
+    } else {
+      el.classList.add('b-'+state);
+    }
+  }
+
+  var groups = [
+    {s:'bf-s', p:'bf-p', d:'bf-d'},
+    {s:'sv-s', p:'sv-p', d:'sv-d'},
+    {s:'ss-s', p:'ss-p', d:'ss-d'},
+    {s:'iv-s', p:'iv-p', d:'iv-d'},
+  ];
+
+  function recalcTotals(){
+    var acct  = sumClass('account-input');
+    var fixed = sumClass('fixed-input');
+    document.getElementById('total-bal').textContent   = fmt(acct);
+    document.getElementById('tb-total').textContent    = fmt(acct);
+    document.getElementById('fixed-total').textContent = fmt(fixed);
+    document.getElementById('remainder').textContent   = fmt(acct-fixed);
+  }
+
+  function recalcBalance(){
+    var rem   = getRemainder();
+    var alloc = groups.reduce(function(s,g){
+      return s+(parseFloat(document.getElementById(g.d).value)||0);
+    },0);
+    var bal = rem - alloc;
+    document.getElementById('bal-val').textContent = fmt(bal);
+    setPillState(document.getElementById('bal-pill'), bal);
+    document.getElementById('tb-bal').textContent = fmt(bal);
+    setPillState(document.getElementById('tb-bal'), bal);
+  }
+
+  function resyncAllocDollars(){
+    var rem = getRemainder();
+    groups.forEach(function(g){
+      var pct = parseFloat(document.getElementById(g.p).value)||0;
+      var dol = rem>0?(pct/100)*rem:0;
+      document.getElementById(g.d).value = dol>0?dol.toFixed(2):'';
+    });
+  }
+
+  var xferRows = [
+    { key:'7419', label:'7419 Main',          curr:function(){return v('a7419');}, target:null },
+    { key:'7397', label:'7397 Savings',       curr:function(){return v('a7397');}, target:function(){return v('a7397')+v('sv-d');} },
+    { key:'9176', label:'9176 Liz COH',       curr:function(){return v('a9176');}, target:function(){return v('fx-liz-coh');} },
+    { key:'9168', label:'9168 Liz COH Svgs',  curr:function(){return v('a9168');}, target:function(){return v('fx-liz-svgs');} },
+    { key:'0458', label:'0458 Matt COH',      curr:function(){return v('a0458');}, target:function(){return v('fx-matt-coh');} },
+    { key:'0466', label:'0466 Matt COH Svgs', curr:function(){return v('a0466');}, target:function(){return v('fx-matt-svgs');} },
+    { key:'0741', label:'0741 Special Svgs',  curr:function(){return v('a0741');}, target:function(){return v('a0741')+v('ss-d');} },
+    { key:'7889', label:'7889 Logan COH',     curr:function(){return v('a7889');}, target:function(){return v('fx-logan-coh');} },
+    { key:'3195', label:'3195 Logan COH Svgs',curr:function(){return v('a3195');}, target:function(){return v('fx-logan-svgs');} },
+  ];
+
+  function v(id){
+    var el=document.getElementById(id);
+    return el?(parseFloat(el.value)||0):0;
+  }
+
+  function recalcTransfers(){
+    var totalAcct = sumClass('account-input');
+    var targets = {};
+    var sumOtherTargets = 0;
+
+    xferRows.forEach(function(r){
+      if(r.key !== '7419'){
+        targets[r.key] = r.target();
+        sumOtherTargets += targets[r.key];
+      }
+    });
+
+    targets['7419'] = totalAcct - sumOtherTargets;
+
+    var xBalance = 0;
+
+    xferRows.forEach(function(r){
+      var curr   = r.curr();
+      var target = targets[r.key];
+      var delta  = target - curr;
+      xBalance  += delta;
+
+      document.getElementById('xcurr-'+r.key).textContent = fmt(curr);
+      document.getElementById('xo-'+r.key).textContent    = fmt(target);
+
+      var fromEl = document.getElementById('xfrom-'+r.key);
+      var toEl   = document.getElementById('xto-'+r.key);
+      var amtEl  = document.getElementById('xx-'+r.key);
+
+      if(Math.abs(delta) < 0.005){
+        fromEl.textContent = '—';
+        toEl.textContent   = '—';
+        amtEl.textContent  = '$0.00';
+      } else if(delta > 0){
+        fromEl.textContent = r.key === '7419' ? '—' : '7419 Main';
+        toEl.textContent   = r.label;
+        amtEl.textContent  = fmt(delta);
+      } else {
+        fromEl.textContent = r.label;
+        toEl.textContent   = r.key === '7419' ? '—' : '7419 Main';
+        amtEl.textContent  = fmt(Math.abs(delta));
+      }
+
+      var row = document.getElementById('xrow-'+r.key);
+      row.className = 'xfer-row '+(
+        Math.abs(delta) < 0.005 ? 'xr-zero' : delta > 0 ? 'xr-pos' : 'xr-neg'
+      );
+    });
+
+    var pill = document.getElementById('xbal-status-pill');
+    var balanced = Math.abs(xBalance) < 0.02;
+    document.getElementById('xbal-status').textContent =
+      balanced ? 'Balanced ✔' : fmt(xBalance);
+    setPillState(pill, balanced ? 0 : xBalance);
+  }
+
+  document.querySelectorAll('.account-input,.fixed-input').forEach(function(el){
+    el.addEventListener('input',function(){
+      recalcTotals();
+      resyncAllocDollars();
+      recalcBalance();
+      recalcTransfers();
+    });
+  });
+
+  groups.forEach(function(g){
+    var S=document.getElementById(g.s);
+    var P=document.getElementById(g.p);
+    var D=document.getElementById(g.d);
+
+    S.addEventListener('input',function(){
+      var pct = Math.round(parseFloat(S.value)||0);
+      P.value = pct;
+      var r = getRemainder();
+      D.value = r>0?((pct/100)*r).toFixed(2):'';
+      recalcBalance();
+      recalcTransfers();
+    });
+
+    P.addEventListener('input',function(){
+      var pct = Math.round(Math.min(100,Math.max(0,parseFloat(P.value)||0)));
+      S.value = pct;
+      var r = getRemainder();
+      D.value = r>0?((pct/100)*r).toFixed(2):'';
+      recalcBalance();
+      recalcTransfers();
+    });
+
+    D.addEventListener('input',function(){
+      var dol = parseFloat(D.value)||0;
+      var r   = getRemainder();
+      var pct = Math.round(r>0?Math.min(100,(dol/r)*100):0);
+      P.value = pct;
+      S.value = pct;
+      recalcBalance();
+      recalcTransfers();
+    });
+
+    D.addEventListener('blur',function(){
+      var dol = parseFloat(D.value);
+      if(!isNaN(dol)) D.value = dol.toFixed(2);
+    });
+  });
+
+  ['fx-bills','fx-debt'].forEach(function(id){
+    var el = document.getElementById(id);
+    el.addEventListener('blur',function(){
+      var v = parseFloat(this.value);
+      if(!isNaN(v)) this.value = v.toFixed(2);
+    });
+  });
+
+  /* ════════════════════════════════════════════════════════
+   * NOTION SYNC
+   * ════════════════════════════════════════════════════════ */
+  var PROXY_URL    = 'https://notion-budget-manager.eamiller1981.workers.dev';
+  var DATABASE_ID  = '311627ee81db80b8ae51c5b7c8ed83bb';
+
+  function notionNum(id){ return parseFloat(document.getElementById(id).value)||0; }
+  function notionPct(id){ return Math.round(parseFloat(document.getElementById(id).value)||0) / 100; }
+  function notionDate(id){
+    var v = document.getElementById(id).value;
+    return v ? { start: v } : null;
+  }
+
+  function setStatus(msg, isError){
+    var el = document.getElementById('notion-status');
+    el.textContent = msg;
+    el.style.color = isError ? '#8c3a42' : '#4a6e3a';
+  }
+
+  function notionFetch(path, method, body){
+    var options = {
+      method: method,
+      headers: { 'Content-Type': 'application/json' }
+    };
+    if(body !== undefined && body !== null){
+      options.body = JSON.stringify(body);
+    }
+    return fetch(PROXY_URL + '/notion' + path, options).then(function(r){
+      return r.json();
+    });
+  }
+
+  function sleep(ms){
+    return new Promise(function(resolve){ setTimeout(resolve, ms); });
+  }
+
+  function notionPropNum(prop){
+    if(!prop) return null;
+
+    if(typeof prop.number === 'number') return prop.number;
+
+    if(prop.formula){
+      if(typeof prop.formula.number === 'number') return prop.formula.number;
+      if(typeof prop.formula.string === 'string'){
+        var formulaParsed = parseFloat(prop.formula.string.replace(/[$,]/g,''));
+        if(!isNaN(formulaParsed)) return formulaParsed;
+      }
+    }
+
+    if(prop.rollup){
+      if(typeof prop.rollup.number === 'number') return prop.rollup.number;
+      if(prop.rollup.type === 'number' && typeof prop.rollup.number === 'number') return prop.rollup.number;
+      if(Array.isArray(prop.rollup.array)){
+        var rollupSum = prop.rollup.array.reduce(function(sum, item){
+          if(item.type === 'number' && typeof item.number === 'number') return sum + item.number;
+          if(item.type === 'formula' && item.formula && typeof item.formula.number === 'number') return sum + item.formula.number;
+          return sum;
+        }, 0);
+        return rollupSum;
+      }
+    }
+
+    return null;
+  }
+
+  function readLiveSnapshotsFromProperties(props){
+    var billsLive =
+      notionPropNum(props['Less Bills (Live)']) ??
+      notionPropNum(props['Bills Due Today']) ??
+      notionPropNum(props['Bills Due (Today → Period End)']) ??
+      0;
+
+    var debtLive =
+      notionPropNum(props['Less Debt (Live)']) ??
+      notionPropNum(props['Debt Due Today']) ??
+      0;
+
+    return {
+      bills: Number(billsLive) || 0,
+      debt: Number(debtLive) || 0
+    };
+  }
+
+  function applyBillsDebtToUi(bills, debt){
+    document.getElementById('fx-bills').value = Number(bills || 0).toFixed(2);
+    document.getElementById('fx-debt').value  = Number(debt || 0).toFixed(2);
+    recalcTotals();
+    resyncAllocDollars();
+    recalcBalance();
+    recalcTransfers();
+  }
+
+  function buildPayload(currentRun){
+    return {
+      'Current Run': { checkbox: currentRun },
+
+      'Paydate': { date: notionDate('paydate') },
+      'Today':   { date: notionDate('today') },
+
+      '7419 Main':           { number: notionNum('a7419') },
+      '7397 Savings':        { number: notionNum('a7397') },
+      '9176 Liz COH':        { number: notionNum('a9176') },
+      '9168 Liz COH Svgs':   { number: notionNum('a9168') },
+      '0458 Matt COH':       { number: notionNum('a0458') },
+      '0466 Matt COH Svgs':  { number: notionNum('a0466') },
+      '0741 Special Svgs':   { number: notionNum('a0741') },
+      '7889 Logan COH':      { number: notionNum('a7889') },
+      '3195 Logan COH Svgs': { number: notionNum('a3195') },
+
+      'Less Bills': { number: notionNum('fx-bills') },
+      'Less Debt':  { number: notionNum('fx-debt') },
+
+      'Liz COH ($)':         { number: notionNum('fx-liz-coh') },
+      'Liz COH Svgs ($)':    { number: notionNum('fx-liz-svgs') },
+      'Matt COH ($)':        { number: notionNum('fx-matt-coh') },
+      'Matt COH Svgs ($)':   { number: notionNum('fx-matt-svgs') },
+      'Logan COH ($)':       { number: notionNum('fx-logan-coh') },
+      'Logan COH Svgs ($)':  { number: notionNum('fx-logan-svgs') },
+      'Logan Allowance ($)': { number: notionNum('fx-allow') },
+      'Housecleaning ($)':   { number: notionNum('fx-clean') },
+
+      '% Add to Bal Fwd':      { number: notionPct('bf-p') },
+      '$ Add to Bal Fwd':      { number: notionNum('bf-d') },
+      '% Add to Svgs':         { number: notionPct('sv-p') },
+      '# Add to Svgs':         { number: notionNum('sv-d') },
+      '% Add to Special Svgs': { number: notionPct('ss-p') },
+      '# Add to Special Svgs': { number: notionNum('ss-d') },
+      '% Add to Investments':  { number: notionPct('iv-p') },
+      'Investments':           { number: notionNum('iv-d') }
+    };
+  }
+
+  var currentPageId = null;
+  var paydateRequestSerial = 0;
+
+  async function demoteExistingCurrentRuns(){
+    var data = await notionFetch('/databases/' + DATABASE_ID + '/query', 'POST', {
+      filter: { property: 'Current Run', checkbox: { equals: true } },
+      page_size: 25
+    });
+
+    if(data.object === 'error') throw new Error(data.message);
+
+    var results = (data.results || []);
+    for(var i = 0; i < results.length; i++){
+      await notionFetch('/pages/' + results[i].id, 'PATCH', {
+        properties: { 'Current Run': { checkbox: false } }
+      });
+    }
+  }
+
+  async function createCurrentRun(paydateVal, todayVal){
+    var newPage = await notionFetch('/pages', 'POST', {
+      parent: { database_id: DATABASE_ID },
+      properties: {
+        'Current Run': { checkbox: true },
+        'Paydate':     { date: { start: paydateVal } },
+        'Today':       { date: { start: todayVal } }
+      }
+    });
+
+    if(newPage.object === 'error') throw new Error(newPage.message);
+    return newPage;
+  }
+
+  async function resolveAndSnapshotLiveValues(pageId){
+    var attempts = 6;
+    var waitMs = 1200;
+    var snapshots = { bills: 0, debt: 0 };
+    var sawAnyNonNull = false;
+
+    for(var attempt = 0; attempt < attempts; attempt++){
+      if(attempt > 0) await sleep(waitMs);
+
+      var fresh = await notionFetch('/pages/' + pageId, 'GET');
+      if(fresh.object === 'error') throw new Error(fresh.message);
+
+      var props = fresh.properties || {};
+      var billsCandidate =
+        notionPropNum(props['Less Bills (Live)']) ??
+        notionPropNum(props['Bills Due Today']) ??
+        notionPropNum(props['Bills Due (Today → Period End)']);
+
+      var debtCandidate =
+        notionPropNum(props['Less Debt (Live)']) ??
+        notionPropNum(props['Debt Due Today']);
+
+      if(billsCandidate !== null || debtCandidate !== null){
+        sawAnyNonNull = true;
+        snapshots = readLiveSnapshotsFromProperties(props);
+
+        if(attempt > 0 || snapshots.bills !== 0 || snapshots.debt !== 0){
+          break;
+        }
+      }
+    }
+
+    await notionFetch('/pages/' + pageId, 'PATCH', {
+      properties: {
+        'Less Bills': { number: snapshots.bills },
+        'Less Debt':  { number: snapshots.debt }
+      }
+    });
+
+    return {
+      bills: snapshots.bills,
+      debt: snapshots.debt,
+      sawAnyNonNull: sawAnyNonNull
+    };
+  }
+
+  document.getElementById('paydate').addEventListener('change', async function(){
+    var paydateVal = this.value;
+    if(!paydateVal) return;
+
+    var thisRequest = ++paydateRequestSerial;
+    var todayVal = document.getElementById('today').value || new Date().toISOString().split('T')[0];
+
+    setStatus('Creating pay period in Notion…');
+
+    try {
+      await demoteExistingCurrentRuns();
+      if(thisRequest !== paydateRequestSerial) return;
+
+      var newPage = await createCurrentRun(paydateVal, todayVal);
+      if(thisRequest !== paydateRequestSerial) return;
+
+      currentPageId = newPage.id;
+      setStatus('Resolving live bills and debt totals…');
+
+      var resolved = await resolveAndSnapshotLiveValues(currentPageId);
+      if(thisRequest !== paydateRequestSerial) return;
+
+      applyBillsDebtToUi(resolved.bills, resolved.debt);
+
+      if(!resolved.sawAnyNonNull){
+        setStatus('Created new run, but live bill/debt fields did not resolve yet. Snapshot saved as $0.00 / $0.00.', true);
+      } else {
+        setStatus('✔ Pay period created and snapshots saved.');
+      }
+    } catch (err) {
+      setStatus('Error creating pay period: ' + err.message, true);
+    }
+  });
+
+  window.saveToNotion = function(){
+
+    if(!currentPageId){
+      setStatus('⚠ Enter a Paydate first to initialise the pay period.', true);
+      return;
+    }
+
+    var balText = document.getElementById('bal-val').textContent;
+    var bal = parseFloat(balText.replace(/[$,]/g,''))||0;
+    if(Math.abs(bal) > 0.02){
+      setStatus('⚠ Balance must be $0.00 before saving. Currently ' + balText, true);
+      return;
+    }
+
+    var btn = document.getElementById('notion-submit');
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    setStatus('Saving…');
+
+    notionFetch('/pages/' + currentPageId, 'PATCH', {
+      properties: buildPayload(true)
+    })
+    .then(function(result){
+      if(result.object === 'error') throw new Error(result.message);
+      setStatus('✔ Saved to Notion');
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    })
+    .catch(function(err){
+      setStatus('Error: ' + err.message, true);
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    });
+  };
+
+  recalcTotals();
+  recalcBalance();
+  recalcTransfers();
+
+})();
+</script>
+
+</body>
+</html>
