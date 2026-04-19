@@ -5,26 +5,1599 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f5eae3">
   <title>Learning | Wellness OS</title>
-  <link rel="stylesheet" href="space.css">
+  <style>
+    :root {
+      --bg: #f5eae3;
+      --paper: #fffaf6;
+      --paper-soft: rgba(255, 250, 246, 0.72);
+      --ink: #4b3d39;
+      --muted: #8b7b73;
+      --line: rgba(100, 79, 70, 0.18);
+      --rose: #b77b82;
+      --rose-soft: #f1c9cd;
+      --sage: #879b74;
+      --sage-soft: #dfe9d7;
+      --gold: #c6a05f;
+      --aqua: #8db8ad;
+      --radius: 8px;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(135deg, rgba(135, 155, 116, 0.18), transparent 28%),
+        linear-gradient(220deg, rgba(183, 123, 130, 0.16), transparent 32%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      color: inherit;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .page {
+      width: min(1360px, 100%);
+      margin: 0 auto;
+      padding: 12px 14px 36px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .home-link, .ghost-button, .primary-button, .topic-button, .pillar-button {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper-soft);
+      text-decoration: none;
+      min-height: 40px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+    }
+
+    .home-link, .ghost-button {
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .home-link:hover, .home-link:focus-visible,
+    .ghost-button:hover, .ghost-button:focus-visible,
+    .primary-button:hover, .primary-button:focus-visible,
+    .topic-button:hover, .topic-button:focus-visible,
+    .pillar-button:hover, .pillar-button:focus-visible {
+      border-color: rgba(75, 61, 57, 0.48);
+      background: rgba(255, 250, 246, 0.92);
+      outline: none;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .hero-copy {
+      min-height: 235px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 246, 0.52);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero-copy::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url("assets/2.png") center / cover;
+      opacity: 0.18;
+      transform: scale(1.03);
+    }
+
+    .hero-copy > * {
+      position: relative;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--rose);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: clamp(2.25rem, 11vw, 5.35rem);
+      font-weight: 400;
+      line-height: 0.98;
+      letter-spacing: 0;
+    }
+
+    .intro {
+      width: min(620px, 100%);
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.55;
+    }
+
+    .overview-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper-soft);
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+      align-content: center;
+    }
+
+    .progress-orb {
+      width: 168px;
+      height: 168px;
+      margin: 0 auto;
+      border-radius: 50%;
+      background: conic-gradient(var(--sage) var(--progress), rgba(100, 79, 70, 0.12) 0);
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .progress-orb::after {
+      content: "";
+      width: 124px;
+      height: 124px;
+      border-radius: 50%;
+      background: var(--paper);
+      position: absolute;
+    }
+
+    .progress-value {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+
+    .progress-value strong {
+      display: block;
+      font-family: var(--serif);
+      font-size: 2.4rem;
+      font-weight: 400;
+      line-height: 1;
+    }
+
+    .progress-value span {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .metric {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+
+    .metric strong {
+      display: block;
+      font-family: var(--serif);
+      font-size: 1.42rem;
+      font-weight: 400;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 0.74rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .rail, .library, .launch {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper-soft);
+    }
+
+    .rail {
+      padding: 14px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 18px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head h2, .launch h2 {
+      margin: 0;
+      font-family: var(--serif);
+      font-size: 1.28rem;
+      font-weight: 400;
+      line-height: 1.1;
+    }
+
+    .section-head p, .launch p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .pillar-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .pillar-button {
+      width: 100%;
+      min-height: 66px;
+      padding: 10px 11px;
+      justify-content: stretch;
+      text-align: left;
+      background: rgba(255, 250, 246, 0.46);
+    }
+
+    .pillar-button[aria-pressed="true"] {
+      border-color: rgba(135, 155, 116, 0.72);
+      background: rgba(223, 233, 215, 0.8);
+    }
+
+    .pillar-name {
+      display: block;
+      font-size: 0.86rem;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+
+    .pillar-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .bar {
+      height: 6px;
+      width: 100%;
+      margin-top: 9px;
+      border-radius: 999px;
+      background: rgba(100, 79, 70, 0.12);
+      overflow: hidden;
+    }
+
+    .bar i {
+      display: block;
+      height: 100%;
+      width: var(--w);
+      border-radius: 999px;
+      background: var(--sage);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 145px 130px;
+      gap: 10px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .controls input, .controls select, .quick-url {
+      width: 100%;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 246, 0.76);
+      color: var(--ink);
+      padding: 0 12px;
+      outline: none;
+    }
+
+    .controls input:focus, .controls select:focus, .quick-url:focus {
+      border-color: rgba(75, 61, 57, 0.48);
+    }
+
+    .topic-list {
+      max-height: 720px;
+      overflow: auto;
+      padding: 10px 12px 14px;
+    }
+
+    .subdomain-title {
+      margin: 18px 6px 8px;
+      color: var(--rose);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .topic-button {
+      width: 100%;
+      min-height: 68px;
+      margin: 0 0 8px;
+      padding: 10px 12px;
+      justify-content: stretch;
+      text-align: left;
+      background: rgba(255, 250, 246, 0.4);
+    }
+
+    .topic-button > span {
+      display: block;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .topic-button[aria-current="true"] {
+      border-color: rgba(183, 123, 130, 0.72);
+      background: rgba(241, 201, 205, 0.5);
+    }
+
+    .topic-button.done {
+      background: rgba(223, 233, 215, 0.62);
+    }
+
+    .topic-title {
+      display: block;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+
+    .topic-meta {
+      display: grid;
+      grid-template-columns: minmax(0, 70%) 42px max-content max-content;
+      align-items: center;
+      column-gap: 0;
+      margin-top: 10px;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .topic-meta .bar {
+      width: 100%;
+      min-width: 0;
+      margin-top: 0;
+    }
+
+    .topic-progress-label {
+      min-width: 42px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-align: left;
+      padding-left: 8px;
+      padding-right: 18px;
+      white-space: nowrap;
+    }
+
+    .topic-meta .chip {
+      justify-self: start;
+      margin-left: 8px;
+      max-width: 100%;
+      white-space: nowrap;
+    }
+
+    .topic-meta .chip + .chip {
+      margin-left: 2px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 250, 246, 0.54);
+    }
+
+    .launch {
+      overflow: hidden;
+    }
+
+    .launch-art {
+      min-height: 178px;
+      background:
+        linear-gradient(135deg, rgba(75, 61, 57, 0.26), transparent 58%),
+        url("assets/learn-detail-header.png"),
+        url("assets/2.png");
+      background-position: center 72%;
+      background-size: cover;
+      border-bottom: 1px solid var(--line);
+      position: relative;
+    }
+
+    .launch-art::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent, rgba(245, 234, 227, 0.86));
+    }
+
+    .launch-body {
+      padding: 18px;
+    }
+
+    .selected-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .lesson-box, .quiz-panel, .project-panel {
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 16px 0;
+      margin: 16px 0;
+    }
+
+    .quiz-panel {
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--rose);
+      color: #fffaf6;
+      margin: 16px 0 0;
+      padding: 16px;
+    }
+
+    .quiz-panel p,
+    .quiz-panel .feedback {
+      color: #fffaf6;
+      font-size: 0.96rem;
+    }
+
+    .quiz-panel .choice-button {
+      border-color: rgba(255, 250, 246, 0.62);
+      background: rgba(255, 250, 246, 0.18);
+      color: #fffaf6;
+      line-height: 1.35;
+    }
+
+    .quiz-panel .choice-button:hover,
+    .quiz-panel .choice-button:focus-visible,
+    .quiz-panel .choice-button.selected {
+      border-color: rgba(255, 250, 246, 0.78);
+      background: rgba(255, 250, 246, 0.28);
+    }
+
+    .quiz-panel .choice-button:disabled {
+      opacity: 0.78;
+    }
+
+    .project-panel {
+      border-bottom: 0;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .lesson-box h3, .resource-panel h3, .quiz-panel h3, .project-panel h3 {
+      margin: 0 0 8px;
+      font-size: 0.84rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .lesson-box p, .quiz-panel p, .project-panel p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.94rem;
+    }
+
+    .choice-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .choice-button {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 246, 0.48);
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .choice-button:hover,
+    .choice-button:focus-visible {
+      border-color: rgba(75, 61, 57, 0.48);
+      outline: none;
+    }
+
+    .choice-button.selected {
+      border-color: rgba(135, 155, 116, 0.72);
+      background: rgba(223, 233, 215, 0.8);
+    }
+
+    .choice-button:disabled {
+      cursor: default;
+      opacity: 0.58;
+    }
+
+    .feedback {
+      min-height: 22px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.84rem;
+      font-weight: 700;
+    }
+
+    .quiz-panel h3,
+    .quiz-panel p,
+    .quiz-panel .feedback {
+      color: #fffaf6;
+    }
+
+    .quiz-panel p {
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+
+    .quiz-panel .choice-button {
+      border-color: rgba(255, 250, 246, 0.86);
+      background: #fffaf6;
+      color: var(--ink);
+      font-weight: 750;
+      line-height: 1.45;
+    }
+
+    .quiz-panel .choice-button:hover,
+    .quiz-panel .choice-button:focus-visible,
+    .quiz-panel .choice-button.selected {
+      border-color: #fffaf6;
+      background: var(--sage-soft);
+      color: var(--ink);
+    }
+
+    .quiz-panel .choice-button:disabled {
+      opacity: 0.9;
+    }
+
+    .project-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .primary-button {
+      min-height: 42px;
+      border-color: rgba(135, 155, 116, 0.62);
+      background: var(--sage);
+      color: #fffaf6;
+      font-weight: 800;
+    }
+
+    .primary-button:hover, .primary-button:focus-visible {
+      background: #738762;
+      color: #fffaf6;
+    }
+
+    .primary-button:disabled,
+    .ghost-button:disabled {
+      cursor: default;
+      opacity: 0.52;
+    }
+
+    .resource-panel {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .resource-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 46px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 246, 0.42);
+    }
+
+    .resource-title {
+      font-size: 0.86rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .resource-kind {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .empty-state {
+      padding: 24px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .phase-strip {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .priority {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px;
+      background: rgba(255, 250, 246, 0.44);
+    }
+
+    .priority strong {
+      display: block;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+    }
+
+    .priority span {
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    @media (min-width: 760px) {
+      .page {
+        padding: 18px 24px 42px;
+      }
+
+      .topbar {
+        margin-bottom: 20px;
+      }
+
+      .hero {
+        grid-template-columns: minmax(0, 1fr) minmax(290px, 360px);
+        gap: 24px;
+      }
+
+      .hero-copy {
+        min-height: 255px;
+        padding: 30px;
+      }
+
+      .phase-strip {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (min-width: 1161px) {
+      .workspace {
+        grid-template-columns: 285px minmax(0, 1fr) 360px;
+        gap: 18px;
+      }
+
+      .rail, .launch {
+        position: sticky;
+        top: 14px;
+      }
+    }
+
+    @media (min-width: 821px) and (max-width: 1160px) {
+      .workspace {
+        grid-template-columns: 255px minmax(0, 1fr);
+        gap: 18px;
+      }
+
+      .launch {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .topic-list {
+        max-height: none;
+      }
+    }
+
+    @media (min-width: 640px) and (max-width: 820px) {
+      .pillar-list {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .pillar-list, .metric-grid, .action-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .topic-meta {
+        grid-template-columns: minmax(0, 70%) 40px max-content max-content;
+        overflow-x: auto;
+      }
+
+      .topic-progress-label {
+        min-width: 40px;
+        padding-left: 7px;
+        padding-right: 14px;
+      }
+
+      .project-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <main class="page">
     <nav class="topbar" aria-label="Page">
       <a class="home-link" href="/">Home</a>
-      <img class="brand" src="assets/header-logo.png" alt="Wellness OS">
     </nav>
-    <section class="space">
-      <img class="space-art" src="assets/2.png" alt="Learning">
-      <div>
-        <p class="eyebrow">Grow</p>
-        <h1>Learning</h1>
-        <p class="intro">Track what you are studying, what you want to revisit, and what is becoming useful.</p>
-        <div class="next">
-          <h2>First build</h2>
-          <p>Collect active courses, saved notes, and a short queue for what comes next.</p>
-        </div>
+
+    <section class="hero" aria-labelledby="learnTitle">
+      <div class="hero-copy">
+        <p class="eyebrow">Curriculum</p>
+        <h1 id="learnTitle">Learn</h1>
+        <p class="intro">Curiosity is a quiet compass.<br>Follow it, and the world keeps unfolding.</p>
       </div>
+      <aside class="overview-panel" aria-label="Curriculum progress">
+        <div class="progress-orb" id="overallOrb" style="--progress:0%">
+          <div class="progress-value">
+            <strong id="overallPercent">0%</strong>
+            <span>Complete</span>
+          </div>
+        </div>
+        <div class="metric-grid">
+          <div class="metric"><strong id="doneCount">0</strong><span>Done</span></div>
+          <div class="metric"><strong id="totalCount">142</strong><span>Topics</span></div>
+          <div class="metric"><strong id="pillarCount">9</strong><span>Pillars</span></div>
+        </div>
+        <div class="phase-strip" id="priorityStrip"></div>
+      </aside>
+    </section>
+
+    <section class="workspace" aria-label="Learning workspace">
+      <aside class="rail" aria-label="Pillars">
+        <div class="pillar-list" id="pillarList"></div>
+      </aside>
+
+      <section class="library" aria-label="Curriculum topics">
+        <div class="section-head">
+          <div>
+            <h2 id="libraryTitle">Human Foundations for Wellness</h2>
+            <p id="libraryMeta">Select a topic to launch a learning module.</p>
+          </div>
+          <button class="ghost-button" id="nextButton" type="button">Next lesson</button>
+        </div>
+        <div class="controls">
+          <input id="searchInput" type="search" placeholder="Search topics, subdomains, pillars" aria-label="Search curriculum">
+          <select id="phaseFilter" aria-label="Filter by phase">
+            <option value="all">All phases</option>
+            <option value="1">Phase 1</option>
+            <option value="2">Phase 2</option>
+            <option value="3">Phase 3</option>
+            <option value="4">Phase 4</option>
+          </select>
+          <select id="statusFilter" aria-label="Filter by status">
+            <option value="all">All topics</option>
+            <option value="not-started">Not started</option>
+            <option value="in-progress">In progress</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+        <div class="topic-list" id="topicList"></div>
+      </section>
+
+      <aside class="launch" aria-label="Selected lesson launcher">
+        <div class="launch-art"></div>
+        <div class="launch-body">
+          <p class="eyebrow" id="selectedPillar">Pillar</p>
+          <h2 id="selectedTitle">Select a topic</h2>
+          <p id="selectedSubdomain">Your lesson controls will appear here.</p>
+          <div class="selected-meta" id="selectedMeta"></div>
+
+          <div class="lesson-box" id="lessonBox">
+            <h3 id="lessonBoxTitle">AI lesson</h3>
+            <p id="lessonText">Choose a topic to generate a short lesson brief. Use Listen when you want a TTS learning module instead of an external resource.</p>
+          </div>
+
+          <div class="action-grid" id="lessonActions">
+            <button class="primary-button" id="listenButton" type="button">Listen</button>
+            <button class="ghost-button" id="launchButton" type="button" hidden>Deeper Study</button>
+          </div>
+
+          <div class="resource-panel" id="lessonProgressPanel">
+            <h3>Progress</h3>
+            <div id="resourceList"></div>
+          </div>
+
+          <div class="quiz-panel">
+            <h3>Post-lesson quiz</h3>
+            <p id="quizQuestion">Complete the lesson to unlock a concept check.</p>
+            <div class="choice-list" id="quizChoices"></div>
+            <div class="feedback" id="quizFeedback"></div>
+          </div>
+
+          <div class="project-panel">
+            <h3>Project</h3>
+            <p id="projectBrief">Finish the pillar sequence to unlock an applied project.</p>
+            <div class="selected-meta" id="projectMeta"></div>
+            <div class="project-actions">
+              <button class="primary-button" id="projectStart" type="button">Start project</button>
+              <button class="ghost-button" id="projectSubmit" type="button">Submit draft</button>
+            </div>
+            <div class="feedback" id="projectFeedback"></div>
+          </div>
+        </div>
+      </aside>
     </section>
   </main>
+
+  <script>
+    const CURRICULUM = [
+      ["Human Foundations for Wellness","Systems Biology Foundations","Homeostasis and adaptation","Core","1"],
+      ["Human Foundations for Wellness","Systems Biology Foundations","Energy balance and metabolic flexibility","Core","1"],
+      ["Human Foundations for Wellness","Systems Biology Foundations","Acute vs chronic inflammation","Core","1"],
+      ["Human Foundations for Wellness","Systems Biology Foundations","Stress physiology and allostatic load","Core","1"],
+      ["Human Foundations for Wellness","Nervous System Foundations","Sympathetic vs parasympathetic regulation","Core","1"],
+      ["Human Foundations for Wellness","Nervous System Foundations","Vagal tone and nervous system signaling","Advanced","1"],
+      ["Human Foundations for Wellness","Hormonal Foundations","Hormones as signaling systems","Core","1"],
+      ["Human Foundations for Wellness","Sleep Foundations","Sleep architecture and sleep stages","Core","1"],
+      ["Human Foundations for Wellness","Sleep Foundations","Circadian biology fundamentals","Core","1"],
+      ["Human Foundations for Wellness","Recovery Foundations","Recovery capacity and adaptation debt","Core","1"],
+      ["Human Foundations for Wellness","Research Literacy","Evidence literacy for wellness science","Core","1"],
+      ["Human Foundations for Wellness","Research Literacy","How to evaluate claims, studies, and experts","Core","1"],
+      ["Human Foundations for Wellness","Behavior Change Foundations","Habit formation and behavior design","Core","1"],
+      ["Human Foundations for Wellness","Behavior Change Foundations","Identity-based change and adherence","Advanced","2"],
+      ["Aesthetic Longevity & Skin Science","Skin Biology","Skin anatomy and function","Core","1"],
+      ["Aesthetic Longevity & Skin Science","Skin Biology","Intrinsic aging vs photoaging","Core","1"],
+      ["Aesthetic Longevity & Skin Science","Skin Biology","Collagen pathways and extracellular matrix remodeling","Core","2"],
+      ["Aesthetic Longevity & Skin Science","Skin Biology","Fibroblast signaling and dermal remodeling","Advanced","3"],
+      ["Aesthetic Longevity & Skin Science","Skin Biology","Glycation and skin aging","Advanced","4"],
+      ["Aesthetic Longevity & Skin Science","Barrier Science","Skin barrier biology and optimization","Core","2"],
+      ["Aesthetic Longevity & Skin Science","Barrier Science","Transepidermal water loss and barrier disruption","Advanced","2"],
+      ["Aesthetic Longevity & Skin Science","Pigment Biology","Melanin biology and pigmentation pathways","Core","2"],
+      ["Aesthetic Longevity & Skin Science","Pigment Biology","Post-inflammatory hyperpigmentation","Core","2"],
+      ["Aesthetic Longevity & Skin Science","Actives & Topicals","Retinoids: mechanisms, benefits, and risks","Core","2"],
+      ["Aesthetic Longevity & Skin Science","Actives & Topicals","Peptides in skincare","Core","3"],
+      ["Aesthetic Longevity & Skin Science","Actives & Topicals","Growth factors and exosomes in skincare","Advanced","4"],
+      ["Aesthetic Longevity & Skin Science","Actives & Topicals","Acids: mandelic, lactic, salicylic, glycolic","Core","2"],
+      ["Aesthetic Longevity & Skin Science","Actives & Topicals","Antioxidants and photoprotection support","Core","2"],
+      ["Aesthetic Longevity & Skin Science","Sebum & Acne Biology","Sebum regulation, acne, and inflammation","Advanced","3"],
+      ["Aesthetic Longevity & Skin Science","Healing & Recovery","Wound healing phases in skin","Core","2"],
+      ["Aesthetic Longevity & Skin Science","Healing & Recovery","Skin recovery after irritation or overuse","Core","2"],
+      ["Aesthetic Longevity & Skin Science","Edema & Circulation","Facial edema, circulation, and lymphatic drainage","Core","3"],
+      ["Aesthetic Longevity & Skin Science","Light-Based Mechanisms","Red light therapy and photobiomodulation mechanisms","Core","3"],
+      ["Aesthetic Longevity & Skin Science","Light-Based Mechanisms","Dose, wavelength, and treatment parameters","Advanced","3"],
+      ["Aesthetic Longevity & Skin Science","Treatment Strategy","Professional vs at-home treatments","Core","3"],
+      ["Aesthetic Longevity & Skin Science","Treatment Strategy","Treatment sequencing and irritation-risk management","Core","3"],
+      ["Aesthetic Longevity & Skin Science","Treatment Strategy","Device and topical compatibility logic","Advanced","3"],
+      ["Aesthetic Longevity & Skin Science","Protection","UV damage, sunscreen, and cumulative exposure","Core","1"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Endocrine Rhythms","Female endocrine rhythms","Core","2"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Endocrine Rhythms","Menstrual cycle phases and physiology","Core","2"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Endocrine Rhythms","Hormones and appetite, mood, sleep, and performance","Core","2"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Circadian & Recovery","Circadian rhythm in women","Core","2"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Circadian & Recovery","Sleep disruption across cycle phases","Advanced","2"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Stress Biology","Cortisol rhythms and stress physiology","Core","2"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Metabolic Health","Female-specific energy availability","Core","2"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Metabolic Health","Fasting: benefits, risks, and context for women","Core","3"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Metabolic Health","Insulin sensitivity across hormonal contexts","Advanced","3"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Life Stage Health","Perimenopause foundations","Advanced","4"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Life Stage Health","Menopause and metabolic change","Advanced","4"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Clinical Context","Thyroid basics for wellness literacy","Advanced","3"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Clinical Context","PCOS foundations","Optional","4"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Clinical Context","Hormonal contraception and wellness implications","Optional","4"],
+      ["Female Physiology, Hormones & Bioadaptive Living","Tracking & Signals","Reproductive health signals worth tracking","Core","2"],
+      ["Recovery Optimization & Inflammation Control","Recovery Science","Recovery as adaptation, not just rest","Core","2"],
+      ["Recovery Optimization & Inflammation Control","Inflammation Science","Acute vs systemic inflammation","Core","2"],
+      ["Recovery Optimization & Inflammation Control","Inflammation Science","Cytokines and inflammatory signaling basics","Advanced","4"],
+      ["Recovery Optimization & Inflammation Control","Tissue Repair","Bruising and swelling biology","Core","3"],
+      ["Recovery Optimization & Inflammation Control","Tissue Repair","Post-procedure healing","Core","3"],
+      ["Recovery Optimization & Inflammation Control","Tissue Repair","Tissue remodeling timelines","Advanced","3"],
+      ["Recovery Optimization & Inflammation Control","Hydration Physiology","Hydration physiology","Core","2"],
+      ["Recovery Optimization & Inflammation Control","Hydration Physiology","Electrolytes: sodium, potassium, magnesium","Core","2"],
+      ["Recovery Optimization & Inflammation Control","Sleep & Recovery","Sleep as recovery infrastructure","Core","1"],
+      ["Recovery Optimization & Inflammation Control","Nervous System Recovery","Downshifting, parasympathetic recovery, and decompression","Core","2"],
+      ["Recovery Optimization & Inflammation Control","Training Recovery","Overreaching, overload, and recovery mismatch","Core","3"],
+      ["Recovery Optimization & Inflammation Control","Recovery Modalities","Heat, cold, compression, and recovery tools","Core","3"],
+      ["Recovery Optimization & Inflammation Control","Recovery Modalities","When recovery interventions help vs when they are theater","Core","3"],
+      ["Recovery Optimization & Inflammation Control","Biomarkers & Signals","HRV as a recovery signal","Advanced","3"],
+      ["Nutrition for Longevity & Body Composition","Macronutrient Strategy","Protein optimization","Core","2"],
+      ["Nutrition for Longevity & Body Composition","Macronutrient Strategy","Protein distribution across the day","Advanced","2"],
+      ["Nutrition for Longevity & Body Composition","Macronutrient Strategy","Carbohydrates for energy, recovery, and performance","Core","2"],
+      ["Nutrition for Longevity & Body Composition","Macronutrient Strategy","Dietary fats and hormonal support","Core","2"],
+      ["Nutrition for Longevity & Body Composition","Glycemic Regulation","Glycemic control and insulin response","Core","2"],
+      ["Nutrition for Longevity & Body Composition","Glycemic Regulation","Meal order, food pairing, and glucose stability","Advanced","3"],
+      ["Nutrition for Longevity & Body Composition","Satiety & Appetite","Meal structure and satiety","Core","2"],
+      ["Nutrition for Longevity & Body Composition","Satiety & Appetite","Hunger, cravings, and food environment design","Core","2"],
+      ["Nutrition for Longevity & Body Composition","Gut Health","Fiber and microbiome fundamentals","Core","2"],
+      ["Nutrition for Longevity & Body Composition","Gut Health","Gut health claims vs evidence","Core","3"],
+      ["Nutrition for Longevity & Body Composition","Micronutrients","Micronutrient adequacy","Core","2"],
+      ["Nutrition for Longevity & Body Composition","Body Composition","Muscle-preserving nutrition","Core","3"],
+      ["Nutrition for Longevity & Body Composition","Body Composition","Fat loss vs metabolic health","Core","3"],
+      ["Nutrition for Longevity & Body Composition","Timing & Context","Nutrient timing","Advanced","3"],
+      ["Nutrition for Longevity & Body Composition","Timing & Context","Hydration and sodium-potassium balance","Core","2"],
+      ["Nutrition for Longevity & Body Composition","Supplement Strategy","Supplements: evidence tiers, use cases, and tradeoffs","Core","3"],
+      ["Nutrition for Longevity & Body Composition","Supplement Strategy","Foundational supplements: creatine, omega-3, magnesium, vitamin D","Advanced","3"],
+      ["Nutrition for Longevity & Body Composition","Monitoring","Continuous glucose monitoring interpretation","Optional","4"],
+      ["Nutrition for Longevity & Body Composition","Food Systems","Ultra-processed food and metabolic health","Core","2"],
+      ["Exercise Science for Longevity","Exercise Foundations","Exercise adaptation fundamentals","Core","1"],
+      ["Exercise Science for Longevity","Strength Training","Strength training for healthspan","Core","2"],
+      ["Exercise Science for Longevity","Strength Training","Hypertrophy vs strength vs metabolic conditioning","Core","2"],
+      ["Exercise Science for Longevity","Strength Training","Progressive overload and periodization","Advanced","3"],
+      ["Exercise Science for Longevity","Cardiorespiratory Fitness","Zone 2 training","Core","2"],
+      ["Exercise Science for Longevity","Cardiorespiratory Fitness","VO2 max and cardiorespiratory fitness","Core","3"],
+      ["Exercise Science for Longevity","Cardiorespiratory Fitness","Interval training and conditioning","Advanced","3"],
+      ["Exercise Science for Longevity","Daily Movement","NEAT and baseline activity","Core","2"],
+      ["Exercise Science for Longevity","Mobility & Function","Mobility, stability, and joint function","Core","2"],
+      ["Exercise Science for Longevity","Women-Specific Training","Women-specific training considerations","Core","3"],
+      ["Exercise Science for Longevity","Recovery & Dosing","Exercise dose, fatigue, and adaptation","Core","3"],
+      ["Exercise Science for Longevity","Recovery & Dosing","Detraining and reconditioning","Advanced","3"],
+      ["Exercise Science for Longevity","Metabolic Health","Exercise for metabolic health","Core","2"],
+      ["Exercise Science for Longevity","Brain & Mood","Exercise for cognitive and emotional health","Core","2"],
+      ["Exercise Science for Longevity","Longevity Framing","Muscle as a longevity organ","Advanced","3"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Stress & Load","Stress load and allostatic burden","Core","2"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Stress & Load","Cortisol, arousal, and chronic stress patterns","Core","2"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Nervous System Regulation","Nervous system regulation fundamentals","Core","2"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Nervous System Regulation","Distress tolerance and self-regulation","Core","3"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Emotional Resilience","Emotional resilience","Core","2"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Emotional Resilience","Rumination, overwhelm, and burnout patterns","Core","2"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Cognitive Performance","Attention, focus, and cognitive energy","Core","2"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Cognitive Performance","Deep work cycles and mental recovery","Advanced","3"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Mood Foundations","Sleep, light, movement, and mood architecture","Core","2"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Cognitive Longevity","Cognitive longevity and brain aging basics","Core","3"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Behavior Design","Identity-based behavior change","Core","2"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Behavior Design","Environment design for mental clarity","Core","2"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Clinical Context","Trauma-informed nervous system concepts","Optional","4"],
+      ["Mental Wellness, Cognitive Performance & Emotional Longevity","Clinical Context","Executive dysfunction and behavioral friction","Advanced","3"],
+      ["Longevity Science & Aging Mechanisms","Aging Biology","Hallmarks of aging overview","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Cellular Energetics","Mitochondria and cellular energetics","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Cellular Energetics","NAD biology","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Cellular Cleanup","Autophagy","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Cellular Cleanup","Proteostasis and cellular maintenance","Advanced","4"],
+      ["Longevity Science & Aging Mechanisms","Senescence","Cellular senescence and senolytics","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Nutrient Sensing","mTOR, AMPK, and nutrient sensing","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Stress Biology","Oxidative stress and hormesis","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Systemic Aging","Muscle, metabolism, and aging","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Systemic Aging","Brain aging and cognitive preservation","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Intervention Evaluation","Peptides: hype vs evidence","Advanced","4"],
+      ["Longevity Science & Aging Mechanisms","Intervention Evaluation","Rapamycin discourse and translational caution","Optional","4"],
+      ["Longevity Science & Aging Mechanisms","Measurement","Biomarkers for longevity: what matters and what doesnt","Core","4"],
+      ["Longevity Science & Aging Mechanisms","Measurement","Biological age testing","Optional","4"],
+      ["Longevity Science & Aging Mechanisms","Research Interpretation","Mouse-to-human translation problems in longevity science","Core","4"],
+      ["Beauty Tech & At-Home Devices","Device Literacy","Device safety, contraindications, and evidence evaluation","Core","3"],
+      ["Beauty Tech & At-Home Devices","Light-Based Devices","LED therapy / photobiomodulation","Core","3"],
+      ["Beauty Tech & At-Home Devices","Current-Based Devices","Microcurrent","Core","3"],
+      ["Beauty Tech & At-Home Devices","Current-Based Devices","EMS vs microcurrent","Advanced","3"],
+      ["Beauty Tech & At-Home Devices","Delivery Devices","Electroporation","Core","3"],
+      ["Beauty Tech & At-Home Devices","Mechanical / Stimulation Devices","Spicules and transdermal stimulation","Core","3"],
+      ["Beauty Tech & At-Home Devices","Thermal Devices","RF and thermal devices","Advanced","3"],
+      ["Beauty Tech & At-Home Devices","Ultrasonic / Cleansing Devices","Ultrasound and cleansing devices","Optional","3"],
+      ["Beauty Tech & At-Home Devices","Device Programming","Device stacking and treatment timing","Core","3"],
+      ["Beauty Tech & At-Home Devices","Device Programming","Barrier compromise and overuse risk","Core","3"],
+      ["Beauty Tech & At-Home Devices","Device Programming","Matching device modality to goal and tissue state","Core","3"],
+      ["Beauty Tech & At-Home Devices","Consumer Literacy","Marketing claims vs mechanism reality","Core","3"]
+    ];
+
+    const SAMPLE_RESOURCES = {
+      "Menopause and metabolic change": [
+        {
+          title: "Bone Coach: Osteoporosis depth wellness",
+          kind: "Podcast",
+          assetType: "Podcast",
+          url: "https://www.bonecoach.com/dr-christine-smith-osteoporosis-depth-wellness"
+        }
+      ]
+    };
+
+    const topics = CURRICULUM.map((row, index) => ({
+      id: "topic-" + index,
+      pillar: row[0],
+      subdomain: row[1],
+      title: row[2],
+      priority: row[3],
+      phase: row[4],
+      duration: 420 + ((index % 8) * 90),
+      assetType: (SAMPLE_RESOURCES[row[2]] && SAMPLE_RESOURCES[row[2]][0].assetType) || "AI Lesson",
+      deeperStudy: (SAMPLE_RESOURCES[row[2]] && SAMPLE_RESOURCES[row[2]][0]) || null
+    }));
+
+    const storedProgress = JSON.parse(localStorage.getItem("learningProgress") || "{}");
+    const storedQuiz = JSON.parse(localStorage.getItem("learningQuiz") || "{}");
+    const storedProjects = JSON.parse(localStorage.getItem("learningProjects") || "{}");
+
+    const state = {
+      pillar: topics[0].pillar,
+      selectedId: topics[0].id,
+      selectedType: "lesson",
+      progress: new Map(Object.entries(storedProgress)),
+      quiz: new Map(Object.entries(storedQuiz)),
+      projects: new Map(Object.entries(storedProjects)),
+      search: "",
+      phase: "all",
+      status: "all"
+    };
+
+    const pillarList = document.getElementById("pillarList");
+    const topicList = document.getElementById("topicList");
+    const libraryTitle = document.getElementById("libraryTitle");
+    const libraryMeta = document.getElementById("libraryMeta");
+    const searchInput = document.getElementById("searchInput");
+    const phaseFilter = document.getElementById("phaseFilter");
+    const statusFilter = document.getElementById("statusFilter");
+    const nextButton = document.getElementById("nextButton");
+    const selectedPillar = document.getElementById("selectedPillar");
+    const selectedTitle = document.getElementById("selectedTitle");
+    const selectedSubdomain = document.getElementById("selectedSubdomain");
+    const selectedMeta = document.getElementById("selectedMeta");
+    const lessonBox = document.getElementById("lessonBox");
+    const lessonBoxTitle = document.getElementById("lessonBoxTitle");
+    const lessonText = document.getElementById("lessonText");
+    const lessonActions = document.getElementById("lessonActions");
+    const lessonProgressPanel = document.getElementById("lessonProgressPanel");
+    const listenButton = document.getElementById("listenButton");
+    const launchButton = document.getElementById("launchButton");
+    const resourceList = document.getElementById("resourceList");
+    const quizQuestion = document.getElementById("quizQuestion");
+    const quizChoices = document.getElementById("quizChoices");
+    const quizFeedback = document.getElementById("quizFeedback");
+    const projectBrief = document.getElementById("projectBrief");
+    const projectMeta = document.getElementById("projectMeta");
+    const projectStart = document.getElementById("projectStart");
+    const projectSubmit = document.getElementById("projectSubmit");
+    const projectFeedback = document.getElementById("projectFeedback");
+
+    function unique(values) {
+      return Array.from(new Set(values));
+    }
+
+    function percent(done, total) {
+      return total ? Math.round((done / total) * 100) : 0;
+    }
+
+    function saveProgress() {
+      localStorage.setItem("learningProgress", JSON.stringify(Object.fromEntries(state.progress)));
+    }
+
+    function saveQuiz() {
+      localStorage.setItem("learningQuiz", JSON.stringify(Object.fromEntries(state.quiz)));
+    }
+
+    function saveProjects() {
+      localStorage.setItem("learningProjects", JSON.stringify(Object.fromEntries(state.projects)));
+    }
+
+    function getSelected() {
+      return topics.find((topic) => topic.id === state.selectedId) || topics[0];
+    }
+
+    function makeLesson(topic) {
+      return `${topic.title} sits inside ${topic.subdomain}. Start by learning the basic mechanism, then connect it to daily decisions, warning signs, and tradeoffs. For this first build, this AI lesson is a short structured brief that can be read on screen or played with text to speech until a curated video or podcast is attached.`;
+    }
+
+    function topicProgress(topic) {
+      return Math.min(100, Math.round(Number(state.progress.get(topic.id)) || 0));
+    }
+
+    function topicStatus(topic) {
+      const progress = topicProgress(topic);
+      if (progress >= 95) return "Complete";
+      if (progress > 0) return "In Progress";
+      return "Not Started";
+    }
+
+    function recordProgress(topic, secondsWatched) {
+      const nextProgress = Math.min(100, Math.round((secondsWatched / topic.duration) * 100));
+      if (nextProgress > topicProgress(topic)) {
+        state.progress.set(topic.id, nextProgress);
+        saveProgress();
+      }
+    }
+
+    function formatDuration(seconds) {
+      const totalMinutes = Math.max(1, Math.round(seconds / 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    }
+
+    function quizForTopic(topic) {
+      return {
+        question: `After this lesson, what should you be able to do with ${topic.title}?`,
+        choices: [
+          `Explain the core mechanism and apply it to a real wellness decision.`,
+          `Memorize a single rule without checking context or tradeoffs.`,
+          `Replace evidence review with a trend, product, or personality claim.`
+        ],
+        answer: 0
+      };
+    }
+
+    function pillarProjectFor(pillar) {
+      const pillarTopics = topics.filter((topic) => topic.pillar === pillar);
+      const firstSubdomains = unique(pillarTopics.map((topic) => topic.subdomain)).slice(0, 3).join(", ");
+      return {
+        title: `${pillar} field guide`,
+        brief: `Create a one-page field guide that turns this pillar into action. Include the most important mechanisms, three personal signals to watch, one decision rule, and one experiment you could run for a week.`,
+        scope: `Use topics from ${firstSubdomains}.`
+      };
+    }
+
+    function projectStatus(pillar) {
+      return state.projects.get(pillar) || "Not Started";
+    }
+
+    function isProjectComplete(pillar) {
+      return projectStatus(pillar) === "Submitted";
+    }
+
+    function projectProgress(pillar) {
+      const status = projectStatus(pillar);
+      if (status === "Submitted") return 100;
+      if (status === "Drafting") return 50;
+      return 0;
+    }
+
+    function pillarProgress(pillar) {
+      const pillarTopics = topics.filter((topic) => topic.pillar === pillar);
+      const lessonComplete = pillarTopics.filter((topic) => topicStatus(topic) === "Complete").length;
+      const complete = lessonComplete + (isProjectComplete(pillar) ? 1 : 0);
+      const total = pillarTopics.length + 1;
+      return {
+        complete,
+        total,
+        lessonComplete,
+        lessonTotal: pillarTopics.length,
+        percent: percent(complete, total),
+        lessonPercent: percent(lessonComplete, pillarTopics.length)
+      };
+    }
+
+    function renderProgress() {
+      const pillars = unique(topics.map((topic) => topic.pillar));
+      const done = topics.filter((topic) => topicStatus(topic) === "Complete").length + pillars.filter(isProjectComplete).length;
+      const total = topics.length + pillars.length;
+      const overall = percent(done, total);
+      document.getElementById("overallPercent").textContent = overall + "%";
+      document.getElementById("overallOrb").style.setProperty("--progress", overall + "%");
+      document.getElementById("doneCount").textContent = done;
+      document.getElementById("totalCount").textContent = total;
+      document.getElementById("pillarCount").textContent = pillars.length;
+
+      const priorityStrip = document.getElementById("priorityStrip");
+      priorityStrip.innerHTML = "";
+      ["Core", "Advanced", "Optional"].forEach((priority) => {
+        const priorityTopics = topics.filter((topic) => topic.priority === priority);
+        const priorityDone = priorityTopics.filter((topic) => topicStatus(topic) === "Complete").length;
+        const item = document.createElement("div");
+        item.className = "priority";
+        item.innerHTML = `<strong>${priority}</strong><span>${priorityDone}/${priorityTopics.length} done</span><div class="bar" style="--w:${percent(priorityDone, priorityTopics.length)}%"><i></i></div>`;
+        priorityStrip.appendChild(item);
+      });
+    }
+
+    function renderPillars() {
+      pillarList.innerHTML = "";
+      unique(topics.map((topic) => topic.pillar)).forEach((pillar) => {
+        const progress = pillarProgress(pillar);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "pillar-button";
+        button.setAttribute("aria-pressed", String(pillar === state.pillar));
+        button.innerHTML = `
+          <span>
+            <span class="pillar-name">${pillar}</span>
+            <span class="pillar-meta"><span>${progress.complete}/${progress.total} complete</span><span>${progress.percent}%</span></span>
+            <span class="bar" style="--w:${progress.percent}%"><i></i></span>
+          </span>
+        `;
+        button.addEventListener("click", () => {
+          state.pillar = pillar;
+          const firstOpen = topics.find((topic) => topic.pillar === pillar && topicStatus(topic) !== "Complete");
+          const firstAny = topics.find((topic) => topic.pillar === pillar);
+          state.selectedId = (firstOpen || firstAny).id;
+          state.selectedType = "lesson";
+          render();
+        });
+        pillarList.appendChild(button);
+      });
+    }
+
+    function filteredTopics() {
+      const query = state.search.trim().toLowerCase();
+      return topics.filter((topic) => {
+        const haystack = `${topic.pillar} ${topic.subdomain} ${topic.title} ${topic.priority}`.toLowerCase();
+        const matchesPillar = topic.pillar === state.pillar || query;
+        const matchesSearch = !query || haystack.includes(query);
+        const matchesPhase = state.phase === "all" || topic.phase === state.phase;
+        const status = topicStatus(topic).toLowerCase().replace(/\s+/g, "-");
+        const matchesStatus = state.status === "all" || state.status === status;
+        return matchesPillar && matchesSearch && matchesPhase && matchesStatus;
+      });
+    }
+
+    function renderTopics() {
+      const list = filteredTopics();
+      topicList.innerHTML = "";
+      libraryTitle.textContent = state.search ? "Search results" : state.pillar;
+      const progress = pillarProgress(state.pillar);
+      libraryMeta.textContent = state.search
+        ? `${list.length} matching topics across the curriculum.`
+        : `${progress.complete}/${progress.total} complete in this pillar.`;
+
+      if (!list.length) {
+        topicList.innerHTML = `<div class="empty-state">No topics match the current filters.</div>`;
+        return;
+      }
+
+      let currentSubdomain = "";
+      list.forEach((topic) => {
+        if (topic.subdomain !== currentSubdomain) {
+          currentSubdomain = topic.subdomain;
+          const heading = document.createElement("div");
+          heading.className = "subdomain-title";
+          heading.textContent = currentSubdomain;
+          topicList.appendChild(heading);
+        }
+
+        const status = topicStatus(topic);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "topic-button" + (status === "Complete" ? " done" : "");
+        button.setAttribute("aria-current", String(topic.id === state.selectedId));
+        button.innerHTML = `
+          <span>
+            <span class="topic-title">${topic.title}</span>
+            <span class="topic-meta">
+              <span class="bar" style="--w:${topicProgress(topic)}%"><i></i></span>
+              <span class="topic-progress-label">${topicProgress(topic)}%</span>
+              <span class="chip">${formatDuration(topic.duration)}</span>
+              <span class="chip">${topic.assetType}</span>
+            </span>
+          </span>
+        `;
+        button.addEventListener("click", () => {
+          state.selectedId = topic.id;
+          state.pillar = topic.pillar;
+          state.selectedType = "lesson";
+          render();
+        });
+        topicList.appendChild(button);
+      });
+
+      const projectStatusKey = projectStatus(state.pillar).toLowerCase().replace(/\s+/g, "-");
+      const showProject = !state.search && state.phase === "all" && (state.status === "all" || state.status === projectStatusKey);
+      if (showProject) {
+        renderProjectTopicRow();
+      }
+    }
+
+    function renderProjectTopicRow() {
+      const progress = projectProgress(state.pillar);
+      const status = projectStatus(state.pillar);
+      const heading = document.createElement("div");
+      heading.className = "subdomain-title";
+      heading.textContent = "Capstone";
+      topicList.appendChild(heading);
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "topic-button" + (status === "Submitted" ? " done" : "");
+      button.setAttribute("aria-current", String(state.selectedType === "project"));
+      button.innerHTML = `
+        <span>
+          <span class="topic-title">Post-pillar project</span>
+          <span class="topic-meta">
+            <span class="bar" style="--w:${progress}%"><i></i></span>
+            <span class="topic-progress-label">${progress}%</span>
+            <span class="chip">Project</span>
+            <span class="chip">Capstone</span>
+          </span>
+        </span>
+      `;
+      button.addEventListener("click", () => {
+        state.selectedType = "project";
+        render();
+      });
+      topicList.appendChild(button);
+    }
+
+    function renderSelected() {
+      if (state.selectedType === "project") {
+        renderSelectedProject(state.pillar);
+        return;
+      }
+
+      const topic = getSelected();
+      const progress = topicProgress(topic);
+      selectedPillar.textContent = topic.pillar;
+      selectedTitle.textContent = topic.title;
+      selectedSubdomain.textContent = topic.subdomain;
+      selectedMeta.innerHTML = `
+        <span class="chip">${topic.priority}</span>
+        <span class="chip">${topic.assetType}</span>
+      `;
+      lessonBox.hidden = false;
+      lessonBoxTitle.textContent = topic.assetType;
+      lessonText.textContent = makeLesson(topic);
+      lessonActions.hidden = false;
+      lessonProgressPanel.hidden = false;
+      listenButton.hidden = false;
+      launchButton.hidden = !topic.deeperStudy;
+      launchButton.disabled = !topic.deeperStudy;
+      launchButton.textContent = "Deeper Study";
+
+      resourceList.innerHTML = "";
+      if (topic.deeperStudy) {
+        const resource = topic.deeperStudy;
+        const row = document.createElement("div");
+        row.className = "resource-row";
+        row.innerHTML = `
+          <span>
+            <span class="resource-title">${resource.title}</span>
+            <span class="resource-kind">${resource.kind} / Deeper Study</span>
+          </span>
+          <button class="ghost-button" type="button">Open</button>
+        `;
+        row.querySelector("button").addEventListener("click", () => {
+          recordProgress(topic, Math.max(topic.duration * 0.08, 45));
+          window.open(resource.url, "_blank", "noopener");
+          render();
+        });
+        resourceList.appendChild(row);
+      } else {
+        resourceList.innerHTML = `<div class="resource-row"><span><span class="resource-title">${progress}% complete</span><span class="resource-kind">${topicStatus(topic)} / ${topic.assetType} / ${formatDuration(topic.duration)}</span></span></div>`;
+      }
+
+      renderQuiz(topic);
+      document.querySelector(".quiz-panel").hidden = false;
+      document.querySelector(".project-panel").hidden = true;
+    }
+
+    function renderSelectedProject(pillar) {
+      const project = pillarProjectFor(pillar);
+      const progress = pillarProgress(pillar);
+      const status = projectStatus(pillar);
+      const projectPct = projectProgress(pillar);
+      const ready = progress.lessonPercent >= 80;
+
+      selectedPillar.textContent = pillar;
+      selectedTitle.textContent = "Post-pillar project";
+      selectedSubdomain.textContent = project.title;
+      selectedMeta.innerHTML = `
+        <span class="chip">Project</span>
+        <span class="chip">Capstone</span>
+      `;
+      lessonBox.hidden = true;
+      lessonActions.hidden = true;
+      lessonProgressPanel.hidden = true;
+      listenButton.hidden = true;
+      launchButton.hidden = true;
+      document.querySelector(".quiz-panel").hidden = true;
+      document.querySelector(".project-panel").hidden = false;
+      renderProject(pillar);
+
+      projectFeedback.textContent = `${project.scope} ${ready ? "Complete the applied output to finish this pillar." : "Recommended unlock: 80% lesson completion."}`;
+    }
+
+    function renderQuiz(topic) {
+      const quiz = quizForTopic(topic);
+      const saved = state.quiz.get(topic.id);
+      const unlocked = topicStatus(topic) === "Complete";
+      quizQuestion.textContent = unlocked
+        ? quiz.question
+        : `Complete the ${formatDuration(topic.duration)} lesson to unlock a concept check.`;
+      quizChoices.innerHTML = "";
+      quizFeedback.textContent = saved === "passed"
+        ? "Passed. This topic is ready for review later."
+        : saved === "review" ? "Review the lesson, then try the concept check again."
+        : unlocked ? "Choose the strongest answer." : "Quiz locked until the lesson is complete.";
+
+      quiz.choices.forEach((choice, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "choice-button" + (saved === "passed" && index === quiz.answer ? " selected" : "");
+        button.disabled = !unlocked || saved === "passed";
+        button.textContent = choice;
+        button.addEventListener("click", () => {
+          if (index === quiz.answer) {
+            state.quiz.set(topic.id, "passed");
+            saveQuiz();
+            quizFeedback.textContent = "Correct. You can explain the mechanism and use it.";
+          } else {
+            state.quiz.set(topic.id, "review");
+            saveQuiz();
+            quizFeedback.textContent = "Not quite. Review the lesson, then try the concept check again.";
+          }
+          renderQuiz(topic);
+        });
+        quizChoices.appendChild(button);
+      });
+    }
+
+    function renderProject(pillar) {
+      const project = pillarProjectFor(pillar);
+      const progress = pillarProgress(pillar);
+      const status = projectStatus(pillar);
+      const ready = progress.lessonPercent >= 80;
+
+      projectBrief.textContent = `${project.title}. ${project.brief}`;
+      projectMeta.innerHTML = `
+        <span class="chip">${status}</span>
+        <span class="chip">${progress.lessonPercent}% lessons complete</span>
+        <span class="chip">${ready ? "Ready" : "Build more context"}</span>
+      `;
+      projectFeedback.textContent = `${project.scope} ${ready ? "You have enough completed lessons to start the capstone." : "Recommended unlock: 80% pillar completion."}`;
+      projectStart.disabled = !ready && status === "Not Started";
+      projectSubmit.disabled = status !== "Drafting";
+      projectStart.textContent = status === "Drafting" ? "Project open" : status === "Submitted" ? "Submitted" : "Start project";
+    }
+
+    function render() {
+      renderProgress();
+      renderPillars();
+      renderTopics();
+      renderSelected();
+    }
+
+    searchInput.addEventListener("input", (event) => {
+      state.search = event.target.value;
+      renderTopics();
+    });
+
+    phaseFilter.addEventListener("change", (event) => {
+      state.phase = event.target.value;
+      renderTopics();
+    });
+
+    statusFilter.addEventListener("change", (event) => {
+      state.status = event.target.value;
+      renderTopics();
+    });
+
+    nextButton.addEventListener("click", () => {
+      const next = topics.find((topic) => topicStatus(topic) !== "Complete") || topics[0];
+      state.selectedId = next.id;
+      state.pillar = next.pillar;
+      state.selectedType = "lesson";
+      state.search = "";
+      searchInput.value = "";
+      render();
+    });
+
+    launchButton.addEventListener("click", () => {
+      const topic = getSelected();
+      if (!topic.deeperStudy) return;
+      recordProgress(topic, Math.max(topic.duration * 0.08, 45));
+      window.open(topic.deeperStudy.url, "_blank", "noopener");
+      render();
+    });
+
+    projectStart.addEventListener("click", () => {
+      const pillar = getSelected().pillar;
+      const progress = pillarProgress(pillar);
+      if (progress.lessonPercent < 80 && projectStatus(pillar) === "Not Started") return;
+      state.projects.set(pillar, "Drafting");
+      saveProjects();
+      render();
+    });
+
+    projectSubmit.addEventListener("click", () => {
+      const pillar = getSelected().pillar;
+      state.projects.set(pillar, "Submitted");
+      saveProjects();
+      render();
+    });
+
+    function simulateLessonProgress(topic) {
+      const current = topicProgress(topic);
+      const secondsWatched = current >= 95 ? topic.duration : Math.max(topic.duration * 0.2, (current / 100) * topic.duration + 90);
+      recordProgress(topic, secondsWatched);
+      render();
+      if (topicProgress(topic) < 95) {
+        window.setTimeout(() => simulateLessonProgress(topic), 1200);
+      }
+    }
+
+    listenButton.addEventListener("click", () => {
+      const topic = getSelected();
+      const text = makeLesson(topic);
+      if (!("speechSynthesis" in window)) {
+        alert("Text to speech is not available in this browser.");
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.92;
+      utterance.pitch = 1;
+      utterance.onend = () => {
+        recordProgress(topic, topic.duration);
+        render();
+      };
+      window.speechSynthesis.speak(utterance);
+      simulateLessonProgress(topic);
+    });
+
+    render();
+  </script>
 </body>
 </html>
