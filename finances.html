@@ -700,6 +700,7 @@ input[type="range"]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;b
    * NOTION SYNC
    * ════════════════════════════════════════════════════════ */
   var PROXY_URL    = '/api/notion';
+  var WORKER_URL   = 'https://notion-budget-manager.eamiller1981.workers.dev';
   var DATABASE_ID  = '311627ee81db80b8ae51c5b7c8ed83bb';
   var TODAY_DATABASE_ID = '4618e0d69529465fb1ff8ed6f528d786';
 
@@ -717,16 +718,38 @@ input[type="range"]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;b
   }
 
   function notionFetch(path, method, body){
-    return fetch(PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        path: path,
+    var isVercel = window.location.hostname.slice(-10) === 'vercel.app';
+    var request = isVercel ? {
+      url: PROXY_URL,
+      options: {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: path,
+          method: method,
+          body: body
+        })
+      }
+    } : {
+      url: WORKER_URL + '/notion' + path,
+      options: {
         method: method,
-        body: body
-      })
-    }).then(function(r){
-      return r.json();
+        headers: { 'Content-Type': 'application/json' }
+      }
+    };
+
+    if(!isVercel && body !== undefined && body !== null){
+      request.options.body = JSON.stringify(body);
+    }
+
+    return fetch(request.url, request.options).then(function(r){
+      return r.text().then(function(text){
+        try {
+          return JSON.parse(text);
+        } catch (err) {
+          throw new Error('Notion request returned non-JSON response (HTTP ' + r.status + ').');
+        }
+      });
     });
   }
 
