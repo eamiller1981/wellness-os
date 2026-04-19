@@ -699,8 +699,9 @@ input[type="range"]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;b
   /* ════════════════════════════════════════════════════════
    * NOTION SYNC
    * ════════════════════════════════════════════════════════ */
-  var PROXY_URL    = 'https://notion-budget-manager.eamiller1981.workers.dev';
+  var PROXY_URL    = '/api/notion';
   var DATABASE_ID  = '311627ee81db80b8ae51c5b7c8ed83bb';
+  var TODAY_DATABASE_ID = '4618e0d69529465fb1ff8ed6f528d786';
 
   function notionNum(id){ return parseFloat(document.getElementById(id).value)||0; }
   function notionPct(id){ return Math.round(parseFloat(document.getElementById(id).value)||0) / 100; }
@@ -716,14 +717,15 @@ input[type="range"]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;b
   }
 
   function notionFetch(path, method, body){
-    var options = {
-      method: method,
-      headers: { 'Content-Type': 'application/json' }
-    };
-    if(body !== undefined && body !== null){
-      options.body = JSON.stringify(body);
-    }
-    return fetch(PROXY_URL + '/notion' + path, options).then(function(r){
+    return fetch(PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: path,
+        method: method,
+        body: body
+      })
+    }).then(function(r){
       return r.json();
     });
   }
@@ -861,9 +863,41 @@ input[type="range"]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;b
     return newPage;
   }
 
+  async function readTodayBudgetTotals(){
+    var data = await notionFetch('/databases/' + TODAY_DATABASE_ID + '/query', 'POST', {
+      filter: { property: 'Day', title: { equals: 'Today' } },
+      page_size: 1
+    });
+
+    if(data.object === 'error') throw new Error(data.message);
+    if(!data.results || !data.results.length) return null;
+
+    var props = data.results[0].properties || {};
+    var bills = notionPropNum(props['Bills Due Today']);
+    var debt = notionPropNum(props['Debt Due Today']);
+
+    return {
+      bills: Number(bills) || 0,
+      debt: Number(debt) || 0,
+      sawAnyNonNull: bills !== null || debt !== null
+    };
+  }
+
   async function resolveAndSnapshotLiveValues(pageId){
-    var attempts = 6;
-    var waitMs = 1200;
+    var todaySnapshots = await readTodayBudgetTotals();
+    if(todaySnapshots){
+      await notionFetch('/pages/' + pageId, 'PATCH', {
+        properties: {
+          'Less Bills': { number: todaySnapshots.bills },
+          'Less Debt':  { number: todaySnapshots.debt }
+        }
+      });
+
+      return todaySnapshots;
+    }
+
+    var attempts = 12;
+    var waitMs = 1500;
     var snapshots = { bills: 0, debt: 0 };
     var sawAnyNonNull = false;
 
@@ -887,7 +921,7 @@ input[type="range"]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;b
         sawAnyNonNull = true;
         snapshots = readLiveSnapshotsFromProperties(props);
 
-        if(attempt > 0 || snapshots.bills !== 0 || snapshots.debt !== 0){
+        if(snapshots.bills !== 0 || snapshots.debt !== 0 || attempt === attempts - 1){
           break;
         }
       }
@@ -924,7 +958,7 @@ input[type="range"]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;b
       if(thisRequest !== paydateRequestSerial) return;
 
       currentPageId = newPage.id;
-      setStatus('Resolving live bills and debt totals…');
+      setStatus('Reading Today budget totals…');
 
       var resolved = await resolveAndSnapshotLiveValues(currentPageId);
       if(thisRequest !== paydateRequestSerial) return;
