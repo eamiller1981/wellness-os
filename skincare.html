@@ -402,25 +402,6 @@
       color: var(--ink);
     }
 
-    .next-pill {
-      display: inline-flex;
-      align-items: center;
-      min-height: 28px;
-      margin-top: 8px;
-      padding: 0 12px;
-      border-radius: 999px;
-      background: var(--sage-soft);
-      color: #5f7862;
-      font-size: 0.7rem;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
-
-    .next-pill[hidden] {
-      display: none;
-    }
-
     .next-link {
       width: 100%;
       min-height: 50px;
@@ -647,7 +628,7 @@
 
     <section>
       <header class="hero">
-        <img class="hero-image" src="assets/todays-skincare-routine-banner.svg" alt="Today's Skincare Routine">
+        <img class="hero-image" src="assets/todays-skincare-routine-banner.png" alt="Today's Skincare Routine">
       </header>
 
       <div class="status-panel" id="statusPanel" hidden></div>
@@ -665,9 +646,9 @@
         <div class="mode-toggle" id="modeToggle" aria-label="Routine mode"></div>
       </section>
 
-      <section class="routine-title" aria-label="Tonight's block">
+      <section class="routine-title" aria-label="Tonight's steps">
         <h2 id="blockName">Retinol Block</h2>
-        <span class="routine-tag" id="treatmentBadge">LED Mask</span>
+        <span class="routine-tag" id="deviceBadge">LED Mask</span>
       </section>
 
       <section class="panel step-panel" aria-label="Routine steps">
@@ -682,9 +663,8 @@
         <p class="next-label">Next</p>
         <div class="next-items">
           <div class="next-card">
-            <span class="next-card-title">Block</span>
+            <span class="next-card-title">Steps</span>
             <span class="next-card-name" id="nextBlockName">LED Mask</span>
-            <span class="next-pill" id="nextBlockPill">Dermaflash</span>
           </div>
           <div class="next-card">
             <span class="next-card-title">Device</span>
@@ -724,7 +704,7 @@
 
     const SECTION_STYLES = {
       base: { label: "Base", color: "#e9dfd6" },
-      block: { label: "Block", color: "#dce6dd" },
+      block: { label: "Steps", color: "#dce6dd" },
       treatment: { label: "Treatment", color: "#ede3f2" }
     };
 
@@ -738,7 +718,7 @@
       },
       routine: {
         blockName: "Retinol Block",
-        treatmentName: "LED Mask",
+        devices: ["LED Mask"],
         note: "Retinol night. Skip if skin feels sensitized. If any stinging starts after toner, rinse and move straight to moisturizer.",
         sections: [
           {
@@ -751,7 +731,7 @@
           },
           {
             key: "block",
-            label: "Block",
+            label: "Steps",
             steps: [
               { id: "block-1", product: "Paula's Choice 2% BHA Toner", type: "Tone" },
               { id: "block-2", product: "SkinCeuticals 0.5% Retinol", type: "Treat" },
@@ -769,7 +749,7 @@
       },
       next: {
         blockName: "LED Mask",
-        deviceName: "Dermaflash"
+        deviceNames: ["Dermaflash"]
       },
       yesterday: {
         log: {
@@ -858,7 +838,7 @@
     const cycleMeta = document.getElementById("cycleMeta");
     const progressFill = document.getElementById("progressFill");
     const blockName = document.getElementById("blockName");
-    const treatmentBadge = document.getElementById("treatmentBadge");
+    const deviceBadge = document.getElementById("deviceBadge");
     const blockNote = document.getElementById("blockNote");
     const stepSections = document.getElementById("stepSections");
     const modeToggle = document.getElementById("modeToggle");
@@ -871,7 +851,6 @@
     const logMeta = document.getElementById("logMeta");
     const statusPanel = document.getElementById("statusPanel");
     const nextBlockName = document.getElementById("nextBlockName");
-    const nextBlockPill = document.getElementById("nextBlockPill");
     const nextDeviceName = document.getElementById("nextDeviceName");
     const routineLink = document.getElementById("routineLink");
 
@@ -894,6 +873,41 @@
     function hideStatus() {
       statusPanel.hidden = true;
       statusPanel.textContent = "";
+    }
+
+    function uniqueOrdered(values) {
+      const seen = new Set();
+      return values.filter((value) => {
+        if (!value || seen.has(value)) return false;
+        seen.add(value);
+        return true;
+      });
+    }
+
+    function routineDeviceNames(routine) {
+      const declared = Array.isArray(routine && routine.devices) ? routine.devices : [];
+      const fromSteps = ((routine && routine.sections) || [])
+        .flatMap((section) => section.steps || [])
+        .filter((step) => String(step.type || "").toLowerCase() === "tool")
+        .map((step) => step.product || step.name || "");
+
+      return uniqueOrdered([...declared, ...fromSteps]);
+    }
+
+    function nextDeviceText(next) {
+      const nextDevices = Array.isArray(next && next.deviceNames)
+        ? uniqueOrdered(next.deviceNames)
+        : [];
+
+      if (nextDevices.length) {
+        return nextDevices.join(" / ");
+      }
+
+      if (next && next.deviceName) {
+        return next.deviceName;
+      }
+
+      return next && next.blockName ? "No device" : "TBD";
     }
 
     function renderActions(target, items, featured) {
@@ -945,9 +959,10 @@
       sections.forEach((sectionData) => {
         const section = document.createElement("section");
         const meta = SECTION_STYLES[sectionData.key] || SECTION_STYLES.block;
+        const sectionLabel = meta.label || sectionData.label || "Section";
         const header = document.createElement("div");
         header.className = "section-header";
-        header.innerHTML = `<span class="section-dot" style="background:${meta.color}"></span>${sectionData.label || meta.label}`;
+        header.innerHTML = `<span class="section-dot" style="background:${meta.color}"></span>${sectionLabel}`;
         section.appendChild(header);
 
         const list = document.createElement("ol");
@@ -999,25 +1014,24 @@
       const cycle = payload.cycle || FALLBACK_PAYLOAD.cycle;
       const routine = payload.routine || FALLBACK_PAYLOAD.routine;
       const next = payload.next || FALLBACK_PAYLOAD.next;
+      const currentDevices = routineDeviceNames(routine);
 
       cycleName.textContent = cycle.name || "Skincare Cycle";
       cycleMeta.textContent = `Night ${cycle.nightNumber || 1} of ${cycle.totalNights || 90}`;
       progressFill.style.width = `${cycle.progressPercent || 0}%`;
 
       blockName.textContent = routine.blockName || "Tonight";
-      if (routine.treatmentName) {
-        treatmentBadge.hidden = false;
-        treatmentBadge.textContent = routine.treatmentName;
+      if (currentDevices.length) {
+        deviceBadge.hidden = false;
+        deviceBadge.textContent = currentDevices.join(" / ");
       } else {
-        treatmentBadge.hidden = true;
+        deviceBadge.hidden = true;
       }
 
       blockNote.textContent = routine.note || "Tonight's note will appear here once the selected routine carries note text.";
 
       nextBlockName.textContent = next.blockName || "TBD";
-      nextBlockPill.hidden = !next.deviceName;
-      nextBlockPill.textContent = next.deviceName || "";
-      nextDeviceName.textContent = next.deviceName || "TBD";
+      nextDeviceName.textContent = nextDeviceText(next);
 
       renderModes();
       renderSections();

@@ -361,6 +361,38 @@ async function resolveStepsForGroup(env, stepGroupId, productCache) {
   return steps;
 }
 
+function uniqueOrdered(values) {
+  const seen = new Set();
+  const ordered = [];
+
+  for (const value of values) {
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    ordered.push(value);
+  }
+
+  return ordered;
+}
+
+function toolDeviceNamesFromSteps(steps) {
+  return uniqueOrdered(
+    (steps || [])
+      .filter((step) => String(step.type || "").toLowerCase() === "tool")
+      .map((step) => step.product)
+  );
+}
+
+async function resolveDeviceNamesForGroups(env, groups, productCache) {
+  const devices = [];
+
+  for (const group of groups.filter(Boolean)) {
+    const steps = await resolveStepsForGroup(env, group.id, productCache);
+    devices.push(...toolDeviceNamesFromSteps(steps));
+  }
+
+  return uniqueOrdered(devices);
+}
+
 async function buildSection(env, groupId, label, tone, productCache) {
   const group = await resolveStepGroupPage(env, groupId);
   const steps = await resolveStepsForGroup(env, groupId, productCache);
@@ -645,15 +677,19 @@ async function resolveNextFromNormalized(env, dateString, cycleId) {
     return {
       date: dateString,
       blockName: "",
-      deviceName: ""
+      deviceName: "",
+      deviceNames: []
     };
   }
 
   const { blockGroup, treatmentGroup } = await resolveAssignmentGroups(env, assignment);
+  const productCache = new Map();
+  const deviceNames = await resolveDeviceNamesForGroups(env, [blockGroup, treatmentGroup], productCache);
   return {
     date: dateString,
     blockName: blockGroup?.name || assignment.blockTitle || "",
-    deviceName: treatmentGroup?.name || ""
+    deviceName: deviceNames.join(" / "),
+    deviceNames
   };
 }
 
@@ -662,7 +698,8 @@ async function resolveNextFromLegacy(env, dayNumber, dateString) {
   return {
     date: dateString,
     blockName: nextRecord?.blockName || "",
-    deviceName: nextRecord?.devices?.[0] || ""
+    deviceName: nextRecord?.devices?.join(" / ") || "",
+    deviceNames: nextRecord?.devices || []
   };
 }
 
@@ -727,6 +764,10 @@ async function resolveNormalizedTonightPayload(env, today, cycle, mode) {
     sections.push(await buildSection(env, treatmentGroup.id, "Treatment", "treatment", productCache));
   }
 
+  const deviceNames = uniqueOrdered(
+    sections.flatMap((section) => toolDeviceNamesFromSteps(section.steps))
+  );
+
   return {
     today,
     mode,
@@ -741,7 +782,7 @@ async function resolveNormalizedTonightPayload(env, today, cycle, mode) {
     routine: {
       blockName: blockGroup.name,
       treatmentName: treatmentGroup?.name || null,
-      devices: treatmentGroup ? [treatmentGroup.name] : [],
+      devices: deviceNames,
       note: blockGroup.description,
       sections
     },
