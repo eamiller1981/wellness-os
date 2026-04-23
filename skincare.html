@@ -704,8 +704,10 @@
 
     const SECTION_STYLES = {
       base: { label: "Base", color: "#e9dfd6" },
+      device: { label: "Device", color: "#ede3f2" },
+      steps: { label: "Steps", color: "#dce6dd" },
       block: { label: "Steps", color: "#dce6dd" },
-      treatment: { label: "Treatment", color: "#ede3f2" }
+      treatment: { label: "Device", color: "#ede3f2" }
     };
 
     const FALLBACK_PAYLOAD = {
@@ -730,19 +732,19 @@
             ]
           },
           {
-            key: "block",
+            key: "device",
+            label: "Device",
+            steps: [
+              { id: "device-1", product: "LED Mask", type: "Tool" }
+            ]
+          },
+          {
+            key: "steps",
             label: "Steps",
             steps: [
               { id: "block-1", product: "Paula's Choice 2% BHA Toner", type: "Tone" },
               { id: "block-2", product: "SkinCeuticals 0.5% Retinol", type: "Treat" },
               { id: "block-3", product: "CeraVe Moisturizing Cream", type: "Moisturize" }
-            ]
-          },
-          {
-            key: "treatment",
-            label: "Treatment",
-            steps: [
-              { id: "treatment-1", product: "LED Mask", type: "Tool" }
             ]
           }
         ]
@@ -959,7 +961,7 @@
       sections.forEach((sectionData) => {
         const section = document.createElement("section");
         const meta = SECTION_STYLES[sectionData.key] || SECTION_STYLES.block;
-        const sectionLabel = meta.label || sectionData.label || "Section";
+        const sectionLabel = sectionData.label || meta.label || "Section";
         const header = document.createElement("div");
         header.className = "section-header";
         header.innerHTML = `<span class="section-dot" style="background:${meta.color}"></span>${sectionLabel}`;

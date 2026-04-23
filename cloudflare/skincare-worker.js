@@ -313,18 +313,40 @@ async function resolveStepGroupPage(env, pageId) {
   return buildStepGroupRecord(page);
 }
 
-async function resolveProductName(env, pageId, cache) {
-  if (!pageId) return "Unnamed product";
+function normalizeDevicePlacement(value) {
+  return String(value || "").trim().toLowerCase() === "after steps" ? "after" : "before";
+}
+
+function isDeviceStep(step) {
+  return (
+    String(step?.type || "").trim().toLowerCase() === "tool" ||
+    String(step?.category || "").trim().toLowerCase() === "device"
+  );
+}
+
+async function resolveProductRecord(env, pageId, cache) {
+  if (!pageId) {
+    return {
+      name: "Unnamed product",
+      category: "",
+      devicePlacement: "before"
+    };
+  }
+
   if (cache.has(pageId)) return cache.get(pageId);
 
   const page = await notionGetPage(env, pageId);
-  const name =
-    firstRichTextValue(page.properties?.Name) ||
-    firstRichTextValue(page.properties?.Product) ||
-    "Unnamed product";
+  const record = {
+    name:
+      firstRichTextValue(page.properties?.Name) ||
+      firstRichTextValue(page.properties?.Product) ||
+      "Unnamed product",
+    category: firstRichTextValue(page.properties?.Category) || "",
+    devicePlacement: normalizeDevicePlacement(firstRichTextValue(page.properties?.["Device Placement"]))
+  };
 
-  cache.set(pageId, name);
-  return name;
+  cache.set(pageId, record);
+  return record;
 }
 
 async function resolveStepsForGroup(env, stepGroupId, productCache) {
@@ -348,10 +370,12 @@ async function resolveStepsForGroup(env, stepGroupId, productCache) {
   for (const page of data.results || []) {
     const props = page.properties || {};
     const productId = relationIds(props.Product)[0] || null;
-    const productName = await resolveProductName(env, productId, productCache);
+    const product = await resolveProductRecord(env, productId, productCache);
     steps.push({
       id: page.id,
-      product: productName,
+      product: product.name,
+      category: product.category,
+      devicePlacement: product.devicePlacement,
       type: firstRichTextValue(props["Step Type"]) || "Other",
       notes: firstRichTextValue(props["Application Notes"]),
       waitMin: numberValue(props["Wait Time (min)"]) || 0
@@ -377,7 +401,7 @@ function uniqueOrdered(values) {
 function toolDeviceNamesFromSteps(steps) {
   return uniqueOrdered(
     (steps || [])
-      .filter((step) => String(step.type || "").toLowerCase() === "tool")
+      .filter((step) => isDeviceStep(step))
       .map((step) => step.product)
   );
 }
@@ -403,6 +427,68 @@ async function buildSection(env, groupId, label, tone, productCache) {
     group,
     steps
   };
+}
+
+function collectStepsByType(rawSections, matcher) {
+  return rawSections.flatMap((section) => (section.steps || []).filter((step) => matcher(step, section)));
+}
+
+function buildDisplaySections(rawSections) {
+  const baseSteps = collectStepsByType(rawSections, (step, section) => {
+    return section.key === "base" && !isDeviceStep(step);
+  });
+
+  const beforeDeviceSteps = collectStepsByType(rawSections, (step) => {
+    return isDeviceStep(step) && normalizeDevicePlacement(step.devicePlacement) !== "after";
+  });
+
+  const afterDeviceSteps = collectStepsByType(rawSections, (step) => {
+    return isDeviceStep(step) && normalizeDevicePlacement(step.devicePlacement) === "after";
+  });
+
+  const routineSteps = collectStepsByType(rawSections, (step, section) => {
+    return section.key !== "base" && !isDeviceStep(step);
+  });
+
+  const sections = [];
+
+  if (baseSteps.length) {
+    sections.push({
+      key: "base",
+      label: "Base",
+      tone: "base",
+      steps: baseSteps
+    });
+  }
+
+  if (beforeDeviceSteps.length) {
+    sections.push({
+      key: "device",
+      label: "Device",
+      tone: "device",
+      steps: beforeDeviceSteps
+    });
+  }
+
+  if (routineSteps.length) {
+    sections.push({
+      key: "steps",
+      label: "Steps",
+      tone: "steps",
+      steps: routineSteps
+    });
+  }
+
+  if (afterDeviceSteps.length) {
+    sections.push({
+      key: "device",
+      label: "Device",
+      tone: "device",
+      steps: afterDeviceSteps
+    });
+  }
+
+  return sections;
 }
 
 async function resolveAssignmentsForDate(env, dateString, cycleId) {
@@ -560,29 +646,53 @@ function buildLegacyRoutineSections(dayRecord) {
     });
   }
 
+  const beforeDevices = dayRecord.devices.filter((deviceName) => !/medicube booster pro/i.test(deviceName));
+  const afterDevices = dayRecord.devices.filter((deviceName) => /medicube booster pro/i.test(deviceName));
+
+  if (beforeDevices.length) {
+    sections.push({
+      key: "device",
+      label: "Device",
+      tone: "device",
+      steps: beforeDevices.map((deviceName, index) => ({
+        id: `${dayRecord.id}-device-before-${index + 1}`,
+        product: deviceName,
+        type: "Tool",
+        category: "Device",
+        devicePlacement: "before",
+        notes: dayRecord.treatmentNotes,
+        waitMin: 0
+      }))
+    });
+  }
+
   const blockStepNames = splitRoutineTextIntoSteps(dayRecord.skincareText);
   sections.push({
-    key: "block",
-    label: "Block",
-    tone: "block",
+    key: "steps",
+    label: "Steps",
+    tone: "steps",
     steps: (blockStepNames.length ? blockStepNames : [dayRecord.blockName]).map((stepName, index) => ({
       id: `${dayRecord.id}-block-${index + 1}`,
       product: stepName,
       type: "Treat",
+      category: "",
+      devicePlacement: "before",
       notes: "",
       waitMin: 0
     }))
   });
 
-  if (dayRecord.devices.length) {
+  if (afterDevices.length) {
     sections.push({
-      key: "treatment",
-      label: "Treatment",
-      tone: "treatment",
-      steps: dayRecord.devices.map((deviceName, index) => ({
-        id: `${dayRecord.id}-device-${index + 1}`,
+      key: "device",
+      label: "Device",
+      tone: "device",
+      steps: afterDevices.map((deviceName, index) => ({
+        id: `${dayRecord.id}-device-after-${index + 1}`,
         product: deviceName,
         type: "Tool",
+        category: "Device",
+        devicePlacement: "after",
         notes: dayRecord.treatmentNotes,
         waitMin: 0
       }))
@@ -707,7 +817,8 @@ async function resolveOverridePayload(env, today, cycle, mode) {
   const overrideGroupType = mode === "travel" ? "PM Travel" : "PM Minimal";
   const overrideGroup = await resolveSingleStepGroupByType(env, overrideGroupType, false);
   const productCache = new Map();
-  const overrideSection = await buildSection(env, overrideGroup.id, "Routine", "block", productCache);
+  const rawOverrideSections = [await buildSection(env, overrideGroup.id, "Steps", "steps", productCache)];
+  const overrideSections = buildDisplaySections(rawOverrideSections);
   const tomorrow = addDays(today, 1);
 
   let next;
@@ -729,9 +840,11 @@ async function resolveOverridePayload(env, today, cycle, mode) {
     routine: {
       blockName: overrideGroup.name || (mode === "travel" ? "Travel Mode" : "Minimal Mode"),
       treatmentName: null,
-      devices: [],
+      devices: uniqueOrdered(
+        overrideSections.flatMap((section) => toolDeviceNamesFromSteps(section.steps))
+      ),
       note: overrideGroup.description,
-      sections: [overrideSection]
+      sections: overrideSections
     },
     next
   };
@@ -755,14 +868,16 @@ async function resolveNormalizedTonightPayload(env, today, cycle, mode) {
   }
 
   const productCache = new Map();
-  const sections = [
+  const rawSections = [
     await buildSection(env, pmBase.id, "Base", "base", productCache),
-    await buildSection(env, blockGroup.id, "Block", "block", productCache)
+    await buildSection(env, blockGroup.id, "Steps", "steps", productCache)
   ];
 
   if (treatmentGroup) {
-    sections.push(await buildSection(env, treatmentGroup.id, "Treatment", "treatment", productCache));
+    rawSections.push(await buildSection(env, treatmentGroup.id, "Steps", "steps", productCache));
   }
+
+  const sections = buildDisplaySections(rawSections);
 
   const deviceNames = uniqueOrdered(
     sections.flatMap((section) => toolDeviceNamesFromSteps(section.steps))
