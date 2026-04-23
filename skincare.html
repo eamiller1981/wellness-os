@@ -3,28 +3,1112 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#f5eae3">
+  <meta name="theme-color" content="#f7efe8">
+  <meta name="description" content="Tonight's skincare routine inside Wellness OS.">
   <title>Skincare | Wellness OS</title>
-  <link rel="stylesheet" href="space.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f7efe8;
+      --paper: #fffaf6;
+      --ink: #403534;
+      --muted: #8f7c78;
+      --muted-soft: #b8a7a1;
+      --line: rgba(115, 91, 84, 0.14);
+      --rose: #caaba6;
+      --rose-soft: #f3dfd8;
+      --sage: #a3b5a6;
+      --sage-soft: #dce6dd;
+      --wisteria: #c6abd1;
+      --wisteria-soft: #ede3f2;
+      --amber: #d8c3a1;
+      --amber-soft: #f2eadb;
+      --shadow: 0 16px 34px rgba(104, 79, 71, 0.08);
+      --radius-lg: 24px;
+      --radius-md: 18px;
+      --radius-sm: 14px;
+      --sans: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --script: "Great Vibes", cursive;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, rgba(202, 171, 166, 0.2), transparent 34%),
+        linear-gradient(180deg, #fbf4ef 0%, var(--bg) 28%, #f4ece5 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .page {
+      width: min(100%, 440px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 14px 14px 30px;
+      position: relative;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .home-link {
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 250, 246, 0.66);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 0.86rem;
+      font-weight: 700;
+      backdrop-filter: blur(10px);
+    }
+
+    .home-link:hover,
+    .home-link:focus-visible,
+    .mode-pill:hover,
+    .mode-pill:focus-visible,
+    .action-button:hover,
+    .action-button:focus-visible,
+    .log-card:hover,
+    .log-card:focus-visible,
+    .next-link:hover,
+    .next-link:focus-visible {
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .hero {
+      padding: 0;
+      text-align: center;
+      border-radius: 28px;
+      background: rgba(255, 250, 246, 0.88);
+      box-shadow: var(--shadow);
+      animation: fade-up 0.55s ease both;
+      overflow: hidden;
+    }
+
+    .hero-image {
+      aspect-ratio: 2.95 / 1;
+      width: 100%;
+      display: block;
+      object-fit: cover;
+      object-position: center;
+      background: #f3e7e0;
+    }
+
+    .panel,
+    .actions,
+    .note,
+    .log-card {
+      margin-top: 12px;
+      border-radius: 22px;
+      background: rgba(255, 250, 246, 0.9);
+      box-shadow: var(--shadow);
+      animation: fade-up 0.55s ease both;
+    }
+
+    .status-panel {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-left: 3px solid var(--rose);
+      border-radius: 0 18px 18px 0;
+      background: rgba(243, 223, 216, 0.32);
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+
+    .status-panel[hidden] {
+      display: none;
+    }
+
+    .panel {
+      padding: 18px 16px;
+    }
+
+    .cycle-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .cycle-name {
+      margin-top: 0;
+      font-size: 0.96rem;
+      font-weight: 700;
+    }
+
+    .cycle-meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .progress-track {
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(115, 91, 84, 0.09);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--sage), #8fa791);
+      transition: width 0.45s ease;
+    }
+
+    .mode-toggle {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-top: 14px;
+      padding: 4px;
+      border-radius: 14px;
+      background: rgba(115, 91, 84, 0.07);
+    }
+
+    .mode-pill {
+      min-height: 38px;
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      color: var(--muted-soft);
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .mode-pill.active {
+      background: var(--paper);
+      color: var(--ink);
+      box-shadow: 0 6px 18px rgba(104, 79, 71, 0.08);
+    }
+
+    .mode-pill:disabled {
+      cursor: default;
+      opacity: 0.72;
+    }
+
+    .routine-title {
+      margin: 18px 0 0;
+      padding-top: 18px;
+      text-align: center;
+      animation: fade-up 0.55s ease 0.08s both;
+    }
+
+    .routine-title h2 {
+      margin: 0;
+      font-family: var(--script);
+      font-size: 2.45rem;
+      font-weight: 400;
+      line-height: 1;
+      color: var(--ink);
+    }
+
+    .routine-tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin-top: 8px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--sage-soft);
+      color: #5f7862;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .step-panel {
+      padding: 10px 16px 6px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      color: var(--muted-soft);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .section-header::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    .section-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+
+    .step-list {
+      margin: 4px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .step-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 32px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+      transition: opacity 0.2s ease;
+    }
+
+    .step-row:last-child {
+      border-bottom: 0;
+    }
+
+    .step-index {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--step-color, var(--rose-soft));
+      color: var(--ink);
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .step-name {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.28;
+    }
+
+    .step-type {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .step-notes {
+      display: none;
+    }
+
+    .step-empty {
+      margin: 12px 0 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .note {
+      padding: 12px 16px;
+      background: rgba(243, 223, 216, 0.32);
+      border-left: 3px solid var(--rose);
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    .note p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .next-section {
+      padding: 16px;
+    }
+
+    .next-label {
+      margin: 0 0 10px;
+      color: var(--muted-soft);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .next-items {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .next-card {
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(255, 250, 246, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    .next-card-title {
+      display: block;
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .next-card-name {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.98rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .next-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      margin-top: 8px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--sage-soft);
+      color: #5f7862;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .next-pill[hidden] {
+      display: none;
+    }
+
+    .next-link {
+      width: 100%;
+      min-height: 50px;
+      margin-top: 12px;
+      border: 1px solid rgba(115, 91, 84, 0.08);
+      border-radius: 16px;
+      background: rgba(255, 250, 246, 0.74);
+      color: var(--ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .actions {
+      padding: 18px 16px 16px;
+    }
+
+    .action-section-title {
+      margin: 0 0 12px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted-soft);
+    }
+
+    .action-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .action-grid.primary {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .action-grid.secondary {
+      grid-template-columns: repeat(3, 1fr);
+      margin-top: 10px;
+    }
+
+    .action-grid.featured {
+      grid-template-columns: 1fr;
+      margin-bottom: 10px;
+    }
+
+    .action-button {
+      min-height: 96px;
+      padding: 10px 8px 12px;
+      border: 1px solid rgba(115, 91, 84, 0.06);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 250, 246, 0.62), rgba(255, 250, 246, 0.9)),
+        var(--action-bg, rgba(243, 223, 216, 0.4));
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .action-button.featured {
+      min-height: 74px;
+      flex-direction: row;
+      justify-content: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+    }
+
+    .action-button.featured .action-label {
+      font-size: 0.78rem;
+      text-align: left;
+    }
+
+    .action-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 250, 246, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .action-icon svg {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .action-label {
+      font-size: 0.69rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .log-card {
+      width: 100%;
+      padding: 14px 16px;
+      border: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: transform 0.2s ease;
+      background: rgba(243, 223, 216, 0.4);
+      box-shadow: none;
+    }
+
+    .log-card[disabled] {
+      cursor: default;
+      opacity: 0.72;
+    }
+
+    .log-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 250, 246, 0.7);
+      color: #b1837f;
+      font-size: 0.94rem;
+      font-weight: 600;
+      flex: 0 0 auto;
+    }
+
+    .log-title {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .log-meta {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      white-space: normal;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      transform: translate(-50%, 14px);
+      width: min(calc(100% - 28px), 340px);
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(64, 53, 52, 0.95);
+      color: #fffaf6;
+      text-align: center;
+      font-size: 0.84rem;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 20;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    @keyframes fade-up {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (min-width: 680px) {
+      .page {
+        width: min(100%, 460px);
+        padding: 18px 18px 42px;
+      }
+
+      .hero-image {
+        aspect-ratio: 3.1 / 1;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 1ms !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <main class="page">
     <nav class="topbar" aria-label="Page">
       <a class="home-link" href="/">Home</a>
-      <img class="brand" src="assets/header-logo.png" alt="Wellness OS">
     </nav>
-    <section class="space">
-      <img class="space-art" src="assets/3.png" alt="Skincare">
-      <div>
-        <p class="eyebrow">Care</p>
-        <h1>Skincare</h1>
-        <p class="intro">Keep routines, products, notes, and skin patterns in one calm place.</p>
-        <div class="next">
-          <h2>First build</h2>
-          <p>Map morning and evening routines, product inventory, and notes from what changes.</p>
+
+    <section>
+      <header class="hero">
+        <img class="hero-image" src="assets/todays-skincare-routine-banner.svg" alt="Today's Skincare Routine">
+      </header>
+
+      <div class="status-panel" id="statusPanel" hidden></div>
+
+      <section class="panel" aria-label="Cycle status">
+        <div class="cycle-head">
+          <div>
+            <strong class="cycle-name" id="cycleName">Q2 2026</strong>
+          </div>
+          <span class="cycle-meta" id="cycleMeta">Night 34 of 90</span>
         </div>
-      </div>
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="mode-toggle" id="modeToggle" aria-label="Routine mode"></div>
+      </section>
+
+      <section class="routine-title" aria-label="Tonight's block">
+        <h2 id="blockName">Retinol Block</h2>
+        <span class="routine-tag" id="treatmentBadge">LED Mask</span>
+      </section>
+
+      <section class="panel step-panel" aria-label="Routine steps">
+        <div id="stepSections"></div>
+      </section>
+
+      <aside class="note" aria-label="Routine note">
+        <p id="blockNote">Retinol night. Skip if skin feels sensitized. If any stinging starts after toner, rinse and move straight to moisturizer.</p>
+      </aside>
+
+      <section class="panel next-section" aria-label="Next up">
+        <p class="next-label">Next</p>
+        <div class="next-items">
+          <div class="next-card">
+            <span class="next-card-title">Block</span>
+            <span class="next-card-name" id="nextBlockName">LED Mask</span>
+            <span class="next-pill" id="nextBlockPill">Dermaflash</span>
+          </div>
+          <div class="next-card">
+            <span class="next-card-title">Device</span>
+            <span class="next-card-name" id="nextDeviceName">Dermaflash</span>
+          </div>
+        </div>
+        <a class="next-link" href="#" id="routineLink">View 90 Day Routine</a>
+      </section>
+
+      <section class="actions" aria-label="Quick actions">
+        <p class="action-section-title">Quick actions</p>
+        <div class="action-grid featured" id="featuredActions"></div>
+        <div class="action-grid primary" id="primaryActions"></div>
+        <div class="action-grid secondary" id="secondaryActions"></div>
+      </section>
+
+      <button class="log-card" id="logCard" type="button">
+        <span class="log-mark">&#10003;</span>
+        <span>
+          <span class="log-title" id="logTitle">Last night: AHA Block</span>
+          <span class="log-meta" id="logMeta">Tap to edit within the 24-hour window.</span>
+        </span>
+      </button>
     </section>
   </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const API_BASE = "https://skincare.eamiller1981.workers.dev";
+
+    const MODE_LABELS = {
+      cycle: "Cycle",
+      minimal: "Minimal",
+      travel: "Travel"
+    };
+
+    const SECTION_STYLES = {
+      base: { label: "Base", color: "#e9dfd6" },
+      block: { label: "Block", color: "#dce6dd" },
+      treatment: { label: "Treatment", color: "#ede3f2" }
+    };
+
+    const FALLBACK_PAYLOAD = {
+      mode: "cycle",
+      cycle: {
+        name: "Q2 2026",
+        nightNumber: 34,
+        totalNights: 90,
+        progressPercent: 38
+      },
+      routine: {
+        blockName: "Retinol Block",
+        treatmentName: "LED Mask",
+        note: "Retinol night. Skip if skin feels sensitized. If any stinging starts after toner, rinse and move straight to moisturizer.",
+        sections: [
+          {
+            key: "base",
+            label: "Base",
+            steps: [
+              { id: "base-1", product: "DHC Deep Cleansing Oil", type: "Cleanse" },
+              { id: "base-2", product: "CeraVe Hydrating Cleanser", type: "Cleanse" }
+            ]
+          },
+          {
+            key: "block",
+            label: "Block",
+            steps: [
+              { id: "block-1", product: "Paula's Choice 2% BHA Toner", type: "Tone" },
+              { id: "block-2", product: "SkinCeuticals 0.5% Retinol", type: "Treat" },
+              { id: "block-3", product: "CeraVe Moisturizing Cream", type: "Moisturize" }
+            ]
+          },
+          {
+            key: "treatment",
+            label: "Treatment",
+            steps: [
+              { id: "treatment-1", product: "LED Mask", type: "Tool" }
+            ]
+          }
+        ]
+      },
+      next: {
+        blockName: "LED Mask",
+        deviceName: "Dermaflash"
+      },
+      yesterday: {
+        log: {
+          blockName: "AHA Block",
+          completion: "100% completed",
+          canEdit: true
+        }
+      }
+    };
+
+    const icon = {
+      coach: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3l1.9 4.4L18 9.3l-4.1 1.9L12 16l-1.9-4.8L6 9.3l4.1-1.9z"></path>
+        </svg>
+      `,
+      skip: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6v12"></path>
+          <path d="M10 8l8 4-8 4z"></path>
+        </svg>
+      `,
+      swap: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 7h10"></path>
+          <path d="M13 3l4 4-4 4"></path>
+          <path d="M17 17H7"></path>
+          <path d="M11 13l-4 4 4 4"></path>
+        </svg>
+      `,
+      add: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5v14"></path>
+          <path d="M5 12h14"></path>
+        </svg>
+      `,
+      products: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 4h6"></path>
+          <path d="M10 4v4"></path>
+          <path d="M14 4v4"></path>
+          <path d="M8 8h8l1 10a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z"></path>
+        </svg>
+      `,
+      progress: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 19V9"></path>
+          <path d="M12 19V5"></path>
+          <path d="M19 19v-7"></path>
+        </svg>
+      `,
+      treatments: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 4h8"></path>
+          <path d="M12 4v16"></path>
+          <path d="M7 10h10"></path>
+          <path d="M9 20h6"></path>
+        </svg>
+      `
+    };
+
+    const FEATURED_ACTIONS = [
+      { label: "AI Coach", icon: icon.coach, color: "#ede3f2", message: "AI Coach is on deck once the MVP logging flow is in place." }
+    ];
+
+    const PRIMARY_ACTIONS = [
+      { label: "Skip", icon: icon.skip, color: "#f3dfd8", message: "Skip logging will be wired to the live Exceptions flow next." },
+      { label: "Swap", icon: icon.swap, color: "#f2eadb", message: "Swap logging will be wired to the live Exceptions flow next." },
+      { label: "Add", icon: icon.add, color: "#dce6dd", message: "Add logging will be wired to the live Exceptions flow next." }
+    ];
+
+    const SECONDARY_ACTIONS = [
+      { label: "Products", icon: icon.products, color: "#f2eadb", message: "Products view will connect to the new Skincare Products database." },
+      { label: "Progress", icon: icon.progress, color: "#dce6dd", message: "Progress will connect to your logs and weekly reviews." },
+      { label: "Treatments", icon: icon.treatments, color: "#f3dfd8", message: "Treatments will connect to your devices and treatment history." }
+    ];
+
+    const state = {
+      mode: "cycle",
+      payload: FALLBACK_PAYLOAD,
+      usingFallback: true,
+      syncingMode: false
+    };
+
+    const cycleName = document.getElementById("cycleName");
+    const cycleMeta = document.getElementById("cycleMeta");
+    const progressFill = document.getElementById("progressFill");
+    const blockName = document.getElementById("blockName");
+    const treatmentBadge = document.getElementById("treatmentBadge");
+    const blockNote = document.getElementById("blockNote");
+    const stepSections = document.getElementById("stepSections");
+    const modeToggle = document.getElementById("modeToggle");
+    const featuredActions = document.getElementById("featuredActions");
+    const primaryActions = document.getElementById("primaryActions");
+    const secondaryActions = document.getElementById("secondaryActions");
+    const toast = document.getElementById("toast");
+    const logCard = document.getElementById("logCard");
+    const logTitle = document.getElementById("logTitle");
+    const logMeta = document.getElementById("logMeta");
+    const statusPanel = document.getElementById("statusPanel");
+    const nextBlockName = document.getElementById("nextBlockName");
+    const nextBlockPill = document.getElementById("nextBlockPill");
+    const nextDeviceName = document.getElementById("nextDeviceName");
+    const routineLink = document.getElementById("routineLink");
+
+    let toastTimer = null;
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => {
+        toast.classList.remove("show");
+      }, 2200);
+    }
+
+    function showStatus(message) {
+      statusPanel.hidden = false;
+      statusPanel.textContent = message;
+    }
+
+    function hideStatus() {
+      statusPanel.hidden = true;
+      statusPanel.textContent = "";
+    }
+
+    function renderActions(target, items, featured) {
+      target.innerHTML = "";
+      items.forEach((item) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "action-button" + (featured ? " featured" : "");
+        button.style.setProperty("--action-bg", item.color);
+        button.innerHTML = `
+          <span class="action-icon">${item.icon}</span>
+          <span class="action-label">${item.label}</span>
+        `;
+        button.addEventListener("click", () => showToast(item.message));
+        target.appendChild(button);
+      });
+    }
+
+    function renderModes() {
+      modeToggle.innerHTML = "";
+      Object.entries(MODE_LABELS).forEach(([key, label]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "mode-pill" + (state.mode === key ? " active" : "");
+        button.textContent = label;
+        button.disabled = state.syncingMode;
+        button.setAttribute("aria-pressed", String(state.mode === key));
+        button.addEventListener("click", () => {
+          if (state.mode === key || state.syncingMode) return;
+          updateMode(key);
+        });
+        modeToggle.appendChild(button);
+      });
+    }
+
+    function renderSections() {
+      const sections = state.payload.routine && state.payload.routine.sections ? state.payload.routine.sections : [];
+      stepSections.innerHTML = "";
+
+      if (!sections.length) {
+        const empty = document.createElement("p");
+        empty.className = "step-empty";
+        empty.textContent = "This mode is mapped, but its step list has not been structured yet.";
+        stepSections.appendChild(empty);
+        return;
+      }
+
+      let stepIndex = 0;
+      sections.forEach((sectionData) => {
+        const section = document.createElement("section");
+        const meta = SECTION_STYLES[sectionData.key] || SECTION_STYLES.block;
+        const header = document.createElement("div");
+        header.className = "section-header";
+        header.innerHTML = `<span class="section-dot" style="background:${meta.color}"></span>${sectionData.label || meta.label}`;
+        section.appendChild(header);
+
+        const list = document.createElement("ol");
+        list.className = "step-list";
+
+        (sectionData.steps || []).forEach((step) => {
+          stepIndex += 1;
+          const item = document.createElement("li");
+          const row = document.createElement("div");
+          row.className = "step-row";
+          row.style.setProperty("--step-color", meta.color);
+          row.innerHTML = `
+            <span class="step-index">${stepIndex}</span>
+            <span class="step-copy">
+              <span class="step-name">${step.product || step.name || "Routine step"}</span>
+              <span class="step-type">${step.type || sectionData.label || "Step"}</span>
+              <span class="step-notes">${step.notes || ""}</span>
+            </span>
+            <span></span>
+          `;
+          item.appendChild(row);
+          list.appendChild(item);
+        });
+
+        section.appendChild(list);
+        stepSections.appendChild(section);
+      });
+    }
+
+    function renderLogCard() {
+      const log = state.payload.yesterday && state.payload.yesterday.log ? state.payload.yesterday.log : null;
+
+      if (!log) {
+        logTitle.textContent = "Last night has not been logged yet.";
+        logMeta.textContent = "The 2:00 AM submission job will populate this once logging is wired.";
+        logCard.disabled = true;
+        return;
+      }
+
+      logTitle.textContent = `Last night: ${log.blockName}`;
+      logMeta.textContent = log.canEdit
+        ? `${log.completion} - Tap to edit within the 24-hour window.`
+        : `${log.completion} - Edit window closed.`;
+      logCard.disabled = false;
+    }
+
+    function renderPayload() {
+      const payload = state.payload;
+      const cycle = payload.cycle || FALLBACK_PAYLOAD.cycle;
+      const routine = payload.routine || FALLBACK_PAYLOAD.routine;
+      const next = payload.next || FALLBACK_PAYLOAD.next;
+
+      cycleName.textContent = cycle.name || "Skincare Cycle";
+      cycleMeta.textContent = `Night ${cycle.nightNumber || 1} of ${cycle.totalNights || 90}`;
+      progressFill.style.width = `${cycle.progressPercent || 0}%`;
+
+      blockName.textContent = routine.blockName || "Tonight";
+      if (routine.treatmentName) {
+        treatmentBadge.hidden = false;
+        treatmentBadge.textContent = routine.treatmentName;
+      } else {
+        treatmentBadge.hidden = true;
+      }
+
+      blockNote.textContent = routine.note || "Tonight's note will appear here once the selected routine carries note text.";
+
+      nextBlockName.textContent = next.blockName || "TBD";
+      nextBlockPill.hidden = !next.deviceName;
+      nextBlockPill.textContent = next.deviceName || "";
+      nextDeviceName.textContent = next.deviceName || "TBD";
+
+      renderModes();
+      renderSections();
+      renderLogCard();
+    }
+
+    async function fetchJson(path, init) {
+      const response = await fetch(`${API_BASE}${path}`, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          ...(init && init.headers ? init.headers : {})
+        }
+      });
+
+      const text = await response.text();
+      let data = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok || data.ok === false) {
+        const message = data && data.details && data.details.message
+          ? data.details.message
+          : data.error || "Unable to reach the Skincare API right now.";
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+    async function loadTonightData() {
+      try {
+        const data = await fetchJson("/api/tonight");
+        state.payload = data;
+        state.mode = data.mode || state.mode;
+        state.usingFallback = false;
+        hideStatus();
+      } catch (error) {
+        state.payload = {
+          ...FALLBACK_PAYLOAD,
+          mode: state.mode
+        };
+        state.usingFallback = true;
+        showStatus(error.message);
+      }
+
+      renderPayload();
+    }
+
+    async function updateMode(nextMode) {
+      const previousMode = state.mode;
+      state.mode = nextMode;
+      state.syncingMode = true;
+      renderModes();
+
+      try {
+        await fetchJson("/api/mode", {
+          method: "PUT",
+          body: JSON.stringify({ mode: nextMode })
+        });
+        showToast(`${MODE_LABELS[nextMode]} mode active.`);
+        await loadTonightData();
+      } catch (error) {
+        state.mode = previousMode;
+        renderModes();
+        showToast(error.message);
+      } finally {
+        state.syncingMode = false;
+        renderModes();
+      }
+    }
+
+    logCard.addEventListener("click", () => {
+      if (logCard.disabled) return;
+      showToast("Yesterday editing will be unlocked once the log update flow is wired.");
+    });
+
+    routineLink.addEventListener("click", (event) => {
+      event.preventDefault();
+      showToast("The 90 Day Routine link will be connected once you send the target URL.");
+    });
+
+    renderActions(featuredActions, FEATURED_ACTIONS, true);
+    renderActions(primaryActions, PRIMARY_ACTIONS, false);
+    renderActions(secondaryActions, SECONDARY_ACTIONS, false);
+    renderPayload();
+    loadTonightData();
+  </script>
 </body>
 </html>

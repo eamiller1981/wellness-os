@@ -1,0 +1,37 @@
+{
+  "name": "skincare",
+  "main": "./skincare-worker.js",
+  "compatibility_date": "2026-04-20",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SKINCARE_STATE",
+      "id": "c43f2e7539bf41388740a844efecd157"
+    }
+  ],
+  "services": [
+    {
+      "binding": "NOTION_PROXY",
+      "service": "notion-budget-manager"
+    }
+  ],
+  "vars": {
+    "UPSTREAM_NOTION_URL": "https://notion-budget-manager.eamiller1981.workers.dev/notion",
+    "UPSTREAM_ORIGIN": "https://eamiller1981.github.io",
+    "CYCLES_DB_ID": "6c6d5250e3464236b05093cbd87c9734",
+    "NIGHTLY_ASSIGNMENTS_DB_ID": "689e15a72be44f7aa3a6e53fda201d5f",
+    "STEP_GROUPS_DB_ID": "71970740aefe4e3a9257cf5e0341f55e",
+    "STEPS_DB_ID": "1d8e822f56d344b5b60262af2e58c0a3",
+    "PRODUCTS_DB_ID": "18027343f9a04997b4437ee195d99641",
+    "DAILY_LOGS_DB_ID": "72213642baf74820b6940f2d2ac18150",
+    "EXCEPTIONS_DB_ID": "1a1536a6aecf4c718650cff4d2a5a2fe",
+    "WEEKLY_REVIEWS_DB_ID": "9f8fdb04e8cf420cbc65597db9b6bd5e",
+    "SKIN_STATUS_DB_ID": "5f1b6b280e5a4632a4ffdff38b112516",
+    "LEGACY_CYCLES_DB_ID": "fce63686578943ae89c9a927627ed366",
+    "LEGACY_ROUTINE_DB_ID": "529627ee81db823aac4b0103dc9c3867",
+    "LEGACY_DAILY_LOGS_DB_ID": "f1e8598ccc854b07b09fe79b6b915905"
+  }
+}
