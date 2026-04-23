@@ -69,6 +69,11 @@ function compareDateStrings(left, right) {
   return left.localeCompare(right);
 }
 
+function parseNightOrder(value) {
+  const match = String(value || "").match(/(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
 function firstRichTextValue(prop) {
   if (!prop) return "";
 
@@ -532,6 +537,68 @@ function orderRoutineStepsForDisplay(steps) {
   return [...beforeDeviceSteps, ...routineSteps, ...afterDeviceSteps];
 }
 
+function buildAssignmentRecord(page) {
+  const props = page.properties || {};
+  const nightLabel = firstRichTextValue(props.Night) || firstRichTextValue(props.Name) || "";
+
+  return {
+    id: page.id,
+    cycleId: relationIds(props.Cycle)[0] || null,
+    date: dateValue(props.Date),
+    nightLabel,
+    nightOrder: parseNightOrder(nightLabel),
+    phase: firstRichTextValue(props.Phase) || "",
+    intensityTier: numberValue(props["Intensity Tier"]),
+    blockId: relationIds(props.Block)[0] || null,
+    treatmentId: relationIds(props.Treatment)[0] || null,
+    stepGroupIds: relationIds(props["Step Groups"]),
+    blockTitle: firstRichTextValue(props["Block Title"]),
+    overridden: checkboxValue(props.Overridden)
+  };
+}
+
+function compareAssignmentRecords(left, right) {
+  const leftNight = left.nightOrder;
+  const rightNight = right.nightOrder;
+
+  if (leftNight != null && rightNight != null && leftNight !== rightNight) {
+    return leftNight - rightNight;
+  }
+
+  if (left.date && right.date && left.date !== right.date) {
+    return compareDateStrings(left.date, right.date);
+  }
+
+  if (leftNight != null && rightNight == null) return -1;
+  if (leftNight == null && rightNight != null) return 1;
+  if (left.date && !right.date) return -1;
+  if (!left.date && right.date) return 1;
+
+  return String(left.nightLabel || left.id).localeCompare(String(right.nightLabel || right.id));
+}
+
+async function resolveAssignmentsForCycle(env, cycleId) {
+  const data = await notionQueryDatabase(env, env.NIGHTLY_ASSIGNMENTS_DB_ID, {
+    page_size: 200,
+    filter: {
+      property: "Cycle",
+      relation: {
+        contains: cycleId
+      }
+    }
+  });
+
+  return (data.results || []).map(buildAssignmentRecord).sort(compareAssignmentRecords);
+}
+
+async function resolveAllAssignments(env) {
+  const data = await notionQueryDatabase(env, env.NIGHTLY_ASSIGNMENTS_DB_ID, {
+    page_size: 200
+  });
+
+  return (data.results || []).map(buildAssignmentRecord).sort(compareAssignmentRecords);
+}
+
 async function resolveAssignmentsForDate(env, dateString, cycleId) {
   const data = await notionQueryDatabase(env, env.NIGHTLY_ASSIGNMENTS_DB_ID, {
     page_size: 10,
@@ -558,17 +625,12 @@ async function resolveAssignmentsForDate(env, dateString, cycleId) {
     });
   }
 
-  const page = assignments[0];
-  const props = page.properties || {};
-  return {
-    id: page.id,
-    date: dateValue(props.Date),
-    blockId: relationIds(props.Block)[0] || null,
-    treatmentId: relationIds(props.Treatment)[0] || null,
-    stepGroupIds: relationIds(props["Step Groups"]),
-    blockTitle: firstRichTextValue(props["Block Title"]),
-    overridden: checkboxValue(props.Overridden)
-  };
+  return buildAssignmentRecord(assignments[0]);
+}
+
+async function resolveAssignmentById(env, assignmentId) {
+  const page = await notionGetPage(env, assignmentId);
+  return buildAssignmentRecord(page);
 }
 
 async function resolveAssignmentGroups(env, assignment) {
@@ -609,6 +671,31 @@ async function resolveAssignmentGroups(env, assignment) {
   }
 
   return { blockGroup, treatmentGroup };
+}
+
+async function resolvePreviewFromAssignment(env, assignment) {
+  if (!assignment) {
+    return {
+      assignmentId: null,
+      date: "",
+      nightLabel: "",
+      blockName: "",
+      deviceName: "",
+      deviceNames: []
+    };
+  }
+
+  const { blockGroup, treatmentGroup } = await resolveAssignmentGroups(env, assignment);
+  const productCache = new Map();
+  const deviceNames = await resolveDeviceNamesForGroups(env, [blockGroup, treatmentGroup], productCache);
+  return {
+    assignmentId: assignment.id,
+    date: assignment.date || "",
+    nightLabel: assignment.nightLabel || "",
+    blockName: blockGroup?.name || assignment.blockTitle || "",
+    deviceName: deviceNames.join(" / "),
+    deviceNames
+  };
 }
 
 function buildLegacyRoutineDayRecord(page) {
@@ -824,51 +911,22 @@ async function resolveYesterdayPayload(env) {
 
 async function resolveNextFromNormalized(env, dateString, cycleId) {
   const assignment = await resolveAssignmentsForDate(env, dateString, cycleId);
-  if (!assignment) {
-    return {
-      date: dateString,
-      blockName: "",
-      deviceName: "",
-      deviceNames: []
-    };
-  }
-
-  const { blockGroup, treatmentGroup } = await resolveAssignmentGroups(env, assignment);
-  const productCache = new Map();
-  const deviceNames = await resolveDeviceNamesForGroups(env, [blockGroup, treatmentGroup], productCache);
+  const preview = await resolvePreviewFromAssignment(env, assignment);
   return {
-    date: dateString,
-    blockName: blockGroup?.name || assignment.blockTitle || "",
-    deviceName: deviceNames.join(" / "),
-    deviceNames
+    ...preview,
+    date: preview.date || dateString
   };
 }
 
-async function resolveRoutineRowsForCycle(env, cycle, today) {
-  const data = await notionQueryDatabase(env, env.NIGHTLY_ASSIGNMENTS_DB_ID, {
-    page_size: 200,
-    filter: {
-      property: "Cycle",
-      relation: {
-        contains: cycle.id
-      }
-    },
-    sorts: [
-      {
-        property: "Date",
-        direction: "ascending"
-      }
-    ]
-  });
-
+async function resolveRoutineRows(env, today) {
+  const assignments = await resolveAllAssignments(env);
   const productCache = new Map();
   const stepGroupCache = new Map();
   const stepCache = new Map();
   const rows = [];
 
-  for (const page of data.results || []) {
-    const props = page.properties || {};
-    const stepGroupIds = relationIds(props["Step Groups"]);
+  for (const assignment of assignments) {
+    const stepGroupIds = assignment.stepGroupIds || [];
     const stepGroups = [];
     const flattenedSteps = [];
 
@@ -882,14 +940,15 @@ async function resolveRoutineRowsForCycle(env, cycle, today) {
     const orderedSteps = orderRoutineStepsForDisplay(flattenedSteps);
 
     rows.push({
-      id: page.id,
-      night: firstRichTextValue(props.Night) || "",
-      date: dateValue(props.Date),
-      phase: firstRichTextValue(props.Phase) || "",
+      id: assignment.id,
+      night: assignment.nightLabel || "",
+      nightOrder: assignment.nightOrder,
+      date: assignment.date || "",
+      phase: assignment.phase || "",
       stepGroups: stepGroups.map((group) => group.name).filter(Boolean),
       steps: orderedSteps.map((step) => step.product).filter(Boolean),
-      intensityTier: numberValue(props["Intensity Tier"]),
-      isToday: dateValue(props.Date) === today
+      intensityTier: assignment.intensityTier,
+      isToday: assignment.date === today
     });
   }
 
@@ -911,71 +970,100 @@ async function resolveRoutinePlanPayload(env) {
     today,
     cycle,
     columns: ["Night", "Date", "Phase", "Step Groups", "Steps", "Intensity Tier"],
-    rows: await resolveRoutineRowsForCycle(env, cycle, today)
+    rows: await resolveRoutineRows(env, today)
   };
 }
 
 async function resolveNextFromLegacy(env, dayNumber, dateString) {
   const nextRecord = await resolveLegacyRoutineDay(env, dayNumber);
   return {
+    assignmentId: nextRecord?.id || null,
     date: dateString,
+    nightLabel: nextRecord?.day ? `Day ${String(nextRecord.day).padStart(2, "0")}` : "",
     blockName: nextRecord?.blockName || "",
     deviceName: nextRecord?.devices?.join(" / ") || "",
     deviceNames: nextRecord?.devices || []
   };
 }
 
-async function resolveOverridePayload(env, today, cycle, mode) {
+function buildAssignmentMetadata(assignment, extras = {}) {
+  return {
+    id: assignment?.id || null,
+    date: assignment?.date || "",
+    nightLabel: assignment?.nightLabel || "",
+    nightOrder: assignment?.nightOrder ?? null,
+    phase: assignment?.phase || "",
+    intensityTier: assignment?.intensityTier ?? null,
+    overridden: extras.overridden ?? assignment?.overridden ?? false,
+    blockId: extras.blockId ?? assignment?.blockId ?? null,
+    treatmentId: extras.treatmentId ?? assignment?.treatmentId ?? null,
+    dayNumber: extras.dayNumber ?? null
+  };
+}
+
+async function resolveOverridePayloadForAssignment(env, today, cycle, mode, assignment, nextAssignment) {
   const overrideGroupType = mode === "travel" ? "PM Travel" : "PM Minimal";
   const overrideGroup = await resolveSingleStepGroupByType(env, overrideGroupType, false);
   const productCache = new Map();
   const rawOverrideSections = [await buildSection(env, overrideGroup.id, "Steps", "steps", productCache)];
   const overrideSections = buildDisplaySections(rawOverrideSections);
-  const tomorrow = addDays(today, 1);
-
-  let next;
-  if (cycle.source === "normalized") {
-    next = await resolveNextFromNormalized(env, tomorrow, cycle.id);
-  } else {
-    next = await resolveNextFromLegacy(env, cycle.nightNumber + 1, tomorrow);
-  }
+  const overrideDevices = uniqueOrdered(
+    overrideSections.flatMap((section) => toolDeviceNamesFromSteps(section.steps))
+  );
+  const fallbackNextDate = addDays(assignment?.date || today, 1);
 
   return {
     today,
     mode,
     cycle,
-    assignment: {
-      id: null,
-      date: today,
-      overridden: true
-    },
+    assignment: buildAssignmentMetadata(assignment, { overridden: true }),
     routine: {
       blockName: overrideGroup.name || (mode === "travel" ? "Travel Mode" : "Minimal Mode"),
       treatmentName: null,
-      devices: uniqueOrdered(
-        overrideSections.flatMap((section) => toolDeviceNamesFromSteps(section.steps))
-      ),
+      devices: overrideDevices,
       note: overrideGroup.description,
       sections: overrideSections
     },
-    next
+    next: {
+      assignmentId: nextAssignment?.id || null,
+      date: nextAssignment?.date || fallbackNextDate,
+      nightLabel: nextAssignment?.nightLabel || "",
+      blockName: overrideGroup.name || (mode === "travel" ? "Travel Mode" : "Minimal Mode"),
+      deviceName: overrideDevices.join(" / "),
+      deviceNames: overrideDevices
+    }
   };
 }
 
-async function resolveNormalizedTonightPayload(env, today, cycle, mode) {
-  const todayAssignment = await resolveAssignmentsForDate(env, today, cycle.id);
-  if (!todayAssignment) {
+async function resolveOverridePayload(env, today, cycle, mode) {
+  let assignment = null;
+  let nextAssignment = null;
+
+  if (cycle.source === "normalized") {
+    const assignments = await resolveAssignmentsForCycle(env, cycle.id);
+    assignment = assignments.find((item) => item.date === today) || null;
+    if (assignment) {
+      const index = assignments.findIndex((item) => item.id === assignment.id);
+      nextAssignment = index >= 0 ? assignments[index + 1] || null : null;
+    }
+  }
+
+  return resolveOverridePayloadForAssignment(env, today, cycle, mode, assignment, nextAssignment);
+}
+
+async function resolveNormalizedPayloadForAssignment(env, today, cycle, mode, assignment, nextAssignment) {
+  if (!assignment) {
     throw new HttpError(404, "No nightly assignment found", {
       message: `No nightly assignment exists for ${today} in the normalized Skincare backend.`
     });
   }
 
   const pmBase = await resolveSingleStepGroupByType(env, "PM Base", true);
-  const { blockGroup, treatmentGroup } = await resolveAssignmentGroups(env, todayAssignment);
+  const { blockGroup, treatmentGroup } = await resolveAssignmentGroups(env, assignment);
 
   if (!blockGroup) {
     throw new HttpError(409, "Nightly assignment configuration error", {
-      message: `The nightly assignment for ${today} does not resolve to a Block step group.`
+      message: `The nightly assignment${assignment.date ? ` for ${assignment.date}` : ""} does not resolve to a Block step group.`
     });
   }
 
@@ -999,13 +1087,10 @@ async function resolveNormalizedTonightPayload(env, today, cycle, mode) {
     today,
     mode,
     cycle,
-    assignment: {
-      id: todayAssignment.id,
-      date: todayAssignment.date,
-      overridden: todayAssignment.overridden,
+    assignment: buildAssignmentMetadata(assignment, {
       blockId: blockGroup.id,
       treatmentId: treatmentGroup?.id || null
-    },
+    }),
     routine: {
       blockName: blockGroup.name,
       treatmentName: treatmentGroup?.name || null,
@@ -1013,8 +1098,18 @@ async function resolveNormalizedTonightPayload(env, today, cycle, mode) {
       note: blockGroup.description,
       sections
     },
-    next: await resolveNextFromNormalized(env, addDays(today, 1), cycle.id)
+    next: nextAssignment
+      ? await resolvePreviewFromAssignment(env, nextAssignment)
+      : await resolveNextFromNormalized(env, addDays(assignment.date || today, 1), cycle.id)
   };
+}
+
+async function resolveNormalizedTonightPayload(env, today, cycle, mode) {
+  const assignments = await resolveAssignmentsForCycle(env, cycle.id);
+  const todayAssignment = assignments.find((assignment) => assignment.date === today) || null;
+  const currentIndex = todayAssignment ? assignments.findIndex((assignment) => assignment.id === todayAssignment.id) : -1;
+  const nextAssignment = currentIndex >= 0 ? assignments[currentIndex + 1] || null : null;
+  return resolveNormalizedPayloadForAssignment(env, today, cycle, mode, todayAssignment, nextAssignment);
 }
 
 async function resolveLegacyTonightPayload(env, today, cycle, mode) {
@@ -1030,10 +1125,14 @@ async function resolveLegacyTonightPayload(env, today, cycle, mode) {
     mode,
     cycle,
     assignment: {
+      ...buildAssignmentMetadata(null, {
+        dayNumber: tonightRecord.day
+      }),
       id: tonightRecord.id,
       date: today,
-      overridden: false,
-      dayNumber: tonightRecord.day
+      nightLabel: tonightRecord.day ? `Day ${String(tonightRecord.day).padStart(2, "0")}` : "",
+      nightOrder: tonightRecord.day || null,
+      overridden: false
     },
     routine: {
       blockName: tonightRecord.blockName,
@@ -1080,6 +1179,59 @@ async function resolveTonightPayload(env) {
   }
 
   return resolveLegacyTonightPayload(env, today, cycle, mode);
+}
+
+async function resolveRoutineAssignmentPayload(env, assignmentId, requestedMode) {
+  if (!assignmentId) {
+    throw new HttpError(400, "Missing nightly assignment id", {
+      message: "A nightly assignment id is required to preview a selected night."
+    });
+  }
+
+  const today = dateStringInZone(new Date(), USER_TIME_ZONE);
+  const mode = normalizeMode(requestedMode || (await getMode(env)));
+  const cycle = await resolveActiveCycle(env, today);
+  const assignment = await resolveAssignmentById(env, assignmentId);
+  const assignments = await resolveAllAssignments(env);
+  const assignmentIndex = assignments.findIndex((item) => item.id === assignment.id);
+
+  if (assignmentIndex === -1) {
+    throw new HttpError(404, "Nightly assignment not found", {
+      message: "The selected nightly assignment could not be found in the Skincare plan."
+    });
+  }
+
+  const nextAssignment = assignments[assignmentIndex + 1] || null;
+
+  if (mode === "travel" || mode === "minimal") {
+    return {
+      ok: true,
+      ...(
+        await resolveOverridePayloadForAssignment(
+          env,
+          today,
+          cycle,
+          mode,
+          assignment,
+          nextAssignment
+        )
+      )
+    };
+  }
+
+  return {
+    ok: true,
+    ...(
+      await resolveNormalizedPayloadForAssignment(
+        env,
+        today,
+        cycle,
+        mode,
+        assignment,
+        nextAssignment
+      )
+    )
+  };
 }
 
 async function resolveActiveCycleFromLegacy(env, today) {
@@ -1184,6 +1336,18 @@ export default {
 
       if (request.method === "GET" && url.pathname === "/api/routine-plan") {
         return jsonResponse(await resolveRoutinePlanPayload(env), 200, origin);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/routine-assignment") {
+        return jsonResponse(
+          await resolveRoutineAssignmentPayload(
+            env,
+            url.searchParams.get("id"),
+            url.searchParams.get("mode")
+          ),
+          200,
+          origin
+        );
       }
 
       if (request.method === "GET" && url.pathname === "/api/yesterday") {

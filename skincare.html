@@ -238,6 +238,15 @@
       color: var(--ink);
     }
 
+    .view-context {
+      margin: 10px 0 0;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
     .routine-tag {
       display: inline-flex;
       align-items: center;
@@ -473,6 +482,12 @@
       position: relative;
     }
 
+    .action-button:disabled {
+      cursor: default;
+      opacity: 0.52;
+      transform: none;
+    }
+
     .action-button.featured {
       min-height: 74px;
       flex-direction: row;
@@ -563,6 +578,173 @@
       white-space: normal;
     }
 
+    .swap-shell {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .swap-shell[hidden] {
+      display: none;
+    }
+
+    .swap-backdrop {
+      position: absolute;
+      inset: 0;
+      border: 0;
+      background: rgba(61, 53, 53, 0.38);
+      backdrop-filter: blur(4px);
+      cursor: pointer;
+    }
+
+    .swap-panel {
+      position: relative;
+      width: min(100%, 460px);
+      max-height: min(78vh, 760px);
+      padding: 18px 16px 16px;
+      border-radius: 24px 24px 0 0;
+      background: rgba(255, 250, 246, 0.98);
+      box-shadow: 0 -18px 40px rgba(92, 68, 60, 0.16);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .swap-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .swap-eyebrow {
+      margin: 0;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted-soft);
+    }
+
+    .swap-close {
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 250, 246, 0.76);
+      color: var(--ink);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .swap-title {
+      margin: 0;
+      font-family: var(--script);
+      font-size: 2rem;
+      font-weight: 400;
+      line-height: 1;
+      color: var(--ink);
+    }
+
+    .swap-copy {
+      margin: -2px 0 2px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.55;
+    }
+
+    .swap-list {
+      overflow: auto;
+      display: grid;
+      gap: 10px;
+      padding-right: 2px;
+    }
+
+    .swap-item {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid rgba(115, 91, 84, 0.08);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 250, 246, 0.88), rgba(255, 250, 246, 0.98)),
+        rgba(243, 223, 216, 0.22);
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .swap-item.is-active {
+      border-color: rgba(181, 134, 130, 0.46);
+      background:
+        linear-gradient(180deg, rgba(255, 250, 246, 0.92), rgba(255, 250, 246, 1)),
+        rgba(233, 223, 214, 0.42);
+    }
+
+    .swap-item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .swap-item-night {
+      font-size: 0.88rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .swap-item-date {
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .swap-item-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: rgba(163, 181, 166, 0.18);
+      color: #607063;
+      font-size: 0.64rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      flex: 0 0 auto;
+    }
+
+    .swap-item-phase {
+      margin-top: 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted-soft);
+    }
+
+    .swap-item-groups,
+    .swap-item-steps {
+      margin-top: 6px;
+      font-size: 0.76rem;
+      line-height: 1.55;
+      color: var(--muted);
+    }
+
+    .swap-item-label {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
     .toast {
       position: fixed;
       left: 50%;
@@ -623,7 +805,7 @@
 <body>
   <main class="page">
     <nav class="topbar" aria-label="Page">
-      <a class="home-link" href="/">Home</a>
+      <a class="home-link" href="index.html">Home</a>
     </nav>
 
     <section>
@@ -648,6 +830,7 @@
 
       <section class="routine-title" aria-label="Tonight's steps">
         <h2 id="blockName">Retinol Block</h2>
+        <p class="view-context" id="viewContext" hidden></p>
         <span class="routine-tag" id="deviceBadge">LED Mask</span>
       </section>
 
@@ -690,6 +873,19 @@
       </button>
     </section>
   </main>
+
+  <div class="swap-shell" id="swapShell" hidden>
+    <button class="swap-backdrop" id="swapBackdrop" type="button" aria-label="Close swap chooser"></button>
+    <section class="swap-panel" role="dialog" aria-modal="true" aria-labelledby="swapTitle">
+      <div class="swap-head">
+        <p class="swap-eyebrow">Swap</p>
+        <button class="swap-close" id="swapClose" type="button">Close</button>
+      </div>
+      <h3 class="swap-title" id="swapTitle">Choose A Night</h3>
+      <p class="swap-copy">Select any night to preview its step groups and steps. Back and Forward will keep moving from that selected night.</p>
+      <div class="swap-list" id="swapList"></div>
+    </section>
+  </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -762,16 +958,58 @@
       }
     };
 
+    const FALLBACK_PLAN_ROWS = [
+      {
+        id: "fallback-83",
+        night: "Day 83",
+        nightOrder: 83,
+        date: "2026-04-23",
+        phase: "Pigment Correction",
+        stepGroups: ["HQ Brightening Support"],
+        steps: ["Omnilux LED Mask", "Hydroquonine 4%", "Snail Mucin Repairing Serum", "Cicaplast Balm B5", "ATOBARRIER365 Cream"],
+        intensityTier: 3,
+        isToday: true
+      },
+      {
+        id: "fallback-84",
+        night: "Day 84",
+        nightOrder: 84,
+        date: "2026-04-24",
+        phase: "Pigment Correction",
+        stepGroups: ["HQ Barrier Recovery"],
+        steps: ["Hydroquonine 4%", "Snail Mucin Repairing Serum", "Cicaplast Balm B5", "ATOBARRIER365 Cream"],
+        intensityTier: 3,
+        isToday: false
+      },
+      {
+        id: "fallback-85",
+        night: "Day 85",
+        nightOrder: 85,
+        date: "2026-04-25",
+        phase: "Controlled Resurfacing",
+        stepGroups: ["Mandelic Resurfacing"],
+        steps: ["Omnilux LED Mask", "Mandelic Acid 10% + HA"],
+        intensityTier: 4,
+        isToday: false
+      }
+    ];
+
     const icon = {
       coach: `
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 3l1.9 4.4L18 9.3l-4.1 1.9L12 16l-1.9-4.8L6 9.3l4.1-1.9z"></path>
         </svg>
       `,
-      skip: `
+      back: `
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 6v12"></path>
-          <path d="M10 8l8 4-8 4z"></path>
+          <path d="M11 6l-6 6 6 6"></path>
+          <path d="M6 12h13"></path>
+        </svg>
+      `,
+      forward: `
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M13 6l6 6-6 6"></path>
+          <path d="M5 12h13"></path>
         </svg>
       `,
       swap: `
@@ -780,12 +1018,6 @@
           <path d="M13 3l4 4-4 4"></path>
           <path d="M17 17H7"></path>
           <path d="M11 13l-4 4 4 4"></path>
-        </svg>
-      `,
-      add: `
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M12 5v14"></path>
-          <path d="M5 12h14"></path>
         </svg>
       `,
       products: `
@@ -813,17 +1045,7 @@
       `
     };
 
-    const FEATURED_ACTIONS = [
-      { label: "AI Coach", icon: icon.coach, color: "#ede3f2", message: "AI Coach is on deck once the MVP logging flow is in place." }
-    ];
-
-    const PRIMARY_ACTIONS = [
-      { label: "Skip", icon: icon.skip, color: "#f3dfd8", message: "Skip logging will be wired to the live Exceptions flow next." },
-      { label: "Swap", icon: icon.swap, color: "#f2eadb", message: "Swap logging will be wired to the live Exceptions flow next." },
-      { label: "Add", icon: icon.add, color: "#dce6dd", message: "Add logging will be wired to the live Exceptions flow next." }
-    ];
-
-    const SECONDARY_ACTIONS = [
+    const SECONDARY_ACTION_ITEMS = [
       { label: "Products", icon: icon.products, color: "#f2eadb", message: "Products view will connect to the new Skincare Products database." },
       { label: "Progress", icon: icon.progress, color: "#dce6dd", message: "Progress will connect to your logs and weekly reviews." },
       { label: "Treatments", icon: icon.treatments, color: "#f3dfd8", message: "Treatments will connect to your devices and treatment history." }
@@ -833,13 +1055,19 @@
       mode: "cycle",
       payload: FALLBACK_PAYLOAD,
       usingFallback: true,
-      syncingMode: false
+      syncingMode: false,
+      loadingSelection: false,
+      planRows: [...FALLBACK_PLAN_ROWS],
+      activeAssignmentId: "fallback-83",
+      todayAssignmentId: "fallback-83",
+      swapOpen: false
     };
 
     const cycleName = document.getElementById("cycleName");
     const cycleMeta = document.getElementById("cycleMeta");
     const progressFill = document.getElementById("progressFill");
     const blockName = document.getElementById("blockName");
+    const viewContext = document.getElementById("viewContext");
     const deviceBadge = document.getElementById("deviceBadge");
     const blockNote = document.getElementById("blockNote");
     const stepSections = document.getElementById("stepSections");
@@ -854,7 +1082,10 @@
     const statusPanel = document.getElementById("statusPanel");
     const nextBlockName = document.getElementById("nextBlockName");
     const nextDeviceName = document.getElementById("nextDeviceName");
-    const routineLink = document.getElementById("routineLink");
+    const swapShell = document.getElementById("swapShell");
+    const swapBackdrop = document.getElementById("swapBackdrop");
+    const swapClose = document.getElementById("swapClose");
+    const swapList = document.getElementById("swapList");
 
     let toastTimer = null;
 
@@ -877,6 +1108,19 @@
       statusPanel.textContent = "";
     }
 
+    function formatShortDate(dateString) {
+      if (!dateString) return "Date not set";
+
+      try {
+        return new Intl.DateTimeFormat("en-US", {
+          month: "short",
+          day: "numeric"
+        }).format(new Date(`${dateString}T00:00:00`));
+      } catch {
+        return dateString;
+      }
+    }
+
     function uniqueOrdered(values) {
       const seen = new Set();
       return values.filter((value) => {
@@ -884,6 +1128,22 @@
         seen.add(value);
         return true;
       });
+    }
+
+    function currentPlanRow() {
+      return state.planRows.find((row) => row.id === state.activeAssignmentId)
+        || state.planRows.find((row) => row.id === state.todayAssignmentId)
+        || state.planRows.find((row) => row.isToday)
+        || state.planRows[0]
+        || null;
+    }
+
+    function currentPlanIndex() {
+      return state.planRows.findIndex((row) => row.id === (currentPlanRow() && currentPlanRow().id));
+    }
+
+    function isPreviewing() {
+      return Boolean(state.activeAssignmentId && state.todayAssignmentId && state.activeAssignmentId !== state.todayAssignmentId);
     }
 
     function routineDeviceNames(routine) {
@@ -912,6 +1172,49 @@
       return next && next.blockName ? "No device" : "TBD";
     }
 
+    function updateQuickActionButtons() {
+      const currentIndex = currentPlanIndex();
+      const hasPlan = state.planRows.length > 0;
+
+      renderActions(featuredActions, [
+        {
+          label: "AI Coach",
+          icon: icon.coach,
+          color: "#ede3f2",
+          onClick: () => showToast("AI Coach is on deck once the MVP logging flow is in place.")
+        }
+      ], true);
+
+      renderActions(primaryActions, [
+        {
+          label: "Back",
+          icon: icon.back,
+          color: "#f3dfd8",
+          disabled: state.loadingSelection || !hasPlan || currentIndex <= 0,
+          onClick: showPreviousNight
+        },
+        {
+          label: "Forward",
+          icon: icon.forward,
+          color: "#dce6dd",
+          disabled: state.loadingSelection || !hasPlan || currentIndex < 0 || currentIndex >= state.planRows.length - 1,
+          onClick: showNextNight
+        },
+        {
+          label: "Swap",
+          icon: icon.swap,
+          color: "#f2eadb",
+          disabled: state.loadingSelection || !hasPlan,
+          onClick: openSwapChooser
+        }
+      ], false);
+
+      renderActions(secondaryActions, SECONDARY_ACTION_ITEMS.map((item) => ({
+        ...item,
+        onClick: () => showToast(item.message)
+      })), false);
+    }
+
     function renderActions(target, items, featured) {
       target.innerHTML = "";
       items.forEach((item) => {
@@ -919,11 +1222,21 @@
         button.type = "button";
         button.className = "action-button" + (featured ? " featured" : "");
         button.style.setProperty("--action-bg", item.color);
+        button.disabled = Boolean(item.disabled);
         button.innerHTML = `
           <span class="action-icon">${item.icon}</span>
           <span class="action-label">${item.label}</span>
         `;
-        button.addEventListener("click", () => showToast(item.message));
+        button.addEventListener("click", () => {
+          if (item.disabled) return;
+          if (typeof item.onClick === "function") {
+            item.onClick();
+            return;
+          }
+          if (item.message) {
+            showToast(item.message);
+          }
+        });
         target.appendChild(button);
       });
     }
@@ -943,6 +1256,36 @@
         });
         modeToggle.appendChild(button);
       });
+    }
+
+    function renderViewContext() {
+      const assignment = state.payload.assignment || {};
+      const row = currentPlanRow();
+      const label = assignment.nightLabel || (row && row.night) || "";
+      const phase = assignment.phase || (row && row.phase) || "";
+      const date = assignment.date || (row && row.date) || "";
+      const parts = [];
+
+      if (label) {
+        parts.push(isPreviewing() ? `Viewing ${label}` : `Tonight · ${label}`);
+      } else if (isPreviewing()) {
+        parts.push("Viewing selected night");
+      } else {
+        parts.push(`${MODE_LABELS[state.mode]} mode`);
+      }
+
+      if (phase) {
+        parts.push(phase);
+      }
+
+      if (date) {
+        parts.push(formatShortDate(date));
+      } else if (isPreviewing()) {
+        parts.push("Date not set");
+      }
+
+      viewContext.hidden = !parts.length;
+      viewContext.textContent = parts.join(" · ");
     }
 
     function renderSections() {
@@ -1011,16 +1354,100 @@
       logCard.disabled = false;
     }
 
+    function renderSwapList() {
+      swapList.innerHTML = "";
+
+      if (!state.planRows.length) {
+        const empty = document.createElement("p");
+        empty.className = "step-empty";
+        empty.textContent = "The 90-day routine list is not available yet.";
+        swapList.appendChild(empty);
+        return;
+      }
+
+      state.planRows.forEach((row) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "swap-item" + (row.id === state.activeAssignmentId ? " is-active" : "");
+
+        const top = document.createElement("div");
+        top.className = "swap-item-top";
+
+        const topCopy = document.createElement("div");
+        const night = document.createElement("div");
+        night.className = "swap-item-night";
+        night.textContent = row.night || "Night";
+        topCopy.appendChild(night);
+
+        const date = document.createElement("div");
+        date.className = "swap-item-date";
+        date.textContent = row.date ? formatShortDate(row.date) : "Date not set";
+        topCopy.appendChild(date);
+
+        top.appendChild(topCopy);
+
+        if (row.isToday) {
+          const badge = document.createElement("span");
+          badge.className = "swap-item-badge";
+          badge.textContent = "Today";
+          top.appendChild(badge);
+        }
+
+        button.appendChild(top);
+
+        if (row.phase) {
+          const phase = document.createElement("div");
+          phase.className = "swap-item-phase";
+          phase.textContent = row.phase;
+          button.appendChild(phase);
+        }
+
+        const groups = document.createElement("div");
+        groups.className = "swap-item-groups";
+        const groupsLabel = document.createElement("span");
+        groupsLabel.className = "swap-item-label";
+        groupsLabel.textContent = "Step Groups: ";
+        groups.appendChild(groupsLabel);
+        groups.append(document.createTextNode(row.stepGroups && row.stepGroups.length ? row.stepGroups.join(" / ") : "Not set"));
+        button.appendChild(groups);
+
+        const steps = document.createElement("div");
+        steps.className = "swap-item-steps";
+        const stepsLabel = document.createElement("span");
+        stepsLabel.className = "swap-item-label";
+        stepsLabel.textContent = "Steps: ";
+        steps.appendChild(stepsLabel);
+        steps.append(document.createTextNode(row.steps && row.steps.length ? row.steps.join(" · ") : "No steps listed yet"));
+        button.appendChild(steps);
+
+        button.addEventListener("click", async () => {
+          closeSwapChooser();
+          if (row.id === state.activeAssignmentId) return;
+          await loadAssignmentPreview(row.id, { message: `Viewing ${row.night || "selected night"}.` });
+        });
+
+        swapList.appendChild(button);
+      });
+    }
+
     function renderPayload() {
       const payload = state.payload;
       const cycle = payload.cycle || FALLBACK_PAYLOAD.cycle;
       const routine = payload.routine || FALLBACK_PAYLOAD.routine;
       const next = payload.next || FALLBACK_PAYLOAD.next;
       const currentDevices = routineDeviceNames(routine);
+      const row = currentPlanRow();
+      const totalRows = state.planRows.length;
+      const currentIndex = currentPlanIndex();
+      const progressValue = row && totalRows
+        ? Math.round((((row.nightOrder != null ? row.nightOrder : currentIndex + 1) || 1) / totalRows) * 100)
+        : (cycle.progressPercent || 0);
 
       cycleName.textContent = cycle.name || "Skincare Cycle";
-      cycleMeta.textContent = `Night ${cycle.nightNumber || 1} of ${cycle.totalNights || 90}`;
-      progressFill.style.width = `${cycle.progressPercent || 0}%`;
+      cycleMeta.textContent = row && totalRows
+        ? `${row.night || `Night ${currentIndex + 1}`} of ${totalRows}`
+        : `Night ${cycle.nightNumber || 1} of ${cycle.totalNights || 90}`;
+      progressFill.style.width = `${progressValue}%`;
 
       blockName.textContent = routine.blockName || "Tonight";
       if (currentDevices.length) {
@@ -1036,8 +1463,11 @@
       nextDeviceName.textContent = nextDeviceText(next);
 
       renderModes();
+      renderViewContext();
       renderSections();
       renderLogCard();
+      renderSwapList();
+      updateQuickActionButtons();
     }
 
     async function fetchJson(path, init) {
@@ -1068,11 +1498,37 @@
       return data;
     }
 
-    async function loadTonightData() {
+    async function loadRoutinePlan() {
+      try {
+        const data = await fetchJson("/api/routine-plan");
+        state.planRows = Array.isArray(data.rows) && data.rows.length ? data.rows : [...FALLBACK_PLAN_ROWS];
+      } catch (error) {
+        state.planRows = [...FALLBACK_PLAN_ROWS];
+      }
+
+      const todayRow = state.planRows.find((row) => row.isToday) || state.planRows[0] || null;
+      state.todayAssignmentId = state.payload.assignment && state.payload.assignment.id
+        ? state.payload.assignment.id
+        : (todayRow && todayRow.id) || state.todayAssignmentId;
+
+      if (!state.activeAssignmentId || !state.planRows.some((row) => row.id === state.activeAssignmentId)) {
+        state.activeAssignmentId = state.todayAssignmentId;
+      }
+
+      renderPayload();
+    }
+
+    async function loadTonightData(options = {}) {
+      const shouldRender = options.render !== false;
+
       try {
         const data = await fetchJson("/api/tonight");
         state.payload = data;
         state.mode = data.mode || state.mode;
+        if (data.assignment && data.assignment.id) {
+          state.todayAssignmentId = data.assignment.id;
+          state.activeAssignmentId = data.assignment.id;
+        }
         state.usingFallback = false;
         hideStatus();
       } catch (error) {
@@ -1081,16 +1537,76 @@
           mode: state.mode
         };
         state.usingFallback = true;
+        state.todayAssignmentId = FALLBACK_PLAN_ROWS[0].id;
+        state.activeAssignmentId = FALLBACK_PLAN_ROWS[0].id;
         showStatus(error.message);
       }
 
-      renderPayload();
+      if (shouldRender) {
+        renderPayload();
+      }
+    }
+
+    async function loadAssignmentPreview(assignmentId, options = {}) {
+      if (!assignmentId || state.loadingSelection) return;
+
+      state.loadingSelection = true;
+      updateQuickActionButtons();
+
+      try {
+        const data = await fetchJson(`/api/routine-assignment?id=${encodeURIComponent(assignmentId)}&mode=${encodeURIComponent(state.mode)}`);
+        state.payload = {
+          ...state.payload,
+          ...data,
+          cycle: state.payload.cycle,
+          yesterday: state.payload.yesterday
+        };
+        state.activeAssignmentId = data.assignment && data.assignment.id ? data.assignment.id : assignmentId;
+        renderPayload();
+
+        if (options.message) {
+          showToast(options.message);
+        }
+      } catch (error) {
+        showToast(error.message);
+      } finally {
+        state.loadingSelection = false;
+        updateQuickActionButtons();
+      }
+    }
+
+    function openSwapChooser() {
+      state.swapOpen = true;
+      swapShell.hidden = false;
+      renderSwapList();
+      swapClose.focus();
+    }
+
+    function closeSwapChooser() {
+      state.swapOpen = false;
+      swapShell.hidden = true;
+    }
+
+    function showPreviousNight() {
+      const currentIndex = currentPlanIndex();
+      if (currentIndex <= 0) return;
+      const previousRow = state.planRows[currentIndex - 1];
+      loadAssignmentPreview(previousRow.id, { message: `Viewing ${previousRow.night || "previous night"}.` });
+    }
+
+    function showNextNight() {
+      const currentIndex = currentPlanIndex();
+      if (currentIndex < 0 || currentIndex >= state.planRows.length - 1) return;
+      const nextRow = state.planRows[currentIndex + 1];
+      loadAssignmentPreview(nextRow.id, { message: `Viewing ${nextRow.night || "next night"}.` });
     }
 
     async function updateMode(nextMode) {
       const previousMode = state.mode;
+      const selectedAssignmentId = state.activeAssignmentId;
       state.mode = nextMode;
       state.syncingMode = true;
+      updateQuickActionButtons();
       renderModes();
 
       try {
@@ -1098,14 +1614,22 @@
           method: "PUT",
           body: JSON.stringify({ mode: nextMode })
         });
+        await loadTonightData({ render: false });
+
+        if (selectedAssignmentId && selectedAssignmentId !== state.todayAssignmentId) {
+          await loadAssignmentPreview(selectedAssignmentId);
+        } else {
+          renderPayload();
+        }
+
         showToast(`${MODE_LABELS[nextMode]} mode active.`);
-        await loadTonightData();
       } catch (error) {
         state.mode = previousMode;
         renderModes();
         showToast(error.message);
       } finally {
         state.syncingMode = false;
+        updateQuickActionButtons();
         renderModes();
       }
     }
@@ -1115,11 +1639,17 @@
       showToast("Yesterday editing will be unlocked once the log update flow is wired.");
     });
 
-    renderActions(featuredActions, FEATURED_ACTIONS, true);
-    renderActions(primaryActions, PRIMARY_ACTIONS, false);
-    renderActions(secondaryActions, SECONDARY_ACTIONS, false);
+    swapBackdrop.addEventListener("click", closeSwapChooser);
+    swapClose.addEventListener("click", closeSwapChooser);
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && state.swapOpen) {
+        closeSwapChooser();
+      }
+    });
+
     renderPayload();
-    loadTonightData();
+    loadTonightData().then(loadRoutinePlan);
   </script>
 </body>
 </html>
