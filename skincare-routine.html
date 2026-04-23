@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7efe8">
+  <meta name="description" content="View the active skincare cycle inside Wellness OS.">
+  <title>90 Day Routine | Wellness OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f7efe8;
+      --paper: #fffaf6;
+      --ink: #403534;
+      --muted: #8f7c78;
+      --muted-soft: #b8a7a1;
+      --line: rgba(115, 91, 84, 0.14);
+      --rose: #caaba6;
+      --rose-soft: #f3dfd8;
+      --sage: #a3b5a6;
+      --sage-soft: #dce6dd;
+      --wisteria: #c6abd1;
+      --wisteria-soft: #ede3f2;
+      --amber-soft: #f2eadb;
+      --shadow: 0 18px 38px rgba(104, 79, 71, 0.08);
+      --radius-lg: 28px;
+      --radius-md: 20px;
+      --radius-sm: 14px;
+      --sans: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --script: "Great Vibes", cursive;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, rgba(202, 171, 166, 0.2), transparent 34%),
+        linear-gradient(180deg, #fbf4ef 0%, var(--bg) 28%, #f4ece5 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      width: min(100%, 1160px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 14px 14px 28px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .nav-link {
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 250, 246, 0.66);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.84rem;
+      font-weight: 700;
+      backdrop-filter: blur(10px);
+      transition: transform 0.2s ease;
+    }
+
+    .nav-link:hover,
+    .nav-link:focus-visible {
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .hero,
+    .summary-card,
+    .table-card,
+    .status-panel {
+      border-radius: var(--radius-lg);
+      background: rgba(255, 250, 246, 0.9);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      overflow: hidden;
+    }
+
+    .hero img {
+      width: 100%;
+      aspect-ratio: 3.2 / 1;
+      object-fit: cover;
+      display: block;
+      background: #f3e7e0;
+    }
+
+    .hero-copy {
+      padding: 18px 18px 20px;
+      text-align: center;
+      background: linear-gradient(180deg, rgba(255, 250, 246, 0.96), rgba(255, 250, 246, 0.88));
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--rose-soft);
+      color: #7c6661;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero-copy h1 {
+      margin: 12px 0 0;
+      font-family: var(--script);
+      font-size: clamp(2.7rem, 8vw, 4rem);
+      font-weight: 400;
+      line-height: 0.95;
+    }
+
+    .hero-copy p {
+      margin: 12px auto 0;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 0.94rem;
+      line-height: 1.65;
+    }
+
+    .status-panel {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-left: 3px solid var(--rose);
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .status-panel[hidden] {
+      display: none;
+    }
+
+    .summary-card {
+      margin-top: 14px;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .summary-head {
+      display: grid;
+      gap: 8px;
+    }
+
+    .summary-title {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .summary-meta {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .summary-tile {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 250, 246, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    .summary-tile-label {
+      display: block;
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .summary-tile-value {
+      display: block;
+      margin-top: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .table-card {
+      margin-top: 14px;
+      padding: 16px;
+    }
+
+    .table-card-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .table-card-head h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .table-card-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .table-shell {
+      overflow-x: auto;
+      border-radius: 20px;
+      background: rgba(255, 250, 246, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    table {
+      width: 100%;
+      min-width: 860px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: 14px 12px;
+      background: rgba(255, 250, 246, 0.98);
+      border-bottom: 1px solid var(--line);
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    tbody td {
+      padding: 14px 12px;
+      border-bottom: 1px solid rgba(115, 91, 84, 0.08);
+      vertical-align: top;
+      font-size: 0.86rem;
+      line-height: 1.5;
+      background: transparent;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody tr.is-today td {
+      background: rgba(243, 223, 216, 0.46);
+    }
+
+    tbody tr.is-today td:first-child {
+      border-left: 3px solid var(--rose);
+      padding-left: 9px;
+    }
+
+    .night-cell {
+      display: grid;
+      gap: 8px;
+      min-width: 112px;
+    }
+
+    .today-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      width: fit-content;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: var(--rose);
+      color: #fffaf6;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .cell-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 180px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .chip.step-group {
+      background: var(--sage-soft);
+      color: #607361;
+    }
+
+    .chip.step {
+      background: rgba(255, 250, 246, 0.92);
+      color: var(--ink);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+    }
+
+    .chip.empty {
+      background: rgba(115, 91, 84, 0.08);
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .phase-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: var(--amber-soft);
+      color: #7e6a4b;
+      font-size: 0.76rem;
+      font-weight: 700;
+    }
+
+    .tier-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 38px;
+      min-height: 38px;
+      border-radius: 50%;
+      background: var(--wisteria-soft);
+      color: #735f7c;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    .empty-state {
+      padding: 28px 18px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    @media (min-width: 760px) {
+      .page {
+        padding: 18px 18px 38px;
+      }
+
+      .summary-card {
+        grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.85fr);
+        align-items: start;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="topbar" aria-label="Page">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="skincare.html">Back to Skincare</a>
+    </nav>
+
+    <section class="hero">
+      <img src="assets/todays-skincare-routine-banner.png" alt="Today's Skincare Routine">
+      <div class="hero-copy">
+        <span class="eyebrow">Cycle View</span>
+        <h1>90 Day Routine</h1>
+        <p>Nightly assignments from your Skincare database, ordered by date and grounded in the live cycle. Today&rsquo;s row stays highlighted so you always know where you are.</p>
+      </div>
+    </section>
+
+    <div class="status-panel" id="statusPanel" hidden></div>
+
+    <section class="summary-card" aria-label="Cycle summary">
+      <div class="summary-head">
+        <h2 class="summary-title" id="cycleName">Q2 2026</h2>
+        <div class="summary-meta" id="cycleRange">Apr 1, 2026 to Jun 29, 2026</div>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-tile">
+          <span class="summary-tile-label">Today</span>
+          <span class="summary-tile-value" id="todayValue">Apr 23</span>
+        </div>
+        <div class="summary-tile">
+          <span class="summary-tile-label">Rows</span>
+          <span class="summary-tile-value" id="rowCount">90 nights</span>
+        </div>
+        <div class="summary-tile">
+          <span class="summary-tile-label">Current Night</span>
+          <span class="summary-tile-value" id="currentNight">Night 34</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="table-card" aria-label="Routine schedule">
+      <div class="table-card-head">
+        <div>
+          <h2>Nightly Assignments</h2>
+          <p>The cycle table below stays in the same order as your live assignments page and highlights the current date.</p>
+        </div>
+      </div>
+      <div class="table-shell">
+        <table>
+          <thead>
+            <tr id="tableHead"></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div class="empty-state" id="emptyState" hidden>No routine rows are available for the active cycle yet.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const API_BASE = "https://skincare.eamiller1981.workers.dev";
+
+    const FALLBACK_PAYLOAD = {
+      today: "2026-04-23",
+      cycle: {
+        name: "Apr 2026",
+        startDate: "2026-04-23",
+        endDate: "2026-04-30",
+        totalNights: 8
+      },
+      columns: ["Night", "Date", "Phase", "Step Groups", "Steps", "Intensity Tier"],
+      rows: [
+        {
+          id: "night-1",
+          night: "Night 1",
+          date: "2026-04-23",
+          phase: "Pigment Correction",
+          stepGroups: ["HQ Brightening Support"],
+          steps: ["Omnilux LED Mask", "Hydroquonine 4%", "Snail Mucin Repairing Serum", "Cicaplast Balm B5", "ATOBARRIER365 Cream"],
+          intensityTier: 3,
+          isToday: true
+        },
+        {
+          id: "night-2",
+          night: "Night 2",
+          date: "2026-04-24",
+          phase: "Recovery",
+          stepGroups: ["HQ Barrier Recovery"],
+          steps: ["Snail Mucin Repairing Serum", "ATOBARRIER365 Cream"],
+          intensityTier: 2,
+          isToday: false
+        },
+        {
+          id: "night-3",
+          night: "Night 3",
+          date: "2026-04-25",
+          phase: "Controlled Resurfacing",
+          stepGroups: ["Dermaplane Recovery Resurfacing"],
+          steps: ["Dermaflash Luxe", "Cicaplast Balm B5", "ATOBARRIER365 Cream"],
+          intensityTier: 4,
+          isToday: false
+        }
+      ]
+    };
+
+    const state = {
+      payload: FALLBACK_PAYLOAD,
+      usingFallback: true
+    };
+
+    const statusPanel = document.getElementById("statusPanel");
+    const cycleName = document.getElementById("cycleName");
+    const cycleRange = document.getElementById("cycleRange");
+    const todayValue = document.getElementById("todayValue");
+    const rowCount = document.getElementById("rowCount");
+    const currentNight = document.getElementById("currentNight");
+    const tableHead = document.getElementById("tableHead");
+    const tableBody = document.getElementById("tableBody");
+    const emptyState = document.getElementById("emptyState");
+
+    function showStatus(message) {
+      statusPanel.hidden = false;
+      statusPanel.textContent = message;
+    }
+
+    function hideStatus() {
+      statusPanel.hidden = true;
+      statusPanel.textContent = "";
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function formatDate(value) {
+      if (!value) return "TBD";
+      const date = new Date(`${value}T00:00:00`);
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      }).format(date);
+    }
+
+    function renderChipList(values, className) {
+      if (!Array.isArray(values) || !values.length) {
+        return '<span class="chip empty">None</span>';
+      }
+
+      return values
+        .map((value) => `<span class="chip ${className}">${escapeHtml(value)}</span>`)
+        .join("");
+    }
+
+    function renderTableHead(columns) {
+      tableHead.innerHTML = columns
+        .map((column) => `<th scope="col">${escapeHtml(column)}</th>`)
+        .join("");
+    }
+
+    function renderRows(rows) {
+      tableBody.innerHTML = "";
+
+      if (!rows.length) {
+        emptyState.hidden = false;
+        return;
+      }
+
+      emptyState.hidden = true;
+
+      rows.forEach((row) => {
+        const tr = document.createElement("tr");
+        if (row.isToday) {
+          tr.className = "is-today";
+        }
+
+        tr.innerHTML = `
+          <td>
+            <div class="night-cell">
+              <span>${escapeHtml(row.night || "Night")}</span>
+              ${row.isToday ? '<span class="today-badge">Today</span>' : ""}
+            </div>
+          </td>
+          <td>${escapeHtml(formatDate(row.date))}</td>
+          <td><span class="phase-chip">${escapeHtml(row.phase || "Unassigned")}</span></td>
+          <td><div class="cell-stack">${renderChipList(row.stepGroups, "step-group")}</div></td>
+          <td><div class="cell-stack">${renderChipList(row.steps, "step")}</div></td>
+          <td>${row.intensityTier == null ? '<span class="chip empty">--</span>' : `<span class="tier-pill">${escapeHtml(row.intensityTier)}</span>`}</td>
+        `;
+
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function renderSummary(payload) {
+      const cycle = payload.cycle || FALLBACK_PAYLOAD.cycle;
+      const rows = payload.rows || [];
+      const todayRow = rows.find((row) => row.isToday) || rows[0] || null;
+
+      cycleName.textContent = cycle.name || "Skincare Cycle";
+      cycleRange.textContent = `${formatDate(cycle.startDate)} to ${formatDate(cycle.endDate)}`;
+      todayValue.textContent = formatDate(payload.today || FALLBACK_PAYLOAD.today);
+      rowCount.textContent = `${rows.length || 0} ${rows.length === 1 ? "night" : "nights"}`;
+      currentNight.textContent = todayRow ? todayRow.night : "Not scheduled";
+    }
+
+    function renderPayload() {
+      const payload = state.payload || FALLBACK_PAYLOAD;
+      renderTableHead(payload.columns || FALLBACK_PAYLOAD.columns);
+      renderSummary(payload);
+      renderRows(payload.rows || []);
+    }
+
+    async function fetchJson(path) {
+      const response = await fetch(`${API_BASE}${path}`, {
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      const text = await response.text();
+      let data = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok || data.ok === false) {
+        const message = data && data.details && data.details.message
+          ? data.details.message
+          : data.error || "Unable to reach the Skincare API right now.";
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+    async function loadRoutinePlan() {
+      try {
+        state.payload = await fetchJson("/api/routine-plan");
+        state.usingFallback = false;
+        hideStatus();
+      } catch (error) {
+        state.payload = FALLBACK_PAYLOAD;
+        state.usingFallback = true;
+        showStatus(error.message);
+      }
+
+      renderPayload();
+    }
+
+    renderPayload();
+    loadRoutinePlan();
+  </script>
+</body>
+</html>

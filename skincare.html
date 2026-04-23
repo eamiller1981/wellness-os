@@ -671,7 +671,7 @@
             <span class="next-card-name" id="nextDeviceName">Dermaflash</span>
           </div>
         </div>
-        <a class="next-link" href="#" id="routineLink">View 90 Day Routine</a>
+        <a class="next-link" href="skincare-routine.html" id="routineLink">View 90 Day Routine</a>
       </section>
 
       <section class="actions" aria-label="Quick actions">
@@ -1113,11 +1113,6 @@
     logCard.addEventListener("click", () => {
       if (logCard.disabled) return;
       showToast("Yesterday editing will be unlocked once the log update flow is wired.");
-    });
-
-    routineLink.addEventListener("click", (event) => {
-      event.preventDefault();
-      showToast("The 90 Day Routine link will be connected once you send the target URL.");
     });
 
     renderActions(featuredActions, FEATURED_ACTIONS, true);

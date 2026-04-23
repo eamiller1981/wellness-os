@@ -313,6 +313,16 @@ async function resolveStepGroupPage(env, pageId) {
   return buildStepGroupRecord(page);
 }
 
+async function resolveStepGroupPageCached(env, pageId, cache) {
+  if (cache.has(pageId)) {
+    return cache.get(pageId);
+  }
+
+  const group = await resolveStepGroupPage(env, pageId);
+  cache.set(pageId, group);
+  return group;
+}
+
 function normalizeDevicePlacement(value) {
   return String(value || "").trim().toLowerCase() === "after steps" ? "after" : "before";
 }
@@ -382,6 +392,16 @@ async function resolveStepsForGroup(env, stepGroupId, productCache) {
     });
   }
 
+  return steps;
+}
+
+async function resolveStepsForGroupCached(env, stepGroupId, productCache, stepCache) {
+  if (stepCache.has(stepGroupId)) {
+    return stepCache.get(stepGroupId);
+  }
+
+  const steps = await resolveStepsForGroup(env, stepGroupId, productCache);
+  stepCache.set(stepGroupId, steps);
   return steps;
 }
 
@@ -489,6 +509,27 @@ function buildDisplaySections(rawSections) {
   }
 
   return sections;
+}
+
+function orderRoutineStepsForDisplay(steps) {
+  const beforeDeviceSteps = [];
+  const routineSteps = [];
+  const afterDeviceSteps = [];
+
+  for (const step of steps) {
+    if (!isDeviceStep(step)) {
+      routineSteps.push(step);
+      continue;
+    }
+
+    if (normalizeDevicePlacement(step.devicePlacement) === "after") {
+      afterDeviceSteps.push(step);
+    } else {
+      beforeDeviceSteps.push(step);
+    }
+  }
+
+  return [...beforeDeviceSteps, ...routineSteps, ...afterDeviceSteps];
 }
 
 async function resolveAssignmentsForDate(env, dateString, cycleId) {
@@ -803,6 +844,77 @@ async function resolveNextFromNormalized(env, dateString, cycleId) {
   };
 }
 
+async function resolveRoutineRowsForCycle(env, cycle, today) {
+  const data = await notionQueryDatabase(env, env.NIGHTLY_ASSIGNMENTS_DB_ID, {
+    page_size: 200,
+    filter: {
+      property: "Cycle",
+      relation: {
+        contains: cycle.id
+      }
+    },
+    sorts: [
+      {
+        property: "Date",
+        direction: "ascending"
+      }
+    ]
+  });
+
+  const productCache = new Map();
+  const stepGroupCache = new Map();
+  const stepCache = new Map();
+  const rows = [];
+
+  for (const page of data.results || []) {
+    const props = page.properties || {};
+    const stepGroupIds = relationIds(props["Step Groups"]);
+    const stepGroups = [];
+    const flattenedSteps = [];
+
+    for (const stepGroupId of stepGroupIds) {
+      const group = await resolveStepGroupPageCached(env, stepGroupId, stepGroupCache);
+      stepGroups.push(group);
+      const groupSteps = await resolveStepsForGroupCached(env, stepGroupId, productCache, stepCache);
+      flattenedSteps.push(...groupSteps);
+    }
+
+    const orderedSteps = orderRoutineStepsForDisplay(flattenedSteps);
+
+    rows.push({
+      id: page.id,
+      night: firstRichTextValue(props.Night) || "",
+      date: dateValue(props.Date),
+      phase: firstRichTextValue(props.Phase) || "",
+      stepGroups: stepGroups.map((group) => group.name).filter(Boolean),
+      steps: orderedSteps.map((step) => step.product).filter(Boolean),
+      intensityTier: numberValue(props["Intensity Tier"]),
+      isToday: dateValue(props.Date) === today
+    });
+  }
+
+  return rows;
+}
+
+async function resolveRoutinePlanPayload(env) {
+  const today = dateStringInZone(new Date(), USER_TIME_ZONE);
+  const cycle = await resolveActiveCycle(env, today);
+
+  if (cycle.source !== "normalized") {
+    throw new HttpError(409, "Routine plan unavailable", {
+      message: "The 90 day routine view is available once the active cycle is using the normalized Nightly Assignments database."
+    });
+  }
+
+  return {
+    ok: true,
+    today,
+    cycle,
+    columns: ["Night", "Date", "Phase", "Step Groups", "Steps", "Intensity Tier"],
+    rows: await resolveRoutineRowsForCycle(env, cycle, today)
+  };
+}
+
 async function resolveNextFromLegacy(env, dayNumber, dateString) {
   const nextRecord = await resolveLegacyRoutineDay(env, dayNumber);
   return {
@@ -1068,6 +1180,10 @@ export default {
 
       if (request.method === "GET" && url.pathname === "/api/tonight") {
         return jsonResponse(await handleTonight(env), 200, origin);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/routine-plan") {
+        return jsonResponse(await resolveRoutinePlanPayload(env), 200, origin);
       }
 
       if (request.method === "GET" && url.pathname === "/api/yesterday") {
