@@ -1,5 +1,12 @@
 const DEFAULT_NOTION_ORIGIN = "https://eamiller1981.github.io";
 const USER_TIME_ZONE = "America/New_York";
+const NOTION_UPLOAD_VERSION = "2026-03-11";
+const MAX_PROGRESS_FILE_BYTES = 20 * 1024 * 1024;
+const PROGRESS_FILE_FIELDS = {
+  front: "Face Front",
+  left: "Face Left",
+  right: "Face Right"
+};
 
 const MODE_VALUES = new Set(["cycle", "travel", "minimal"]);
 const ALLOWED_ORIGINS = new Set([
@@ -65,6 +72,13 @@ function addDays(dateString, deltaDays) {
   return dateStringInZone(utcDate, "UTC");
 }
 
+function addMonths(dateString, deltaMonths) {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const utcDate = new Date(Date.UTC(year, month - 1, day));
+  utcDate.setUTCMonth(utcDate.getUTCMonth() + deltaMonths);
+  return dateStringInZone(utcDate, "UTC");
+}
+
 function compareDateStrings(left, right) {
   return left.localeCompare(right);
 }
@@ -127,6 +141,26 @@ function urlValue(prop) {
   return "";
 }
 
+function fileItems(prop) {
+  if (!prop || prop.type !== "files") return [];
+
+  return (prop.files || [])
+    .map((file) => {
+      const url = file.type === "file"
+        ? file.file?.url || ""
+        : file.type === "external"
+          ? file.external?.url || ""
+          : "";
+
+      return {
+        name: file.name || "",
+        url,
+        type: file.type || ""
+      };
+    })
+    .filter((file) => file.url);
+}
+
 function checkboxValue(prop) {
   return Boolean(prop && prop.type === "checkbox" && prop.checkbox);
 }
@@ -165,32 +199,44 @@ function integrationShareMessage(details) {
   };
 }
 
-async function notionFetch(env, path, init) {
+async function notionRequest(env, path, init = {}) {
+  const headers = new Headers(init.headers || {});
+  headers.set("Origin", env.UPSTREAM_ORIGIN || DEFAULT_NOTION_ORIGIN);
+
+  let body = init.body;
+  if (init.json !== undefined) {
+    headers.set("Content-Type", "application/json");
+    body = JSON.stringify(init.json);
+  }
+
   const upstreamRequest = new Request(`https://notion-proxy/notion${path}`, {
-    method: init?.method || "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Origin: env.UPSTREAM_ORIGIN || DEFAULT_NOTION_ORIGIN
-    },
-    body: init?.body ? JSON.stringify(init.body) : undefined
+    method: init.method || "GET",
+    headers,
+    body
   });
 
   const response = env.NOTION_PROXY?.fetch
     ? await env.NOTION_PROXY.fetch(upstreamRequest)
     : await fetch(`${env.UPSTREAM_NOTION_URL}${path}`, {
-        method: init?.method || "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: env.UPSTREAM_ORIGIN || DEFAULT_NOTION_ORIGIN
-        },
-        body: init?.body ? JSON.stringify(init.body) : undefined
+        method: init.method || "GET",
+        headers,
+        body
       });
 
-  const data = parseJson(await response.text());
+  const text = await response.text();
+  const data = parseJson(text);
   if (!response.ok || data?.object === "error") {
     throw new HttpError(response.status || data?.status || 500, "Upstream Notion request failed", integrationShareMessage(data));
   }
 
+  return { response, data, text };
+}
+
+async function notionFetch(env, path, init) {
+  const { data } = await notionRequest(env, path, {
+    method: init?.method,
+    json: init?.body
+  });
   return data;
 }
 
@@ -1222,6 +1268,310 @@ async function resolveProductsPayload(env) {
   };
 }
 
+function buildProgressTitle(dateString) {
+  return `${dateString} Progress Photos`;
+}
+
+function normalizeImageExtension(file) {
+  const originalName = String(file?.name || "");
+  const directMatch = originalName.match(/(\.[a-z0-9]+)$/i);
+  if (directMatch) return directMatch[1].toLowerCase();
+
+  const type = String(file?.type || "").toLowerCase();
+  if (type === "image/jpeg") return ".jpg";
+  if (type === "image/png") return ".png";
+  if (type === "image/heic") return ".heic";
+  if (type === "image/heif") return ".heif";
+  if (type === "image/webp") return ".webp";
+
+  return ".jpg";
+}
+
+function buildProgressFilename(position, dateString, file) {
+  return `${dateString}-${position}${normalizeImageExtension(file)}`;
+}
+
+function serializeProgressImage(file) {
+  if (!file?.url) return null;
+  return {
+    name: file.name || "",
+    url: file.url
+  };
+}
+
+function buildProgressRecord(page) {
+  const props = page.properties || {};
+  return {
+    id: page.id,
+    title: firstRichTextValue(props.Review) || "",
+    date: dateValue(props.Date),
+    front: serializeProgressImage(fileItems(props[PROGRESS_FILE_FIELDS.front])[0] || null),
+    left: serializeProgressImage(fileItems(props[PROGRESS_FILE_FIELDS.left])[0] || null),
+    right: serializeProgressImage(fileItems(props[PROGRESS_FILE_FIELDS.right])[0] || null)
+  };
+}
+
+function hasProgressSet(record) {
+  return Boolean(record?.front?.url && record?.left?.url && record?.right?.url);
+}
+
+function sanitizeProgressRecord(record) {
+  if (!record || !hasProgressSet(record)) return null;
+  return {
+    id: record.id,
+    title: record.title || buildProgressTitle(record.date),
+    date: record.date,
+    front: record.front,
+    left: record.left,
+    right: record.right
+  };
+}
+
+function selectMonthAgoRecord(records, thresholdDate, excludeIds = new Set()) {
+  for (const record of records) {
+    if (!hasProgressSet(record)) continue;
+    if (excludeIds.has(record.id)) continue;
+    if (!record.date) continue;
+    if (compareDateStrings(record.date, thresholdDate) <= 0) {
+      return record;
+    }
+  }
+
+  return null;
+}
+
+async function resolveProgressPayload(env) {
+  const today = dateStringInZone(new Date(), USER_TIME_ZONE);
+  const thresholdDate = addMonths(today, -1);
+  const pages = await notionQueryDatabaseAll(env, env.WEEKLY_REVIEWS_DB_ID, {
+    page_size: 100,
+    sorts: [
+      {
+        property: "Date",
+        direction: "descending"
+      }
+    ]
+  });
+
+  const records = pages
+    .map(buildProgressRecord)
+    .filter((record) => record.date)
+    .sort((left, right) => compareDateStrings(right.date, left.date));
+
+  const completeRecords = records.filter(hasProgressSet);
+  const todayRecord = completeRecords.find((record) => record.date === today) || null;
+  const lastRecord = todayRecord
+    ? completeRecords.find((record) => compareDateStrings(record.date, today) < 0) || null
+    : completeRecords[0] || null;
+
+  const excludedIds = new Set(
+    [todayRecord?.id, lastRecord?.id].filter(Boolean)
+  );
+
+  const monthAgoRecord = selectMonthAgoRecord(completeRecords, thresholdDate, excludedIds);
+
+  return {
+    ok: true,
+    today,
+    historyCount: completeRecords.length,
+    comparisons: {
+      today: sanitizeProgressRecord(todayRecord),
+      last: sanitizeProgressRecord(lastRecord),
+      monthAgo: sanitizeProgressRecord(monthAgoRecord)
+    }
+  };
+}
+
+async function findWeeklyReviewForDate(env, dateString) {
+  const data = await notionQueryDatabase(env, env.WEEKLY_REVIEWS_DB_ID, {
+    page_size: 5,
+    filter: {
+      property: "Date",
+      date: {
+        equals: dateString
+      }
+    }
+  });
+
+  const pages = data.results || [];
+  if (pages.length > 1) {
+    throw new HttpError(409, "Weekly review configuration error", {
+      message: `Expected at most one Weekly Reviews row for ${dateString}, found ${pages.length}.`
+    });
+  }
+
+  return pages[0] || null;
+}
+
+async function createWeeklyReviewForDate(env, dateString) {
+  const page = await notionFetch(env, "/pages", {
+    method: "POST",
+    body: {
+      parent: {
+        database_id: env.WEEKLY_REVIEWS_DB_ID
+      },
+      properties: {
+        Review: {
+          title: [
+            {
+              type: "text",
+              text: {
+                content: buildProgressTitle(dateString)
+              }
+            }
+          ]
+        },
+        Date: {
+          date: {
+            start: dateString
+          }
+        }
+      }
+    }
+  });
+
+  return page;
+}
+
+async function uploadNotionFile(env, file, filename) {
+  const createUpload = await notionRequest(env, "/file_uploads", {
+    method: "POST",
+    headers: {
+      "Notion-Version": NOTION_UPLOAD_VERSION
+    },
+    json: {
+      mode: "single_part",
+      filename,
+      content_type: file.type || undefined
+    }
+  });
+
+  const fileUploadId = createUpload.data?.id;
+  if (!fileUploadId) {
+    throw new HttpError(500, "Notion upload failed", {
+      message: "Notion did not return a file upload id."
+    });
+  }
+
+  const form = new FormData();
+  form.append("file", file, filename);
+
+  const sendUpload = await notionRequest(env, `/file_uploads/${fileUploadId}/send`, {
+    method: "POST",
+    headers: {
+      "Notion-Version": NOTION_UPLOAD_VERSION
+    },
+    body: form
+  });
+
+  if (sendUpload.data?.status !== "uploaded") {
+    throw new HttpError(500, "Notion upload failed", {
+      message: "Notion did not confirm the uploaded image.",
+      upload: sendUpload.data
+    });
+  }
+
+  return fileUploadId;
+}
+
+async function saveProgressCapture(env, filesByPosition) {
+  const today = dateStringInZone(new Date(), USER_TIME_ZONE);
+  const existingPage = await findWeeklyReviewForDate(env, today);
+  const page = existingPage || await createWeeklyReviewForDate(env, today);
+
+  const uploadedFiles = {};
+  for (const [position, file] of Object.entries(filesByPosition)) {
+    const filename = buildProgressFilename(position, today, file);
+    uploadedFiles[position] = {
+      id: await uploadNotionFile(env, file, filename),
+      filename
+    };
+  }
+
+  const properties = {};
+  for (const [position, fieldName] of Object.entries(PROGRESS_FILE_FIELDS)) {
+    const uploaded = uploadedFiles[position];
+    properties[fieldName] = {
+      files: [
+        {
+          type: "file_upload",
+          file_upload: {
+            id: uploaded.id
+          },
+          name: uploaded.filename
+        }
+      ]
+    };
+  }
+
+  await notionRequest(env, `/pages/${page.id}`, {
+    method: "PATCH",
+    headers: {
+      "Notion-Version": NOTION_UPLOAD_VERSION
+    },
+    json: {
+      properties
+    }
+  });
+
+  return {
+    ok: true,
+    savedDate: today,
+    pageId: page.id,
+    ...(await resolveProgressPayload(env))
+  };
+}
+
+function isFileLike(value) {
+  return value && typeof value === "object" && typeof value.arrayBuffer === "function";
+}
+
+async function readProgressUpload(request) {
+  const contentType = request.headers.get("Content-Type") || "";
+  if (!contentType.toLowerCase().includes("multipart/form-data")) {
+    throw new HttpError(400, "Invalid progress upload", {
+      message: "Progress uploads must be sent as multipart form data."
+    });
+  }
+
+  let form;
+  try {
+    form = await request.formData();
+  } catch (error) {
+    throw new HttpError(400, "Invalid progress upload", {
+      message: error.message || "The upload body could not be read as form data."
+    });
+  }
+
+  const files = {
+    front: form.get("front"),
+    left: form.get("left"),
+    right: form.get("right")
+  };
+
+  for (const [position, file] of Object.entries(files)) {
+    if (!isFileLike(file) || !file.size) {
+      throw new HttpError(400, "Missing progress photo", {
+        message: `A ${position} photo is required to save a progress set.`
+      });
+    }
+
+    if (!String(file.type || "").toLowerCase().startsWith("image/")) {
+      throw new HttpError(400, "Invalid progress photo", {
+        message: `The ${position} upload must be an image file.`
+      });
+    }
+
+    if (file.size > MAX_PROGRESS_FILE_BYTES) {
+      throw new HttpError(400, "Progress photo too large", {
+        message: `The ${position} photo exceeds Notion's 20 MB direct-upload limit.`
+      });
+    }
+  }
+
+  return files;
+}
+
 async function resolveOverridePayloadForAssignment(env, today, cycle, mode, assignment, nextAssignment) {
   const overrideGroupType = mode === "travel" ? "PM Travel" : "PM Minimal";
   const overrideGroup = await resolveSingleStepGroupByType(env, overrideGroupType, false);
@@ -1720,6 +2070,14 @@ export default {
 
       if (request.method === "GET" && url.pathname === "/api/products") {
         return jsonResponse(await resolveProductsPayload(env), 200, origin);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/progress") {
+        return jsonResponse(await resolveProgressPayload(env), 200, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/progress-upload") {
+        return jsonResponse(await saveProgressCapture(env, await readProgressUpload(request)), 200, origin);
       }
 
       if (request.method === "POST" && ["/api/exception", "/api/note", "/api/weekly-review", "/api/incident"].includes(url.pathname)) {

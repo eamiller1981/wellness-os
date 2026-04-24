@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7efe8">
+  <meta name="description" content="Capture and compare skincare progress photos inside Wellness OS.">
+  <title>Progress | Wellness OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f7efe8;
+      --paper: #fffaf6;
+      --paper-strong: rgba(255, 250, 246, 0.94);
+      --ink: #403534;
+      --muted: #8f7c78;
+      --muted-soft: #b8a7a1;
+      --line: rgba(115, 91, 84, 0.14);
+      --rose: #caaba6;
+      --rose-soft: #f3dfd8;
+      --sage: #a3b5a6;
+      --sage-soft: #dce6dd;
+      --wisteria: #c6abd1;
+      --wisteria-soft: #ede3f2;
+      --amber-soft: #f2eadb;
+      --shadow: 0 18px 38px rgba(104, 79, 71, 0.08);
+      --radius-lg: 30px;
+      --radius-md: 20px;
+      --radius-sm: 14px;
+      --sans: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --script: "Great Vibes", cursive;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, rgba(202, 171, 166, 0.22), transparent 34%),
+        linear-gradient(180deg, #fbf4ef 0%, var(--bg) 28%, #f4ece5 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    a,
+    button,
+    input {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .page {
+      width: min(100%, 1180px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 14px 14px 34px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .nav-link,
+    .upload-button,
+    .capture-button {
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .nav-link {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 246, 0.66);
+      font-size: 0.84rem;
+      font-weight: 700;
+      backdrop-filter: blur(10px);
+    }
+
+    .nav-link:hover,
+    .nav-link:focus-visible,
+    .upload-button:hover,
+    .upload-button:focus-visible,
+    .capture-button:hover,
+    .capture-button:focus-visible {
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .hero,
+    .status-panel,
+    .capture-shell,
+    .summary-shell,
+    .timeline-shell {
+      border-radius: var(--radius-lg);
+      background: var(--paper-strong);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 22px 18px 18px;
+      background:
+        radial-gradient(circle at 88% 16%, rgba(198, 171, 209, 0.5), transparent 26%),
+        radial-gradient(circle at 18% 82%, rgba(163, 181, 166, 0.24), transparent 28%),
+        linear-gradient(180deg, rgba(255, 250, 246, 0.96), rgba(255, 250, 246, 0.88));
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+    .hero::before {
+      width: 168px;
+      height: 168px;
+      right: -18px;
+      top: -52px;
+      background: rgba(243, 223, 216, 0.72);
+    }
+
+    .hero::after {
+      width: 118px;
+      height: 118px;
+      left: -18px;
+      bottom: -26px;
+      background: rgba(220, 230, 221, 0.72);
+    }
+
+    .hero-copy,
+    .hero-metrics {
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--rose-soft);
+      color: #7c6661;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      margin: 14px 0 0;
+      font-family: var(--script);
+      font-size: clamp(3rem, 10vw, 4.8rem);
+      font-weight: 400;
+      line-height: 0.95;
+      color: #8f7570;
+    }
+
+    .hero p {
+      margin: 12px 0 0;
+      max-width: 640px;
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.65;
+    }
+
+    .hero-note {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .metric {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 250, 246, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    .metric-label {
+      display: block;
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      display: block;
+      margin-top: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .status-panel {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-left: 3px solid var(--rose);
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .status-panel[hidden] {
+      display: none;
+    }
+
+    .layout {
+      display: grid;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .capture-shell,
+    .summary-shell,
+    .timeline-shell {
+      padding: 18px 16px;
+    }
+
+    .section-head {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      background: var(--wisteria-soft);
+      color: #715b79;
+    }
+
+    .capture-shell .section-kicker {
+      background: var(--amber-soft);
+      color: #7a684a;
+    }
+
+    .summary-shell .section-kicker {
+      background: var(--sage-soft);
+      color: #637664;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 1.08rem;
+      font-weight: 700;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .capture-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .capture-card {
+      padding: 12px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 250, 246, 0.74);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    .capture-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .capture-card-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    .capture-card-meta {
+      color: var(--muted-soft);
+      font-size: 0.76rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .capture-preview {
+      position: relative;
+      aspect-ratio: 4 / 5;
+      overflow: hidden;
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at top, rgba(202, 171, 166, 0.18), transparent 40%),
+        linear-gradient(180deg, rgba(255, 250, 246, 0.94), rgba(243, 223, 216, 0.46));
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+      display: grid;
+      place-items: center;
+    }
+
+    .capture-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .capture-placeholder {
+      width: calc(100% - 34px);
+      height: calc(100% - 34px);
+      border-radius: 18px;
+      border: 1px dashed rgba(115, 91, 84, 0.18);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.6;
+      text-align: center;
+      padding: 16px;
+    }
+
+    .capture-button {
+      margin-top: 12px;
+      width: 100%;
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 0.84rem;
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+    }
+
+    .capture-input {
+      display: none;
+    }
+
+    .capture-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .capture-date {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .upload-button {
+      background: linear-gradient(135deg, #b3928c, #c6abd1);
+      color: #fffaf6;
+      font-size: 0.86rem;
+      font-weight: 700;
+      box-shadow: 0 14px 28px rgba(104, 79, 71, 0.14);
+    }
+
+    .upload-button:disabled {
+      cursor: default;
+      opacity: 0.5;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .summary-tile {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 250, 246, 0.74);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    .summary-tile-label {
+      display: block;
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .summary-tile-value {
+      display: block;
+      margin-top: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .timeline-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .comparison-card {
+      padding: 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 250, 246, 0.74);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    .comparison-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .comparison-label {
+      font-size: 0.96rem;
+      font-weight: 700;
+    }
+
+    .comparison-date {
+      color: var(--muted);
+      font-size: 0.8rem;
+      white-space: nowrap;
+    }
+
+    .comparison-photos {
+      display: grid;
+      gap: 10px;
+    }
+
+    .photo-tile {
+      display: grid;
+      gap: 8px;
+    }
+
+    .photo-label {
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .photo-frame {
+      overflow: hidden;
+      aspect-ratio: 4 / 5;
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at top, rgba(202, 171, 166, 0.18), transparent 40%),
+        linear-gradient(180deg, rgba(255, 250, 246, 0.94), rgba(243, 223, 216, 0.46));
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+      display: grid;
+      place-items: center;
+    }
+
+    .photo-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .photo-empty {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+      text-align: center;
+      padding: 16px;
+    }
+
+    .empty-copy {
+      padding: 18px 0 4px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translate(-50%, 20px);
+      min-width: 210px;
+      max-width: calc(100vw - 28px);
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(64, 53, 52, 0.94);
+      color: #fffaf6;
+      font-size: 0.82rem;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      box-shadow: 0 18px 30px rgba(64, 53, 52, 0.2);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    @media (min-width: 760px) {
+      .page {
+        padding: 18px 18px 40px;
+      }
+
+      .hero {
+        padding: 26px 24px 22px;
+      }
+
+      .hero-metrics,
+      .summary-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .layout {
+        grid-template-columns: minmax(0, 0.98fr) minmax(320px, 0.82fr);
+        align-items: start;
+      }
+
+      .timeline-shell {
+        grid-column: 1 / -1;
+      }
+
+      .capture-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .timeline-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="topbar" aria-label="Page">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="skincare.html">Back to Skincare</a>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">Photo Tracking</span>
+        <h1>Progress</h1>
+        <p>Capture a clean three-angle set, save it with today&rsquo;s date, and compare how your skin is shifting over time without leaving the app.</p>
+        <div class="hero-note">Each upload is date-tagged automatically and stored in your <strong>Weekly Reviews</strong> database using the face-photo fields already in your Notion backend.</div>
+      </div>
+      <div class="hero-metrics" aria-label="Progress summary">
+        <div class="metric">
+          <span class="metric-label">Today</span>
+          <span class="metric-value" id="todayStatus">No set yet</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Latest Saved</span>
+          <span class="metric-value" id="latestStatus">None yet</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">History</span>
+          <span class="metric-value" id="historyCount">0 sets</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Month View</span>
+          <span class="metric-value" id="monthStatus">Waiting</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="status-panel" id="statusPanel" hidden></div>
+
+    <div class="layout">
+      <section class="capture-shell" aria-labelledby="captureHeading">
+        <div class="section-head">
+          <span class="section-kicker">Capture</span>
+          <h2 id="captureHeading">Take today&rsquo;s front, left, and right photos</h2>
+          <p>On mobile, each capture button opens the camera. On desktop, it opens your file picker. Once all three are selected, upload saves the set with today&rsquo;s date.</p>
+        </div>
+
+        <div class="capture-grid" id="captureGrid"></div>
+
+        <div class="capture-actions">
+          <div class="capture-date" id="captureDate">This set will be saved as today.</div>
+          <button type="button" class="upload-button" id="uploadButton" disabled>Upload Today&rsquo;s Set</button>
+        </div>
+      </section>
+
+      <section class="summary-shell" aria-labelledby="summaryHeading">
+        <div class="section-head">
+          <span class="section-kicker">Snapshot</span>
+          <h2 id="summaryHeading">What the comparison view is showing</h2>
+          <p>This panel updates after every successful upload so you can tell at a glance whether today, the last set, and the one-month view are all available.</p>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-tile">
+            <span class="summary-tile-label">Today</span>
+            <span class="summary-tile-value" id="summaryToday">Waiting for capture</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-tile-label">Last Set</span>
+            <span class="summary-tile-value" id="summaryLast">Not available yet</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-tile-label">One Month Ago</span>
+            <span class="summary-tile-value" id="summaryMonth">Not available yet</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-tile-label">Stored In</span>
+            <span class="summary-tile-value">Weekly Reviews</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="timeline-shell" aria-labelledby="timelineHeading">
+        <div class="section-head">
+          <span class="section-kicker">Comparison</span>
+          <h2 id="timelineHeading">Photo sets over time</h2>
+          <p>Today and the most recent prior set appear as soon as they exist. The one-month view stays hidden until there is an older dated set to compare against.</p>
+        </div>
+        <div class="timeline-grid" id="timelineGrid"></div>
+        <div class="empty-copy" id="timelineEmpty" hidden>There are no saved face-photo sets yet. Capture your first set above to start building the comparison history.</div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API_BASE = "https://skincare.eamiller1981.workers.dev";
+    const CAPTURE_POSITIONS = [
+      { key: "front", label: "Front" },
+      { key: "left", label: "Left" },
+      { key: "right", label: "Right" }
+    ];
+
+    const FALLBACK_PAYLOAD = {
+      today: "2026-04-23",
+      historyCount: 0,
+      comparisons: {
+        today: null,
+        last: null,
+        monthAgo: null
+      }
+    };
+
+    const state = {
+      payload: FALLBACK_PAYLOAD,
+      usingFallback: true,
+      uploading: false,
+      files: {
+        front: null,
+        left: null,
+        right: null
+      },
+      previewUrls: {
+        front: "",
+        left: "",
+        right: ""
+      }
+    };
+
+    const statusPanel = document.getElementById("statusPanel");
+    const captureGrid = document.getElementById("captureGrid");
+    const captureDate = document.getElementById("captureDate");
+    const uploadButton = document.getElementById("uploadButton");
+    const todayStatus = document.getElementById("todayStatus");
+    const latestStatus = document.getElementById("latestStatus");
+    const historyCount = document.getElementById("historyCount");
+    const monthStatus = document.getElementById("monthStatus");
+    const summaryToday = document.getElementById("summaryToday");
+    const summaryLast = document.getElementById("summaryLast");
+    const summaryMonth = document.getElementById("summaryMonth");
+    const timelineGrid = document.getElementById("timelineGrid");
+    const timelineEmpty = document.getElementById("timelineEmpty");
+    const toast = document.getElementById("toast");
+
+    let toastTimer = null;
+
+    function showStatus(message) {
+      statusPanel.hidden = false;
+      statusPanel.textContent = message;
+    }
+
+    function hideStatus() {
+      statusPanel.hidden = true;
+      statusPanel.textContent = "";
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => {
+        toast.classList.remove("show");
+      }, 2200);
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function formatDate(value) {
+      if (!value) return "Not available yet";
+
+      try {
+        return new Intl.DateTimeFormat("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric"
+        }).format(new Date(`${value}T00:00:00`));
+      } catch {
+        return value;
+      }
+    }
+
+    function formatCount(value, label) {
+      const count = Number(value) || 0;
+      return `${count} ${count === 1 ? label : `${label}s`}`;
+    }
+
+    function todayString() {
+      try {
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/New_York",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        }).format(new Date());
+      } catch {
+        return "";
+      }
+    }
+
+    function hasSelection() {
+      return CAPTURE_POSITIONS.every((position) => Boolean(state.files[position.key]));
+    }
+
+    function revokePreviewUrl(key) {
+      if (state.previewUrls[key]) {
+        URL.revokeObjectURL(state.previewUrls[key]);
+        state.previewUrls[key] = "";
+      }
+    }
+
+    function setSelectedFile(key, file) {
+      revokePreviewUrl(key);
+      state.files[key] = file;
+      if (file) {
+        state.previewUrls[key] = URL.createObjectURL(file);
+      }
+    }
+
+    function clearSelectedFiles() {
+      CAPTURE_POSITIONS.forEach((position) => {
+        revokePreviewUrl(position.key);
+        state.files[position.key] = null;
+      });
+    }
+
+    function renderCaptureCards() {
+      captureGrid.innerHTML = "";
+
+      CAPTURE_POSITIONS.forEach((position) => {
+        const selectedFile = state.files[position.key];
+        const previewUrl = state.previewUrls[position.key];
+        const card = document.createElement("div");
+        card.className = "capture-card";
+        card.innerHTML = `
+          <div class="capture-card-head">
+            <span class="capture-card-title">${position.label}</span>
+            <span class="capture-card-meta">${selectedFile ? "Ready" : "Required"}</span>
+          </div>
+          <div class="capture-preview">
+            ${previewUrl
+              ? `<img src="${previewUrl}" alt="${position.label} preview">`
+              : `<div class="capture-placeholder">Capture a clean ${position.label.toLowerCase()} angle.</div>`}
+          </div>
+          <label class="capture-button" for="capture-${position.key}">
+            ${selectedFile ? `Retake ${position.label}` : `Capture ${position.label}`}
+          </label>
+          <input class="capture-input" id="capture-${position.key}" type="file" accept="image/*" capture="environment">
+        `;
+
+        const input = card.querySelector("input");
+        input.addEventListener("change", (event) => {
+          const [file] = Array.from(event.target.files || []);
+          if (!file) return;
+          setSelectedFile(position.key, file);
+          renderCaptureCards();
+          updateUploadState();
+        });
+
+        captureGrid.appendChild(card);
+      });
+    }
+
+    function buildComparisonCards() {
+      const comparisons = state.payload.comparisons || {};
+      const cards = [];
+
+      if (comparisons.today) {
+        cards.push({ label: "Today", record: comparisons.today });
+      }
+
+      if (comparisons.last) {
+        cards.push({ label: "Last Set", record: comparisons.last });
+      }
+
+      if (comparisons.monthAgo) {
+        cards.push({ label: "One Month Ago", record: comparisons.monthAgo });
+      }
+
+      return cards;
+    }
+
+    function renderComparisonCard(item) {
+      const positions = [
+        { key: "front", label: "Front" },
+        { key: "left", label: "Left" },
+        { key: "right", label: "Right" }
+      ];
+
+      return `
+        <article class="comparison-card">
+          <div class="comparison-head">
+            <span class="comparison-label">${escapeHtml(item.label)}</span>
+            <span class="comparison-date">${escapeHtml(formatDate(item.record.date))}</span>
+          </div>
+          <div class="comparison-photos">
+            ${positions.map((position) => {
+              const photo = item.record[position.key];
+              return `
+                <div class="photo-tile">
+                  <span class="photo-label">${position.label}</span>
+                  <div class="photo-frame">
+                    ${photo && photo.url
+                      ? `<img src="${escapeHtml(photo.url)}" alt="${escapeHtml(`${item.label} ${position.label}`)}">`
+                      : `<div class="photo-empty">No ${position.label.toLowerCase()} photo saved here.</div>`}
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </article>
+      `;
+    }
+
+    function renderSummary() {
+      const comparisons = state.payload.comparisons || {};
+      const latestRecord = comparisons.today || comparisons.last || null;
+
+      todayStatus.textContent = comparisons.today ? formatDate(comparisons.today.date) : "No set yet";
+      latestStatus.textContent = latestRecord ? formatDate(latestRecord.date) : "None yet";
+      historyCount.textContent = formatCount(state.payload.historyCount || 0, "set");
+      monthStatus.textContent = comparisons.monthAgo ? "Available" : "Waiting";
+
+      summaryToday.textContent = comparisons.today ? `Saved ${formatDate(comparisons.today.date)}` : "Waiting for capture";
+      summaryLast.textContent = comparisons.last ? formatDate(comparisons.last.date) : "Not available yet";
+      summaryMonth.textContent = comparisons.monthAgo ? formatDate(comparisons.monthAgo.date) : "Not available yet";
+    }
+
+    function renderTimeline() {
+      const cards = buildComparisonCards();
+      timelineGrid.innerHTML = "";
+
+      if (!cards.length) {
+        timelineEmpty.hidden = false;
+        return;
+      }
+
+      timelineEmpty.hidden = true;
+      timelineGrid.innerHTML = cards.map(renderComparisonCard).join("");
+    }
+
+    function updateUploadState() {
+      captureDate.textContent = `This set will be saved as ${formatDate(state.payload.today || todayString())}.`;
+      uploadButton.disabled = state.uploading || !hasSelection();
+      uploadButton.textContent = state.uploading ? "Uploading..." : "Upload Today’s Set";
+    }
+
+    function renderPage() {
+      renderCaptureCards();
+      renderSummary();
+      renderTimeline();
+      updateUploadState();
+    }
+
+    async function fetchJson(path, options = {}) {
+      const response = await fetch(`${API_BASE}${path}`, options);
+      const text = await response.text();
+      let data = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok || !data?.ok) {
+        const message = data?.details?.message || data?.error || `Request failed (${response.status})`;
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+    async function loadProgress() {
+      renderPage();
+
+      try {
+        const payload = await fetchJson("/api/progress");
+        state.payload = payload;
+        state.usingFallback = false;
+        hideStatus();
+        renderPage();
+      } catch (error) {
+        showStatus(`Live progress data could not load yet, so the page is showing an empty preview. ${error.message}`);
+      }
+    }
+
+    async function uploadProgressSet() {
+      if (state.uploading || !hasSelection()) return;
+
+      state.uploading = true;
+      updateUploadState();
+
+      const body = new FormData();
+      CAPTURE_POSITIONS.forEach((position) => {
+        body.append(position.key, state.files[position.key]);
+      });
+
+      try {
+        const payload = await fetchJson("/api/progress-upload", {
+          method: "POST",
+          body
+        });
+
+        state.payload = payload;
+        state.usingFallback = false;
+        clearSelectedFiles();
+        hideStatus();
+        renderPage();
+        showToast(`Progress photos saved for ${formatDate(payload.savedDate || payload.today)}`);
+      } catch (error) {
+        showStatus(`Progress photos could not be saved. ${error.message}`);
+      } finally {
+        state.uploading = false;
+        updateUploadState();
+      }
+    }
+
+    uploadButton.addEventListener("click", uploadProgressSet);
+    window.addEventListener("beforeunload", clearSelectedFiles);
+
+    loadProgress();
+  </script>
+</body>
+</html>

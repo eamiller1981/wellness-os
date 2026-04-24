@@ -1,11 +1,13 @@
 const NOTION_API = "https://api.notion.com/v1";
-const NOTION_VERSION = "2022-06-28";
+const DEFAULT_NOTION_VERSION = "2022-06-28";
 
 const ALLOWED_ORIGINS = new Set([
   "https://eamiller1981.github.io",
   "https://wellness-os-eamiller1981-eamiller1981-3240s-projects.vercel.app",
   "https://wellness-os-eamiller1981-3240-eamiller1981-3240s-projects.vercel.app",
-  "https://wellness-os.vercel.app"
+  "https://wellness-os.vercel.app",
+  "http://127.0.0.1:4173",
+  "http://localhost:4173"
 ]);
 
 const WELLNESS_PREVIEW_ORIGIN =
@@ -14,7 +16,7 @@ const WELLNESS_PREVIEW_ORIGIN =
 function corsHeaders(origin) {
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Vary": "Origin"
   };
@@ -53,13 +55,15 @@ export default {
 
     const notionPath = url.pathname.replace(/^\/notion/, "");
     const notionUrl = `${NOTION_API}${notionPath}${url.search}`;
+    const notionVersion = request.headers.get("Notion-Version") || DEFAULT_NOTION_VERSION;
+    const contentType = request.headers.get("Content-Type");
 
     const response = await fetch(notionUrl, {
       method: request.method,
       headers: {
         "Authorization": `Bearer ${env.NOTION_TOKEN}`,
-        "Content-Type": request.headers.get("Content-Type") || "application/json",
-        "Notion-Version": NOTION_VERSION
+        ...(contentType ? { "Content-Type": contentType } : {}),
+        "Notion-Version": notionVersion
       },
       body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body
     });
