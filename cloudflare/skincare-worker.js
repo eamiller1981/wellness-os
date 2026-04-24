@@ -120,6 +120,13 @@ function dateValue(prop) {
   return "";
 }
 
+function urlValue(prop) {
+  if (!prop) return "";
+  if (prop.type === "url") return prop.url || "";
+  if (prop.type === "formula" && prop.formula.type === "string") return prop.formula.string || "";
+  return "";
+}
+
 function checkboxValue(prop) {
   return Boolean(prop && prop.type === "checkbox" && prop.checkbox);
 }
@@ -189,6 +196,24 @@ async function notionFetch(env, path, init) {
 
 async function notionQueryDatabase(env, databaseId, body) {
   return notionFetch(env, `/databases/${databaseId}/query`, { method: "POST", body });
+}
+
+async function notionQueryDatabaseAll(env, databaseId, body = {}) {
+  const results = [];
+  let cursor = null;
+
+  do {
+    const data = await notionQueryDatabase(env, databaseId, {
+      ...body,
+      page_size: Math.min(Number(body.page_size) || 100, 100),
+      ...(cursor ? { start_cursor: cursor } : {})
+    });
+
+    results.push(...(data.results || []));
+    cursor = data.has_more ? data.next_cursor : null;
+  } while (cursor);
+
+  return results;
 }
 
 async function notionGetPage(env, pageId) {
@@ -1078,6 +1103,125 @@ function buildAssignmentMetadata(assignment, extras = {}) {
   };
 }
 
+function buildProductRecord(page) {
+  const props = page.properties || {};
+
+  return {
+    id: page.id,
+    name: firstRichTextValue(props.Name) || "Untitled product",
+    brand: firstRichTextValue(props.Brand) || "",
+    category: firstRichTextValue(props.Category) || "",
+    status: firstRichTextValue(props.Status) || "",
+    price: numberValue(props.Price),
+    purchaseLink: urlValue(props["Purchase Link"]),
+    purchaseDate: dateValue(props["Purchase Date"]),
+    openedDate: dateValue(props["Opened Date"]),
+    expiryDate: dateValue(props["Expiry Date"]),
+    repurchase: firstRichTextValue(props.Repurchase) || "",
+    wishlistPriority: firstRichTextValue(props["Wishlist Priority"]) || "",
+    wishlistReason: firstRichTextValue(props["Wishlist Reason"]) || "",
+    wishlistStatus: firstRichTextValue(props["Wishlist Status"]) || "",
+    notes: firstRichTextValue(props.Notes) || "",
+    keyIngredients: multiSelectValues(props["Key Ingredients"]),
+    skinTargets: multiSelectValues(props["Skin Targets"])
+  };
+}
+
+function compareTextValues(left, right) {
+  return String(left || "").localeCompare(String(right || ""), undefined, { sensitivity: "base" });
+}
+
+function wishlistPriorityRank(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "high") return 0;
+  if (normalized === "medium") return 1;
+  if (normalized === "low") return 2;
+  return 3;
+}
+
+function wishlistStatusRank(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "researching") return 0;
+  if (normalized === "bought") return 1;
+  if (normalized === "dropped") return 2;
+  return 3;
+}
+
+function repurchaseRank(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "yes") return 0;
+  if (normalized === "maybe") return 1;
+  if (normalized === "no") return 2;
+  return 3;
+}
+
+function compareWishlistProducts(left, right) {
+  const priorityDiff = wishlistPriorityRank(left.wishlistPriority) - wishlistPriorityRank(right.wishlistPriority);
+  if (priorityDiff !== 0) return priorityDiff;
+
+  const statusDiff = wishlistStatusRank(left.wishlistStatus) - wishlistStatusRank(right.wishlistStatus);
+  if (statusDiff !== 0) return statusDiff;
+
+  if (Boolean(left.purchaseLink) !== Boolean(right.purchaseLink)) {
+    return left.purchaseLink ? -1 : 1;
+  }
+
+  const brandDiff = compareTextValues(left.brand, right.brand);
+  if (brandDiff !== 0) return brandDiff;
+
+  return compareTextValues(left.name, right.name);
+}
+
+function compareLowOnProducts(left, right) {
+  if (Boolean(left.purchaseLink) !== Boolean(right.purchaseLink)) {
+    return left.purchaseLink ? -1 : 1;
+  }
+
+  const repurchaseDiff = repurchaseRank(left.repurchase) - repurchaseRank(right.repurchase);
+  if (repurchaseDiff !== 0) return repurchaseDiff;
+
+  if (left.purchaseDate && right.purchaseDate && left.purchaseDate !== right.purchaseDate) {
+    return compareDateStrings(right.purchaseDate, left.purchaseDate);
+  }
+
+  const brandDiff = compareTextValues(left.brand, right.brand);
+  if (brandDiff !== 0) return brandDiff;
+
+  return compareTextValues(left.name, right.name);
+}
+
+async function resolveProductsPayload(env) {
+  const pages = await notionQueryDatabaseAll(env, env.PRODUCTS_DB_ID, {
+    page_size: 100
+  });
+
+  const products = pages
+    .map(buildProductRecord)
+    .filter((product) => product.name);
+
+  const wishlist = products
+    .filter((product) => product.status === "Wishlist")
+    .sort(compareWishlistProducts);
+
+  const lowOn = products
+    .filter((product) => product.status === "Empty")
+    .sort(compareLowOnProducts);
+
+  return {
+    ok: true,
+    totals: {
+      all: products.length,
+      active: products.filter((product) => product.status === "Active").length,
+      wishlist: wishlist.length,
+      lowOn: lowOn.length,
+      linked: products.filter((product) => Boolean(product.purchaseLink)).length
+    },
+    wishlist,
+    lowOn,
+    generatedAt: new Date().toISOString()
+  };
+}
+
 async function resolveOverridePayloadForAssignment(env, today, cycle, mode, assignment, nextAssignment) {
   const overrideGroupType = mode === "travel" ? "PM Travel" : "PM Minimal";
   const overrideGroup = await resolveSingleStepGroupByType(env, overrideGroupType, false);
@@ -1572,6 +1716,10 @@ export default {
 
       if (request.method === "GET" && url.pathname === "/api/yesterday") {
         return jsonResponse({ ok: true, ...(await resolveYesterdayPayload(env)) }, 200, origin);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/products") {
+        return jsonResponse(await resolveProductsPayload(env), 200, origin);
       }
 
       if (request.method === "POST" && ["/api/exception", "/api/note", "/api/weekly-review", "/api/incident"].includes(url.pathname)) {

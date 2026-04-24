@@ -864,7 +864,7 @@
     };
 
     const SECONDARY_ACTION_ITEMS = [
-      { label: "Products", icon: icon.products, color: "#f2eadb", message: "Products view will connect to the new Skincare Products database." },
+      { label: "Products", icon: icon.products, color: "#f2eadb", href: "products.html" },
       { label: "Progress", icon: icon.progress, color: "#dce6dd", message: "Progress will connect to your logs and weekly reviews." },
       { label: "Treatments", icon: icon.treatments, color: "#f3dfd8", message: "Treatments will connect to your devices and treatment history." }
     ];
@@ -1051,7 +1051,9 @@
 
       renderActions(secondaryActions, SECONDARY_ACTION_ITEMS.map((item) => ({
         ...item,
-        onClick: () => showToast(item.message)
+        onClick: item.href
+          ? () => window.location.assign(item.href)
+          : () => showToast(item.message)
       })), false);
     }
 

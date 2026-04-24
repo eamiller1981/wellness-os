@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7efe8">
+  <meta name="description" content="Track skincare products, wish list picks, and reorder needs inside Wellness OS.">
+  <title>Products | Wellness OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f7efe8;
+      --paper: #fffaf6;
+      --paper-strong: rgba(255, 250, 246, 0.94);
+      --ink: #403534;
+      --muted: #8f7c78;
+      --muted-soft: #b8a7a1;
+      --line: rgba(115, 91, 84, 0.14);
+      --rose: #caaba6;
+      --rose-soft: #f3dfd8;
+      --sage: #a3b5a6;
+      --sage-soft: #dce6dd;
+      --wisteria: #c6abd1;
+      --wisteria-soft: #ede3f2;
+      --amber: #c8aa7f;
+      --amber-soft: #f2eadb;
+      --shadow: 0 18px 38px rgba(104, 79, 71, 0.08);
+      --radius-lg: 28px;
+      --radius-md: 20px;
+      --radius-sm: 14px;
+      --sans: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --script: "Great Vibes", cursive;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, rgba(202, 171, 166, 0.22), transparent 34%),
+        linear-gradient(180deg, #fbf4ef 0%, var(--bg) 28%, #f4ece5 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    a,
+    button,
+    input {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      width: min(100%, 1120px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 14px 14px 34px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .nav-link {
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 250, 246, 0.66);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.84rem;
+      font-weight: 700;
+      backdrop-filter: blur(10px);
+      transition: transform 0.2s ease;
+    }
+
+    .nav-link:hover,
+    .nav-link:focus-visible,
+    .product-link:hover,
+    .product-link:focus-visible {
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 34px;
+      background:
+        radial-gradient(circle at 88% 16%, rgba(198, 171, 209, 0.46), transparent 26%),
+        radial-gradient(circle at 14% 80%, rgba(163, 181, 166, 0.22), transparent 28%),
+        linear-gradient(180deg, rgba(255, 250, 246, 0.96), rgba(255, 250, 246, 0.88));
+      box-shadow: var(--shadow);
+      padding: 22px 18px 18px;
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+    .hero::before {
+      width: 168px;
+      height: 168px;
+      right: -18px;
+      top: -52px;
+      background: rgba(243, 223, 216, 0.72);
+      filter: blur(2px);
+    }
+
+    .hero::after {
+      width: 118px;
+      height: 118px;
+      left: -18px;
+      bottom: -26px;
+      background: rgba(220, 230, 221, 0.7);
+    }
+
+    .hero-content,
+    .hero-metrics {
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--rose-soft);
+      color: #7c6661;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      margin: 14px 0 0;
+      font-family: var(--script);
+      font-size: clamp(3rem, 10vw, 4.8rem);
+      font-weight: 400;
+      line-height: 0.95;
+      color: #8f7570;
+    }
+
+    .hero p {
+      margin: 12px 0 0;
+      max-width: 620px;
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.65;
+    }
+
+    .hero-note {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .metric {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 250, 246, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+      backdrop-filter: blur(6px);
+    }
+
+    .metric-label {
+      display: block;
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      display: block;
+      margin-top: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .status-panel,
+    .section-card {
+      border-radius: var(--radius-lg);
+      background: var(--paper-strong);
+      box-shadow: var(--shadow);
+    }
+
+    .status-panel {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-left: 3px solid var(--rose);
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .status-panel[hidden] {
+      display: none;
+    }
+
+    .section-grid {
+      display: grid;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .section-card {
+      padding: 18px 16px;
+    }
+
+    .section-card.wishlist {
+      background:
+        linear-gradient(180deg, rgba(255, 250, 246, 0.96), rgba(255, 250, 246, 0.9)),
+        linear-gradient(90deg, rgba(237, 227, 242, 0.28), transparent 36%);
+    }
+
+    .section-card.low-on {
+      background:
+        linear-gradient(180deg, rgba(255, 250, 246, 0.96), rgba(255, 250, 246, 0.9)),
+        linear-gradient(90deg, rgba(243, 223, 216, 0.28), transparent 36%);
+    }
+
+    .section-head {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .wishlist .section-kicker {
+      background: var(--wisteria-soft);
+      color: #715b79;
+    }
+
+    .low-on .section-kicker {
+      background: var(--rose-soft);
+      color: #7b6460;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 1.08rem;
+      font-weight: 700;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .product-list {
+      display: grid;
+    }
+
+    .product-item {
+      display: grid;
+      gap: 12px;
+      padding: 16px 0;
+      border-bottom: 1px solid rgba(115, 91, 84, 0.09);
+    }
+
+    .product-item:first-child {
+      padding-top: 4px;
+    }
+
+    .product-item:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .product-main {
+      min-width: 0;
+    }
+
+    .product-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .pill,
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      line-height: 1.25;
+    }
+
+    .pill {
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+
+    .pill.priority-high {
+      background: rgba(163, 181, 166, 0.22);
+      color: #5e7260;
+    }
+
+    .pill.priority-medium {
+      background: rgba(242, 234, 219, 0.9);
+      color: #846f4f;
+    }
+
+    .pill.priority-low {
+      background: rgba(237, 227, 242, 0.92);
+      color: #78647f;
+    }
+
+    .pill.restock {
+      background: rgba(243, 223, 216, 0.92);
+      color: #7e6662;
+    }
+
+    .pill.repurchase-yes {
+      background: rgba(220, 230, 221, 0.9);
+      color: #607361;
+    }
+
+    .pill.repurchase-maybe {
+      background: rgba(242, 234, 219, 0.92);
+      color: #816c4e;
+    }
+
+    .chip {
+      font-weight: 600;
+      color: var(--muted);
+      background: rgba(255, 250, 246, 0.9);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+    }
+
+    .product-name {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .product-subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
+    .product-copy {
+      margin: 10px 0 0;
+      color: var(--ink);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .product-copy.muted {
+      color: var(--muted);
+    }
+
+    .product-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .product-aside {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .product-price {
+      color: var(--ink);
+      font-size: 0.96rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .product-price.muted {
+      color: var(--muted-soft);
+      font-weight: 500;
+    }
+
+    .product-link {
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      font-size: 0.82rem;
+      font-weight: 700;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .wishlist .product-link {
+      background: var(--wisteria-soft);
+      color: #705c79;
+    }
+
+    .low-on .product-link {
+      background: var(--amber-soft);
+      color: #7c6647;
+    }
+
+    .link-placeholder {
+      color: var(--muted-soft);
+      font-size: 0.78rem;
+      line-height: 1.45;
+      text-align: right;
+    }
+
+    .empty-state {
+      padding: 20px 0 4px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    @media (min-width: 760px) {
+      .page {
+        padding: 18px 18px 40px;
+      }
+
+      .hero {
+        padding: 26px 24px 22px;
+      }
+
+      .hero-metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .section-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (min-width: 860px) {
+      .product-item {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+      }
+
+      .product-aside {
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="topbar" aria-label="Page">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="skincare.html">Back to Skincare</a>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-content">
+        <span class="eyebrow">Skincare Inventory</span>
+        <h1>Products</h1>
+        <p>Keep the products you are eyeing and the ones you need to replace in one calm place, grounded in your live Products database.</p>
+        <div class="hero-note">Wish List reflects products with <strong>Status = Wishlist</strong>. Low On reflects products marked <strong>Status = Empty</strong>, with purchase links when you have them saved.</div>
+      </div>
+
+      <div class="hero-metrics" aria-label="Products summary">
+        <div class="metric">
+          <span class="metric-label">Wish List</span>
+          <span class="metric-value" id="wishlistCount">0 products</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Low On</span>
+          <span class="metric-value" id="lowOnCount">0 products</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Active</span>
+          <span class="metric-value" id="activeCount">0 products</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Purchase Links</span>
+          <span class="metric-value" id="linkedCount">0 saved</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="status-panel" id="statusPanel" hidden></div>
+
+    <div class="section-grid">
+      <section class="section-card wishlist" aria-labelledby="wishlistHeading">
+        <div class="section-head">
+          <span class="section-kicker">Wish List</span>
+          <h2 id="wishlistHeading">Products I am considering next</h2>
+          <p>Priority and research notes come directly from your Products database, so this stays aligned with what you are actively thinking about.</p>
+        </div>
+        <div class="product-list" id="wishlistList"></div>
+        <div class="empty-state" id="wishlistEmpty" hidden>No products are marked Wishlist right now.</div>
+      </section>
+
+      <section class="section-card low-on" aria-labelledby="lowOnHeading">
+        <div class="section-head">
+          <span class="section-kicker">Low On</span>
+          <h2 id="lowOnHeading">Products ready to reorder</h2>
+          <p>This section pulls products marked Empty and keeps purchase links close so replenishing your lineup is quick when something runs out.</p>
+        </div>
+        <div class="product-list" id="lowOnList"></div>
+        <div class="empty-state" id="lowOnEmpty" hidden>Nothing is marked Empty right now, so your reorder shelf is clear.</div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = "https://skincare.eamiller1981.workers.dev";
+
+    const FALLBACK_PAYLOAD = {
+      totals: {
+        wishlist: 3,
+        lowOn: 2,
+        active: 8,
+        linked: 4
+      },
+      wishlist: [
+        {
+          id: "wishlist-1",
+          name: "Sente Bio Complete Serum",
+          brand: "Sente",
+          category: "Active",
+          status: "Wishlist",
+          price: 118,
+          purchaseLink: "https://example.com/products/sente",
+          wishlistPriority: "High",
+          wishlistReason: "Potential support for redness and barrier recovery after stronger resurfacing nights.",
+          wishlistStatus: "Researching",
+          notes: "",
+          keyIngredients: ["Heparan Sulfate", "Niacinamide"],
+          skinTargets: ["Barrier Repair", "Redness"]
+        },
+        {
+          id: "wishlist-2",
+          name: "ISDIN Eryfotona Ageless",
+          brand: "ISDIN",
+          category: "SPF",
+          status: "Wishlist",
+          price: 78,
+          purchaseLink: "",
+          wishlistPriority: "Medium",
+          wishlistReason: "Considering a more elegant daily SPF with stronger pigment support.",
+          wishlistStatus: "Researching",
+          notes: "Need to compare tint depth before buying.",
+          keyIngredients: ["DNA Repairsomes", "Vitamin E"],
+          skinTargets: ["Pigment", "Protection"]
+        },
+        {
+          id: "wishlist-3",
+          name: "Neogenesis Recovery",
+          brand: "Neogenesis",
+          category: "Active",
+          status: "Wishlist",
+          price: 175,
+          purchaseLink: "https://example.com/products/neogenesis",
+          wishlistPriority: "Low",
+          wishlistReason: "",
+          wishlistStatus: "Bought",
+          notes: "Purchased once before, may re-evaluate after the current brightening phase.",
+          keyIngredients: ["Growth Factors"],
+          skinTargets: ["Healing", "Texture"]
+        }
+      ],
+      lowOn: [
+        {
+          id: "low-1",
+          name: "DHC Deep Cleansing Oil",
+          brand: "DHC",
+          category: "Cleanser",
+          status: "Empty",
+          price: 32,
+          purchaseLink: "https://example.com/products/dhc",
+          repurchase: "Yes",
+          notes: "Always keep one on hand for PM base.",
+          purchaseDate: "2026-02-14",
+          keyIngredients: ["Olive Oil"],
+          skinTargets: ["Cleanse"]
+        },
+        {
+          id: "low-2",
+          name: "ATOBARRIER365 Cream",
+          brand: "Aestura",
+          category: "Moisturizer",
+          status: "Empty",
+          price: 36,
+          purchaseLink: "",
+          repurchase: "Maybe",
+          notes: "Link still needs to be added in Notion.",
+          purchaseDate: "2026-01-29",
+          keyIngredients: ["Ceramides"],
+          skinTargets: ["Barrier Repair"]
+        }
+      ]
+    };
+
+    const state = {
+      payload: FALLBACK_PAYLOAD,
+      usingFallback: true
+    };
+
+    const statusPanel = document.getElementById("statusPanel");
+    const wishlistCount = document.getElementById("wishlistCount");
+    const lowOnCount = document.getElementById("lowOnCount");
+    const activeCount = document.getElementById("activeCount");
+    const linkedCount = document.getElementById("linkedCount");
+    const wishlistList = document.getElementById("wishlistList");
+    const lowOnList = document.getElementById("lowOnList");
+    const wishlistEmpty = document.getElementById("wishlistEmpty");
+    const lowOnEmpty = document.getElementById("lowOnEmpty");
+
+    function showStatus(message) {
+      statusPanel.hidden = false;
+      statusPanel.textContent = message;
+    }
+
+    function hideStatus() {
+      statusPanel.hidden = true;
+      statusPanel.textContent = "";
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function formatCount(value, label) {
+      const count = Number(value) || 0;
+      return `${count} ${count === 1 ? label : `${label}s`}`;
+    }
+
+    function formatCurrency(value) {
+      if (value == null || value === "") return "";
+
+      try {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0
+        }).format(Number(value));
+      } catch {
+        return `$${value}`;
+      }
+    }
+
+    function formatDate(value) {
+      if (!value) return "";
+
+      try {
+        return new Intl.DateTimeFormat("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric"
+        }).format(new Date(`${value}T00:00:00`));
+      } catch {
+        return value;
+      }
+    }
+
+    function priorityClass(value) {
+      const normalized = String(value || "").trim().toLowerCase();
+      if (normalized === "high") return "priority-high";
+      if (normalized === "medium") return "priority-medium";
+      return "priority-low";
+    }
+
+    function trimList(values, limit) {
+      return Array.isArray(values) ? values.filter(Boolean).slice(0, limit) : [];
+    }
+
+    function renderMetaPills(product, kind) {
+      const pills = [];
+
+      if (kind === "wishlist" && product.wishlistPriority) {
+        pills.push(`<span class="pill ${priorityClass(product.wishlistPriority)}">${escapeHtml(product.wishlistPriority)} Priority</span>`);
+      }
+
+      if (kind === "wishlist" && product.wishlistStatus) {
+        pills.push(`<span class="chip">${escapeHtml(product.wishlistStatus)}</span>`);
+      }
+
+      if (kind === "lowOn") {
+        pills.push('<span class="pill restock">Restock</span>');
+      }
+
+      if (product.repurchase) {
+        const normalized = String(product.repurchase).trim().toLowerCase();
+        const repurchaseClass = normalized === "yes" ? "repurchase-yes" : normalized === "maybe" ? "repurchase-maybe" : "";
+        pills.push(`<span class="${repurchaseClass ? `pill ${repurchaseClass}` : "chip"}">Repurchase ${escapeHtml(product.repurchase)}</span>`);
+      }
+
+      if (product.category) {
+        pills.push(`<span class="chip">${escapeHtml(product.category)}</span>`);
+      }
+
+      return pills.join("");
+    }
+
+    function renderTagChips(product) {
+      const tags = [
+        ...trimList(product.keyIngredients, 2),
+        ...trimList(product.skinTargets, 2)
+      ].slice(0, 4);
+
+      if (!tags.length) {
+        return "";
+      }
+
+      return `
+        <div class="product-chip-row">
+          ${tags.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}
+        </div>
+      `;
+    }
+
+    function renderDescription(product, kind) {
+      const primary = product.wishlistReason || product.notes;
+      const secondary = kind === "lowOn" && product.purchaseDate
+        ? `Last purchased ${formatDate(product.purchaseDate)}`
+        : "";
+
+      const lines = [];
+
+      if (primary) {
+        lines.push(`<p class="product-copy">${escapeHtml(primary)}</p>`);
+      }
+
+      if (secondary) {
+        lines.push(`<p class="product-copy muted">${escapeHtml(secondary)}</p>`);
+      }
+
+      return lines.join("");
+    }
+
+    function renderLink(product, kind) {
+      if (!product.purchaseLink) {
+        return '<div class="link-placeholder">Add a purchase link in Notion</div>';
+      }
+
+      const label = kind === "lowOn" ? "Reorder" : "Open Link";
+      return `<a class="product-link" href="${escapeHtml(product.purchaseLink)}" target="_blank" rel="noreferrer">${label}</a>`;
+    }
+
+    function renderProductItem(product, kind) {
+      const subtitle = product.brand
+        ? `${product.brand}${product.category ? ` · ${product.category}` : ""}`
+        : (product.category || "Skincare Product");
+      const price = formatCurrency(product.price);
+
+      return `
+        <article class="product-item">
+          <div class="product-main">
+            <div class="product-meta">${renderMetaPills(product, kind)}</div>
+            <h3 class="product-name">${escapeHtml(product.name)}</h3>
+            <p class="product-subtitle">${escapeHtml(subtitle)}</p>
+            ${renderDescription(product, kind)}
+            ${renderTagChips(product)}
+          </div>
+          <div class="product-aside">
+            <div class="product-price${price ? "" : " muted"}">${price || "Price not set"}</div>
+            ${renderLink(product, kind)}
+          </div>
+        </article>
+      `;
+    }
+
+    function renderSection(target, emptyState, items, kind) {
+      target.innerHTML = "";
+
+      if (!Array.isArray(items) || !items.length) {
+        emptyState.hidden = false;
+        return;
+      }
+
+      emptyState.hidden = true;
+      target.innerHTML = items.map((item) => renderProductItem(item, kind)).join("");
+    }
+
+    function renderSummary(payload) {
+      const totals = payload.totals || {};
+      wishlistCount.textContent = formatCount(totals.wishlist, "product");
+      lowOnCount.textContent = formatCount(totals.lowOn, "product");
+      activeCount.textContent = formatCount(totals.active, "product");
+      linkedCount.textContent = `${Number(totals.linked) || 0} saved`;
+    }
+
+    function renderPage() {
+      renderSummary(state.payload);
+      renderSection(wishlistList, wishlistEmpty, state.payload.wishlist, "wishlist");
+      renderSection(lowOnList, lowOnEmpty, state.payload.lowOn, "lowOn");
+    }
+
+    async function fetchJson(path) {
+      const response = await fetch(`${API_BASE}${path}`, {
+        headers: {
+          Accept: "application/json"
+        }
+      });
+
+      const text = await response.text();
+      let data = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok || !data?.ok) {
+        const message = data?.details?.message || data?.error || `Request failed (${response.status})`;
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+    async function loadProducts() {
+      renderPage();
+
+      try {
+        const payload = await fetchJson("/api/products");
+        state.payload = payload;
+        state.usingFallback = false;
+        hideStatus();
+        renderPage();
+      } catch (error) {
+        showStatus(`Live products could not load yet, so this page is showing a local preview. ${error.message}`);
+      }
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
