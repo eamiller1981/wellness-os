@@ -578,173 +578,6 @@
       white-space: normal;
     }
 
-    .swap-shell {
-      position: fixed;
-      inset: 0;
-      z-index: 30;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-    }
-
-    .swap-shell[hidden] {
-      display: none;
-    }
-
-    .swap-backdrop {
-      position: absolute;
-      inset: 0;
-      border: 0;
-      background: rgba(61, 53, 53, 0.38);
-      backdrop-filter: blur(4px);
-      cursor: pointer;
-    }
-
-    .swap-panel {
-      position: relative;
-      width: min(100%, 460px);
-      max-height: min(78vh, 760px);
-      padding: 18px 16px 16px;
-      border-radius: 24px 24px 0 0;
-      background: rgba(255, 250, 246, 0.98);
-      box-shadow: 0 -18px 40px rgba(92, 68, 60, 0.16);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .swap-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .swap-eyebrow {
-      margin: 0;
-      font-size: 0.7rem;
-      font-weight: 800;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--muted-soft);
-    }
-
-    .swap-close {
-      min-height: 34px;
-      padding: 0 12px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: rgba(255, 250, 246, 0.76);
-      color: var(--ink);
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      cursor: pointer;
-    }
-
-    .swap-title {
-      margin: 0;
-      font-family: var(--script);
-      font-size: 2rem;
-      font-weight: 400;
-      line-height: 1;
-      color: var(--ink);
-    }
-
-    .swap-copy {
-      margin: -2px 0 2px;
-      color: var(--muted);
-      font-size: 0.8rem;
-      line-height: 1.55;
-    }
-
-    .swap-list {
-      overflow: auto;
-      display: grid;
-      gap: 10px;
-      padding-right: 2px;
-    }
-
-    .swap-item {
-      width: 100%;
-      padding: 12px 14px;
-      border: 1px solid rgba(115, 91, 84, 0.08);
-      border-radius: 18px;
-      background:
-        linear-gradient(180deg, rgba(255, 250, 246, 0.88), rgba(255, 250, 246, 0.98)),
-        rgba(243, 223, 216, 0.22);
-      color: var(--ink);
-      text-align: left;
-      cursor: pointer;
-      transition: transform 0.2s ease, border-color 0.2s ease;
-    }
-
-    .swap-item.is-active {
-      border-color: rgba(181, 134, 130, 0.46);
-      background:
-        linear-gradient(180deg, rgba(255, 250, 246, 0.92), rgba(255, 250, 246, 1)),
-        rgba(233, 223, 214, 0.42);
-    }
-
-    .swap-item-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .swap-item-night {
-      font-size: 0.88rem;
-      font-weight: 700;
-      line-height: 1.2;
-    }
-
-    .swap-item-date {
-      color: var(--muted);
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-    }
-
-    .swap-item-badge {
-      display: inline-flex;
-      align-items: center;
-      min-height: 22px;
-      padding: 0 8px;
-      border-radius: 999px;
-      background: rgba(163, 181, 166, 0.18);
-      color: #607063;
-      font-size: 0.64rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      flex: 0 0 auto;
-    }
-
-    .swap-item-phase {
-      margin-top: 8px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted-soft);
-    }
-
-    .swap-item-groups,
-    .swap-item-steps {
-      margin-top: 6px;
-      font-size: 0.76rem;
-      line-height: 1.55;
-      color: var(--muted);
-    }
-
-    .swap-item-label {
-      color: var(--ink);
-      font-weight: 700;
-    }
-
     .toast {
       position: fixed;
       left: 50%;
@@ -874,19 +707,6 @@
     </section>
   </main>
 
-  <div class="swap-shell" id="swapShell" hidden>
-    <button class="swap-backdrop" id="swapBackdrop" type="button" aria-label="Close swap chooser"></button>
-    <section class="swap-panel" role="dialog" aria-modal="true" aria-labelledby="swapTitle">
-      <div class="swap-head">
-        <p class="swap-eyebrow">Swap</p>
-        <button class="swap-close" id="swapClose" type="button">Close</button>
-      </div>
-      <h3 class="swap-title" id="swapTitle">Choose A Night</h3>
-      <p class="swap-copy">Select any night to preview its step groups and steps. Back and Forward will keep moving from that selected night.</p>
-      <div class="swap-list" id="swapList"></div>
-    </section>
-  </div>
-
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -1012,12 +832,10 @@
           <path d="M5 12h13"></path>
         </svg>
       `,
-      swap: `
+      pause: `
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M7 7h10"></path>
-          <path d="M13 3l4 4-4 4"></path>
-          <path d="M17 17H7"></path>
-          <path d="M11 13l-4 4 4 4"></path>
+          <path d="M9 6v12"></path>
+          <path d="M15 6v12"></path>
         </svg>
       `,
       products: `
@@ -1060,7 +878,8 @@
       planRows: [...FALLBACK_PLAN_ROWS],
       activeAssignmentId: "fallback-83",
       todayAssignmentId: "fallback-83",
-      swapOpen: false
+      previewCache: new Map(),
+      prefetching: new Set()
     };
 
     const cycleName = document.getElementById("cycleName");
@@ -1082,10 +901,6 @@
     const statusPanel = document.getElementById("statusPanel");
     const nextBlockName = document.getElementById("nextBlockName");
     const nextDeviceName = document.getElementById("nextDeviceName");
-    const swapShell = document.getElementById("swapShell");
-    const swapBackdrop = document.getElementById("swapBackdrop");
-    const swapClose = document.getElementById("swapClose");
-    const swapList = document.getElementById("swapList");
 
     let toastTimer = null;
 
@@ -1130,6 +945,24 @@
       });
     }
 
+    function clonePayload(data) {
+      return JSON.parse(JSON.stringify(data));
+    }
+
+    function cacheKey(assignmentId, mode) {
+      return `${mode}:${assignmentId || "today"}`;
+    }
+
+    function rememberPreview(data) {
+      if (data && data.assignment && data.assignment.id) {
+        state.previewCache.set(cacheKey(data.assignment.id, data.mode || state.mode), clonePayload(data));
+      }
+    }
+
+    function currentAssignment() {
+      return state.payload.assignment || {};
+    }
+
     function currentPlanRow() {
       return state.planRows.find((row) => row.id === state.activeAssignmentId)
         || state.planRows.find((row) => row.id === state.todayAssignmentId)
@@ -1144,6 +977,13 @@
 
     function isPreviewing() {
       return Boolean(state.activeAssignmentId && state.todayAssignmentId && state.activeAssignmentId !== state.todayAssignmentId);
+    }
+
+    function canPauseSelection() {
+      const assignment = currentAssignment();
+      if (!assignment.id || !assignment.date) return false;
+      if (state.payload.pause && state.payload.pause.active) return false;
+      return !isPreviewing();
     }
 
     function routineDeviceNames(routine) {
@@ -1201,11 +1041,11 @@
           onClick: showNextNight
         },
         {
-          label: "Swap",
-          icon: icon.swap,
+          label: "Pause",
+          icon: icon.pause,
           color: "#f2eadb",
-          disabled: state.loadingSelection || !hasPlan,
-          onClick: openSwapChooser
+          disabled: state.loadingSelection || !hasPlan || !canPauseSelection(),
+          onClick: pauseTonight
         }
       ], false);
 
@@ -1262,20 +1102,15 @@
       const assignment = state.payload.assignment || {};
       const row = currentPlanRow();
       const label = assignment.nightLabel || (row && row.night) || "";
-      const phase = assignment.phase || (row && row.phase) || "";
       const date = assignment.date || (row && row.date) || "";
       const parts = [];
 
       if (label) {
-        parts.push(isPreviewing() ? `Viewing ${label}` : `Tonight · ${label}`);
+        parts.push(isPreviewing() ? `Viewing ${label}` : `Tonight - ${label}`);
       } else if (isPreviewing()) {
         parts.push("Viewing selected night");
       } else {
         parts.push(`${MODE_LABELS[state.mode]} mode`);
-      }
-
-      if (phase) {
-        parts.push(phase);
       }
 
       if (date) {
@@ -1285,7 +1120,7 @@
       }
 
       viewContext.hidden = !parts.length;
-      viewContext.textContent = parts.join(" · ");
+      viewContext.textContent = parts.join(" - ");
     }
 
     function renderSections() {
@@ -1354,82 +1189,6 @@
       logCard.disabled = false;
     }
 
-    function renderSwapList() {
-      swapList.innerHTML = "";
-
-      if (!state.planRows.length) {
-        const empty = document.createElement("p");
-        empty.className = "step-empty";
-        empty.textContent = "The 90-day routine list is not available yet.";
-        swapList.appendChild(empty);
-        return;
-      }
-
-      state.planRows.forEach((row) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "swap-item" + (row.id === state.activeAssignmentId ? " is-active" : "");
-
-        const top = document.createElement("div");
-        top.className = "swap-item-top";
-
-        const topCopy = document.createElement("div");
-        const night = document.createElement("div");
-        night.className = "swap-item-night";
-        night.textContent = row.night || "Night";
-        topCopy.appendChild(night);
-
-        const date = document.createElement("div");
-        date.className = "swap-item-date";
-        date.textContent = row.date ? formatShortDate(row.date) : "Date not set";
-        topCopy.appendChild(date);
-
-        top.appendChild(topCopy);
-
-        if (row.isToday) {
-          const badge = document.createElement("span");
-          badge.className = "swap-item-badge";
-          badge.textContent = "Today";
-          top.appendChild(badge);
-        }
-
-        button.appendChild(top);
-
-        if (row.phase) {
-          const phase = document.createElement("div");
-          phase.className = "swap-item-phase";
-          phase.textContent = row.phase;
-          button.appendChild(phase);
-        }
-
-        const groups = document.createElement("div");
-        groups.className = "swap-item-groups";
-        const groupsLabel = document.createElement("span");
-        groupsLabel.className = "swap-item-label";
-        groupsLabel.textContent = "Step Groups: ";
-        groups.appendChild(groupsLabel);
-        groups.append(document.createTextNode(row.stepGroups && row.stepGroups.length ? row.stepGroups.join(" / ") : "Not set"));
-        button.appendChild(groups);
-
-        const steps = document.createElement("div");
-        steps.className = "swap-item-steps";
-        const stepsLabel = document.createElement("span");
-        stepsLabel.className = "swap-item-label";
-        stepsLabel.textContent = "Steps: ";
-        steps.appendChild(stepsLabel);
-        steps.append(document.createTextNode(row.steps && row.steps.length ? row.steps.join(" · ") : "No steps listed yet"));
-        button.appendChild(steps);
-
-        button.addEventListener("click", async () => {
-          closeSwapChooser();
-          if (row.id === state.activeAssignmentId) return;
-          await loadAssignmentPreview(row.id, { message: `Viewing ${row.night || "selected night"}.` });
-        });
-
-        swapList.appendChild(button);
-      });
-    }
-
     function renderPayload() {
       const payload = state.payload;
       const cycle = payload.cycle || FALLBACK_PAYLOAD.cycle;
@@ -1466,7 +1225,6 @@
       renderViewContext();
       renderSections();
       renderLogCard();
-      renderSwapList();
       updateQuickActionButtons();
     }
 
@@ -1498,6 +1256,42 @@
       return data;
     }
 
+    async function prefetchAssignment(assignmentId) {
+      if (!assignmentId) return;
+
+      const key = cacheKey(assignmentId, state.mode);
+      if (state.previewCache.has(key) || state.prefetching.has(key)) {
+        return;
+      }
+
+      state.prefetching.add(key);
+
+      try {
+        const data = await fetchJson(`/api/routine-assignment?id=${encodeURIComponent(assignmentId)}&mode=${encodeURIComponent(state.mode)}`);
+        rememberPreview(data);
+      } catch {
+        // Quietly skip speculative prefetch failures.
+      } finally {
+        state.prefetching.delete(key);
+      }
+    }
+
+    function prefetchAdjacentAssignments() {
+      const currentIndex = currentPlanIndex();
+      if (currentIndex < 0) return;
+
+      const previousRow = state.planRows[currentIndex - 1];
+      const nextRow = state.planRows[currentIndex + 1];
+
+      if (previousRow && previousRow.id) {
+        prefetchAssignment(previousRow.id);
+      }
+
+      if (nextRow && nextRow.id) {
+        prefetchAssignment(nextRow.id);
+      }
+    }
+
     async function loadRoutinePlan() {
       try {
         const data = await fetchJson("/api/routine-plan");
@@ -1516,6 +1310,7 @@
       }
 
       renderPayload();
+      prefetchAdjacentAssignments();
     }
 
     async function loadTonightData(options = {}) {
@@ -1529,6 +1324,7 @@
           state.todayAssignmentId = data.assignment.id;
           state.activeAssignmentId = data.assignment.id;
         }
+        rememberPreview(data);
         state.usingFallback = false;
         hideStatus();
       } catch (error) {
@@ -1544,11 +1340,30 @@
 
       if (shouldRender) {
         renderPayload();
+        prefetchAdjacentAssignments();
       }
     }
 
     async function loadAssignmentPreview(assignmentId, options = {}) {
       if (!assignmentId || state.loadingSelection) return;
+
+      const cached = state.previewCache.get(cacheKey(assignmentId, state.mode));
+      if (cached) {
+        state.payload = {
+          ...state.payload,
+          ...clonePayload(cached),
+          cycle: state.payload.cycle,
+          yesterday: state.payload.yesterday
+        };
+        state.activeAssignmentId = cached.assignment && cached.assignment.id ? cached.assignment.id : assignmentId;
+        renderPayload();
+        prefetchAdjacentAssignments();
+
+        if (options.message) {
+          showToast(options.message);
+        }
+        return;
+      }
 
       state.loadingSelection = true;
       updateQuickActionButtons();
@@ -1562,7 +1377,9 @@
           yesterday: state.payload.yesterday
         };
         state.activeAssignmentId = data.assignment && data.assignment.id ? data.assignment.id : assignmentId;
+        rememberPreview(data);
         renderPayload();
+        prefetchAdjacentAssignments();
 
         if (options.message) {
           showToast(options.message);
@@ -1575,16 +1392,36 @@
       }
     }
 
-    function openSwapChooser() {
-      state.swapOpen = true;
-      swapShell.hidden = false;
-      renderSwapList();
-      swapClose.focus();
-    }
+    async function pauseTonight() {
+      if (!canPauseSelection() || state.loadingSelection) return;
 
-    function closeSwapChooser() {
-      state.swapOpen = false;
-      swapShell.hidden = true;
+      state.loadingSelection = true;
+      updateQuickActionButtons();
+
+      try {
+        const data = await fetchJson("/api/pause", {
+          method: "POST",
+          body: JSON.stringify({
+            assignmentId: state.activeAssignmentId
+          })
+        });
+
+        state.payload = data;
+        state.mode = data.mode || state.mode;
+        if (data.assignment && data.assignment.id) {
+          state.todayAssignmentId = data.assignment.id;
+          state.activeAssignmentId = data.assignment.id;
+        }
+        rememberPreview(data);
+
+        await loadRoutinePlan();
+        showToast(`Paused ${data.pauseAction && data.pauseAction.pausedNight ? data.pauseAction.pausedNight : "tonight"} until 2:00 AM ET.`);
+      } catch (error) {
+        showToast(error.message);
+      } finally {
+        state.loadingSelection = false;
+        updateQuickActionButtons();
+      }
     }
 
     function showPreviousNight() {
@@ -1637,15 +1474,6 @@
     logCard.addEventListener("click", () => {
       if (logCard.disabled) return;
       showToast("Yesterday editing will be unlocked once the log update flow is wired.");
-    });
-
-    swapBackdrop.addEventListener("click", closeSwapChooser);
-    swapClose.addEventListener("click", closeSwapChooser);
-
-    window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && state.swapOpen) {
-        closeSwapChooser();
-      }
     });
 
     renderPayload();

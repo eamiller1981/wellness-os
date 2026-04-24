@@ -195,6 +195,15 @@ async function notionGetPage(env, pageId) {
   return notionFetch(env, `/pages/${pageId}`);
 }
 
+async function notionUpdatePage(env, pageId, properties) {
+  return notionFetch(env, `/pages/${pageId}`, {
+    method: "PATCH",
+    body: {
+      properties
+    }
+  });
+}
+
 async function getMode(env) {
   const raw = await env.SKINCARE_STATE.get("mode", "json");
   return normalizeMode(raw?.mode || "cycle");
@@ -210,6 +219,62 @@ async function setMode(env, mode) {
     })
   );
   return normalized;
+}
+
+function zonedNowParts(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  });
+
+  const parts = Object.fromEntries(
+    formatter.formatToParts(date).map((part) => [part.type, part.value])
+  );
+
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    hour: Number(parts.hour),
+    minute: Number(parts.minute),
+    second: Number(parts.second)
+  };
+}
+
+function pauseWindowInfo(now = new Date()) {
+  const parts = zonedNowParts(now, USER_TIME_ZONE);
+  const secondsUntilReset =
+    ((parts.hour < 2 ? 2 - parts.hour : 26 - parts.hour) * 3600) -
+    (parts.minute * 60) -
+    parts.second;
+
+  return {
+    today: parts.date,
+    operatingDate: parts.hour < 2 ? addDays(parts.date, -1) : parts.date,
+    resetAt: new Date(now.getTime() + (secondsUntilReset * 1000)).toISOString()
+  };
+}
+
+async function getPauseState(env) {
+  const state = await env.SKINCARE_STATE.get("pause-state", "json");
+  if (!state || !state.resetAt) {
+    return null;
+  }
+
+  if (Date.parse(state.resetAt) <= Date.now()) {
+    await env.SKINCARE_STATE.delete("pause-state");
+    return null;
+  }
+
+  return state;
+}
+
+async function setPauseState(env, state) {
+  await env.SKINCARE_STATE.put("pause-state", JSON.stringify(state));
 }
 
 function buildCycleRecord(page, today) {
@@ -918,7 +983,7 @@ async function resolveNextFromNormalized(env, dateString, cycleId) {
   };
 }
 
-async function resolveRoutineRows(env, today) {
+async function resolveRoutineRows(env, today, pauseState) {
   const assignments = await resolveAllAssignments(env);
   const productCache = new Map();
   const stepGroupCache = new Map();
@@ -948,7 +1013,9 @@ async function resolveRoutineRows(env, today) {
       stepGroups: stepGroups.map((group) => group.name).filter(Boolean),
       steps: orderedSteps.map((step) => step.product).filter(Boolean),
       intensityTier: assignment.intensityTier,
-      isToday: assignment.date === today
+      isToday: pauseState?.assignmentId
+        ? assignment.id === pauseState.assignmentId
+        : assignment.date === today
     });
   }
 
@@ -958,6 +1025,7 @@ async function resolveRoutineRows(env, today) {
 async function resolveRoutinePlanPayload(env) {
   const today = dateStringInZone(new Date(), USER_TIME_ZONE);
   const cycle = await resolveActiveCycle(env, today);
+  const pauseState = await getPauseState(env);
 
   if (cycle.source !== "normalized") {
     throw new HttpError(409, "Routine plan unavailable", {
@@ -969,8 +1037,17 @@ async function resolveRoutinePlanPayload(env) {
     ok: true,
     today,
     cycle,
+    pause: pauseState
+      ? {
+          active: true,
+          assignmentId: pauseState.assignmentId,
+          resetAt: pauseState.resetAt
+        }
+      : {
+          active: false
+        },
     columns: ["Night", "Date", "Phase", "Step Groups", "Steps", "Intensity Tier"],
-    rows: await resolveRoutineRows(env, today)
+    rows: await resolveRoutineRows(env, today, pauseState)
   };
 }
 
@@ -1159,26 +1236,67 @@ async function resolveTonightPayload(env) {
   const today = dateStringInZone(new Date(), USER_TIME_ZONE);
   const mode = await getMode(env);
   const cycle = await resolveActiveCycle(env, today);
+  const pauseState = await getPauseState(env);
+
+  if (pauseState?.assignmentId) {
+    const assignment = await resolveAssignmentById(env, pauseState.assignmentId);
+    const assignments = await resolveAssignmentsForCycle(env, assignment.cycleId || cycle.id);
+    const assignmentIndex = assignments.findIndex((item) => item.id === assignment.id);
+    const nextAssignment = assignmentIndex >= 0 ? assignments[assignmentIndex + 1] || null : null;
+    const payload = mode === "travel" || mode === "minimal"
+      ? await resolveOverridePayloadForAssignment(env, today, cycle, mode, assignment, nextAssignment)
+      : await resolveNormalizedPayloadForAssignment(env, today, cycle, mode, assignment, nextAssignment);
+
+    return {
+      ...payload,
+      pause: {
+        active: true,
+        assignmentId: pauseState.assignmentId,
+        resetAt: pauseState.resetAt,
+        operatingDate: pauseState.operatingDate
+      }
+    };
+  }
 
   if (mode === "travel" || mode === "minimal") {
-    return resolveOverridePayload(env, today, cycle, mode);
+    return {
+      ...(await resolveOverridePayload(env, today, cycle, mode)),
+      pause: {
+        active: false
+      }
+    };
   }
 
   if (cycle.source === "normalized") {
     try {
-      return await resolveNormalizedTonightPayload(env, today, cycle, mode);
+      return {
+        ...(await resolveNormalizedTonightPayload(env, today, cycle, mode)),
+        pause: {
+          active: false
+        }
+      };
     } catch (error) {
       if (canFallbackToLegacy(env, error)) {
         const legacyCycle = env.LEGACY_CYCLES_DB_ID
           ? { ...(await resolveActiveCycleFromLegacy(env, today)), source: "legacy-fallback" }
           : cycle;
-        return resolveLegacyTonightPayload(env, today, legacyCycle, mode);
+        return {
+          ...(await resolveLegacyTonightPayload(env, today, legacyCycle, mode)),
+          pause: {
+            active: false
+          }
+        };
       }
       throw error;
     }
   }
 
-  return resolveLegacyTonightPayload(env, today, cycle, mode);
+  return {
+    ...(await resolveLegacyTonightPayload(env, today, cycle, mode)),
+    pause: {
+      active: false
+    }
+  };
 }
 
 async function resolveRoutineAssignmentPayload(env, assignmentId, requestedMode) {
@@ -1231,6 +1349,103 @@ async function resolveRoutineAssignmentPayload(env, assignmentId, requestedMode)
         nextAssignment
       )
     )
+  };
+}
+
+async function updateAssignmentsInBatches(env, updates, batchSize = 3) {
+  for (let index = 0; index < updates.length; index += batchSize) {
+    const batch = updates.slice(index, index + batchSize);
+    await Promise.all(
+      batch.map((update) =>
+        notionUpdatePage(env, update.id, {
+          Date: {
+            date: {
+              start: update.date
+            }
+          }
+        })
+      )
+    );
+  }
+}
+
+async function pauseCurrentNight(env, assignmentId) {
+  const window = pauseWindowInfo();
+  const activePause = await getPauseState(env);
+
+  if (activePause?.operatingDate === window.operatingDate) {
+    throw new HttpError(409, "Pause already used today", {
+      message: `Pause has already been used for ${window.operatingDate}. It will unlock again at 2:00 AM ET.`,
+      resetAt: activePause.resetAt
+    });
+  }
+
+  const today = window.today;
+  const cycle = await resolveActiveCycle(env, today);
+  const assignment = await resolveAssignmentById(env, assignmentId);
+
+  if (!assignment.date) {
+    throw new HttpError(409, "Pause unavailable for this night", {
+      message: "Pause can only be used on a scheduled night that already has a calendar date."
+    });
+  }
+
+  if (assignment.date !== today) {
+    throw new HttpError(409, "Pause unavailable for this night", {
+      message: `Pause can only be used on tonight's scheduled night (${today}).`
+    });
+  }
+
+  if (assignment.cycleId && cycle.id && assignment.cycleId !== cycle.id) {
+    throw new HttpError(409, "Pause unavailable for this cycle", {
+      message: "Pause can only be used within the active Skincare cycle."
+    });
+  }
+
+  const assignments = await resolveAssignmentsForCycle(env, assignment.cycleId || cycle.id);
+  const startIndex = assignments.findIndex((item) => item.id === assignment.id);
+
+  if (startIndex < 0) {
+    throw new HttpError(404, "Nightly assignment not found", {
+      message: "The selected nightly assignment could not be found in the active cycle."
+    });
+  }
+
+  const updates = [];
+  let nextDate = addDays(assignment.date, 1);
+
+  for (let index = startIndex; index < assignments.length; index += 1) {
+    updates.push({
+      id: assignments[index].id,
+      date: nextDate
+    });
+    nextDate = addDays(nextDate, 1);
+  }
+
+  await updateAssignmentsInBatches(env, updates);
+  await notionUpdatePage(env, cycle.id, {
+    "End Date": {
+      date: {
+        start: addDays(cycle.endDate, 1)
+      }
+    }
+  });
+
+  await setPauseState(env, {
+    assignmentId: assignment.id,
+    cycleId: assignment.cycleId || cycle.id,
+    operatingDate: window.operatingDate,
+    resetAt: window.resetAt,
+    createdAt: new Date().toISOString()
+  });
+
+  return {
+    ok: true,
+    ...(await handleTonight(env)),
+    pauseAction: {
+      pausedNight: assignment.nightLabel || "",
+      resetAt: window.resetAt
+    }
   };
 }
 
@@ -1348,6 +1563,11 @@ export default {
           200,
           origin
         );
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/pause") {
+        const body = await readRequestBody(request);
+        return jsonResponse(await pauseCurrentNight(env, body.assignmentId), 200, origin);
       }
 
       if (request.method === "GET" && url.pathname === "/api/yesterday") {
