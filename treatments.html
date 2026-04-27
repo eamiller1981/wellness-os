@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f7efe8">
+  <meta name="description" content="Track in-office treatments and recovery arcs inside Wellness OS.">
+  <title>Treatments | Wellness OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f7efe8;
+      --paper: #fffaf6;
+      --paper-strong: rgba(255, 250, 246, 0.94);
+      --ink: #403534;
+      --muted: #8f7c78;
+      --muted-soft: #b8a7a1;
+      --line: rgba(115, 91, 84, 0.14);
+      --rose: #caaba6;
+      --rose-soft: #f3dfd8;
+      --sage: #a3b5a6;
+      --sage-soft: #dce6dd;
+      --wisteria: #c6abd1;
+      --wisteria-soft: #ede3f2;
+      --amber-soft: #f2eadb;
+      --shadow: 0 18px 38px rgba(104, 79, 71, 0.08);
+      --radius-lg: 30px;
+      --radius-md: 20px;
+      --radius-sm: 14px;
+      --sans: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --script: "Great Vibes", cursive;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top, rgba(202, 171, 166, 0.22), transparent 34%),
+        linear-gradient(180deg, #fbf4ef 0%, var(--bg) 28%, #f4ece5 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .page {
+      width: min(100%, 1180px);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 14px 14px 36px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .nav-link {
+      min-height: 40px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 250, 246, 0.66);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.84rem;
+      font-weight: 700;
+      backdrop-filter: blur(10px);
+      transition: transform 0.2s ease;
+    }
+
+    .nav-link:hover,
+    .nav-link:focus-visible,
+    .source-link:hover,
+    .source-link:focus-visible {
+      outline: none;
+      transform: translateY(-1px);
+    }
+
+    .hero,
+    .note-panel,
+    .visit-shell,
+    .history-shell {
+      border-radius: var(--radius-lg);
+      background: var(--paper-strong);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 22px 18px 18px;
+      background:
+        radial-gradient(circle at 88% 16%, rgba(198, 171, 209, 0.48), transparent 26%),
+        radial-gradient(circle at 14% 80%, rgba(163, 181, 166, 0.22), transparent 28%),
+        linear-gradient(180deg, rgba(255, 250, 246, 0.96), rgba(255, 250, 246, 0.88));
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+
+    .hero::before {
+      width: 178px;
+      height: 178px;
+      right: -20px;
+      top: -54px;
+      background: rgba(243, 223, 216, 0.72);
+    }
+
+    .hero::after {
+      width: 126px;
+      height: 126px;
+      left: -18px;
+      bottom: -26px;
+      background: rgba(220, 230, 221, 0.74);
+    }
+
+    .hero-copy,
+    .hero-metrics {
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: var(--rose-soft);
+      color: #7c6661;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      margin: 14px 0 0;
+      font-family: var(--script);
+      font-size: clamp(3rem, 10vw, 4.8rem);
+      font-weight: 400;
+      line-height: 0.95;
+      color: #8f7570;
+    }
+
+    .hero p {
+      margin: 12px 0 0;
+      max-width: 700px;
+      color: var(--muted);
+      font-size: 0.96rem;
+      line-height: 1.65;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .source-link {
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: var(--paper);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+      transition: transform 0.2s ease;
+    }
+
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .metric {
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 250, 246, 0.72);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    .metric-label {
+      display: block;
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      display: block;
+      margin-top: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .note-panel {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-left: 3px solid var(--rose);
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.6;
+    }
+
+    .section {
+      margin-top: 14px;
+    }
+
+    .visit-shell,
+    .history-shell {
+      padding: 18px 16px;
+    }
+
+    .section-head {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .section-kicker {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .visit-shell .section-kicker {
+      background: var(--sage-soft);
+      color: #637664;
+    }
+
+    .history-shell .section-kicker {
+      background: var(--wisteria-soft);
+      color: #715b79;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 1.08rem;
+      font-weight: 700;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .visit-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .summary-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: rgba(255, 250, 246, 0.84);
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+    }
+
+    .package-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .package-card {
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 250, 246, 0.74);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    .package-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+
+    .pill.price {
+      background: var(--amber-soft);
+      color: #7c6647;
+    }
+
+    .pill.modality {
+      background: var(--sage-soft);
+      color: #637664;
+    }
+
+    .pill.category {
+      background: var(--wisteria-soft);
+      color: #725d7a;
+    }
+
+    .package-card h3,
+    .history-card h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .package-sub {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .package-list {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: var(--ink);
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+
+    .package-note {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .history-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .history-card {
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 250, 246, 0.74);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
+    }
+
+    .history-head {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .history-date {
+      color: var(--muted-soft);
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .history-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .history-copy {
+      display: grid;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+
+    .history-copy span {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .arc-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .arc-step {
+      padding: 12px 10px;
+      border-radius: 18px;
+      background: rgba(255, 250, 246, 0.88);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+    }
+
+    .arc-label {
+      display: block;
+      color: var(--muted-soft);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .arc-value {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+
+    @media (min-width: 760px) {
+      .page {
+        padding: 18px 18px 40px;
+      }
+
+      .hero {
+        padding: 26px 24px 22px;
+      }
+
+      .hero-metrics {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .package-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .history-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="topbar" aria-label="Page">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="skincare.html">Back to Skincare</a>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">Procedure History</span>
+        <h1>Treatments</h1>
+        <p>Keep the recent clinic work, older aesthetic history, and the expected recovery arc for each procedure in one grounded timeline so you can reference what happened and when results should evolve.</p>
+        <div class="hero-actions">
+          <a class="source-link" id="notionLink" href="https://www.notion.so/34f627ee81db8115aa3eee1761ddbc07" target="_blank" rel="noreferrer">Open Source Notes</a>
+        </div>
+      </div>
+      <div class="hero-metrics" aria-label="Treatments summary">
+        <div class="metric">
+          <span class="metric-label">Latest Visit</span>
+          <span class="metric-value" id="latestVisitDate">March 10, 2026</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">History Rows</span>
+          <span class="metric-value" id="historyCount">9 treatments</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Clinics</span>
+          <span class="metric-value" id="clinicCount">4 clinics</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Latest Total</span>
+          <span class="metric-value" id="latestVisitTotal">~$1,850 USD</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="note-panel" id="notePanel"></div>
+
+    <section class="section visit-shell" aria-labelledby="visitHeading">
+      <div class="section-head">
+        <span class="section-kicker">Latest Visit</span>
+        <h2 id="visitHeading">Muse Clinic — March 10, 2026</h2>
+        <p>The March visit normalized into two package-level records so the app can show the major service buckets first, then the exact included procedures underneath.</p>
+      </div>
+      <div class="visit-summary" id="visitSummary"></div>
+      <div class="package-grid" id="packageGrid"></div>
+    </section>
+
+    <section class="section history-shell" aria-labelledby="historyHeading">
+      <div class="section-head">
+        <span class="section-kicker">History</span>
+        <h2 id="historyHeading">Completed procedures and effect arcs</h2>
+        <p>Each historical entry is normalized into date, modality, area, product or device, clinic context, and the typical onset, peak, and duration pattern so the log is easier to scan over time.</p>
+      </div>
+      <div class="history-grid" id="historyGrid"></div>
+    </section>
+  </main>
+
+  <script>
+    const DATA = {
+      assumptions: [
+        "Older log dates are treated as 2025 because they precede the March 10, 2026 Muse Clinic visit.",
+        "The Muse Clinic note for the Ulshermage add-on ends after 'OR', so the second add-on option remains unconfirmed."
+      ],
+      latestVisit: {
+        clinic: "Muse Clinic",
+        date: "2026-03-10",
+        totalKrw: 2409000,
+        totalUsdApprox: 1850,
+        packages: [
+          {
+            name: "Ulshermage Classic",
+            area: "Jawline",
+            modality: "Energy tightening combo",
+            priceKrw: 1790000,
+            priceUsdApprox: 1375,
+            items: [
+              "Ulthera Prime 300 shots (jawline)",
+              "Thermage FLX 300 shots (jawline)",
+              "Confirmed add-on option: Shrink Booster 100 shots"
+            ],
+            note: "A second add-on option was referenced in the source notes but not included."
+          },
+          {
+            name: "All-in-One Skin Renewal",
+            area: "Face",
+            modality: "Regenerative skin renewal",
+            priceKrw: 619000,
+            priceUsdApprox: 475,
+            items: [
+              "Potenza RF microneedling",
+              "Olidia 4cc (PDO collagen stimulator)",
+              "Rejuran Healer 2cc",
+              "Cryo calming"
+            ],
+            note: ""
+          }
+        ]
+      },
+      history: [
+        {
+          date: "2025-12-02",
+          procedure: "Chin Lipo w/ Hammocking Sutures",
+          category: "Surgical contouring",
+          area: "Submental / neck",
+          clinic: "Genesis Clinic (Tijuana)",
+          productDevice: "Surgical fat removal + internal support",
+          notes: "Compression, lymphatic massage, and a fibrosis phase were expected.",
+          arc: {
+            onset: "Swelling days-weeks",
+            peak: "Contour 6-12 weeks",
+            duration: "Final 3-6 months"
+          }
+        },
+        {
+          date: "2025-11-26",
+          procedure: "Eyelid-Lifting Botox",
+          category: "Neuromodulator",
+          area: "Upper eyelids / brow",
+          clinic: "Aya Salon (Alpharetta)",
+          productDevice: "Botulinum toxin",
+          notes: "Subtle lid opening; avoid rubbing for 24 hours.",
+          arc: {
+            onset: "3-7 days",
+            peak: "2-4 weeks",
+            duration: "3-4 months"
+          }
+        },
+        {
+          date: "2025-10-25",
+          procedure: "RHA 3 (Lips)",
+          category: "HA filler",
+          area: "Lips",
+          clinic: "",
+          productDevice: "HA filler",
+          notes: "Hydration and shape, with settling around the 2-week mark.",
+          arc: {
+            onset: "Immediate",
+            peak: "2 weeks settle",
+            duration: "9-12 months"
+          }
+        },
+        {
+          date: "2025-10-09",
+          procedure: "Ultherapy (Upper Face)",
+          category: "Energy lifting",
+          area: "Brows / upper face",
+          clinic: "",
+          productDevice: "MFU-V",
+          notes: "Lifting and tightening with a slow onset.",
+          arc: {
+            onset: "4-8 weeks",
+            peak: "3-6 months",
+            duration: "12+ months"
+          }
+        },
+        {
+          date: "2025-10-09",
+          procedure: "Baby Botox",
+          category: "Neuromodulator",
+          area: "Forehead / glabella / crow's feet",
+          clinic: "",
+          productDevice: "Botulinum toxin",
+          notes: "Subtle smoothing.",
+          arc: {
+            onset: "3-7 days",
+            peak: "2-4 weeks",
+            duration: "3-4 months"
+          }
+        },
+        {
+          date: "2025-10-06",
+          procedure: "Juvelook (Under-Eyes)",
+          category: "Collagen stimulator",
+          area: "Tear troughs",
+          clinic: "",
+          productDevice: "PCL hybrid",
+          notes: "Collagen remodeling with possible swelling.",
+          arc: {
+            onset: "2-4 weeks",
+            peak: "8-12 weeks",
+            duration: "12+ months"
+          }
+        },
+        {
+          date: "2025-09-28",
+          procedure: "Mesotherapy - Brightening",
+          category: "Skin booster",
+          area: "Face",
+          clinic: "KKC Clinic (Thailand)",
+          productDevice: "Cocktail (brightening)",
+          notes: "Mild PIH-safe treatment; series often needed.",
+          arc: {
+            onset: "1-2 weeks",
+            peak: "4-6 weeks",
+            duration: "Variable maintenance"
+          }
+        },
+        {
+          date: "2025-09-28",
+          procedure: "Botox (Masseter)",
+          category: "Neuromodulator",
+          area: "Jawline",
+          clinic: "KKC Clinic (Thailand)",
+          productDevice: "Botulinum toxin",
+          notes: "Chewing strength drops first, then facial slimming appears later.",
+          arc: {
+            onset: "7-14 days",
+            peak: "6-8 weeks slimming",
+            duration: "3-6 months"
+          }
+        },
+        {
+          date: "2025-09-28",
+          procedure: "Radiesse (Cheeks)",
+          category: "Filler / biostimulator",
+          area: "Midface",
+          clinic: "KKC Clinic (Thailand)",
+          productDevice: "CaHA filler",
+          notes: "Immediate lift plus longer collagen stimulation.",
+          arc: {
+            onset: "Immediate lift",
+            peak: "12 weeks collagen",
+            duration: "12-18 months"
+          }
+        }
+      ]
+    };
+
+    const latestVisitDate = document.getElementById("latestVisitDate");
+    const historyCount = document.getElementById("historyCount");
+    const clinicCount = document.getElementById("clinicCount");
+    const latestVisitTotal = document.getElementById("latestVisitTotal");
+    const notePanel = document.getElementById("notePanel");
+    const visitSummary = document.getElementById("visitSummary");
+    const packageGrid = document.getElementById("packageGrid");
+    const historyGrid = document.getElementById("historyGrid");
+
+    function formatDate(value) {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric"
+      }).format(new Date(`${value}T00:00:00`));
+    }
+
+    function formatCurrencyKrw(value) {
+      return new Intl.NumberFormat("en-US").format(value) + " KRW";
+    }
+
+    function formatCurrencyUsd(value) {
+      return "~$" + new Intl.NumberFormat("en-US").format(value) + " USD";
+    }
+
+    function uniqueClinics() {
+      const values = new Set([DATA.latestVisit.clinic]);
+      DATA.history.forEach((item) => {
+        if (item.clinic) values.add(item.clinic);
+      });
+      return values.size;
+    }
+
+    function renderNotes() {
+      notePanel.innerHTML = DATA.assumptions
+        .map((note) => `- ${note}`)
+        .join("<br>");
+    }
+
+    function renderVisitSummary() {
+      visitSummary.innerHTML = `
+        <span class="summary-chip">${formatCurrencyKrw(DATA.latestVisit.totalKrw)}</span>
+        <span class="summary-chip">${formatCurrencyUsd(DATA.latestVisit.totalUsdApprox)}</span>
+        <span class="summary-chip">${DATA.latestVisit.packages.length} normalized packages</span>
+      `;
+    }
+
+    function renderPackages() {
+      packageGrid.innerHTML = DATA.latestVisit.packages.map((pkg) => `
+        <article class="package-card">
+          <div class="package-meta">
+            <span class="pill price">${formatCurrencyUsd(pkg.priceUsdApprox)}</span>
+            <span class="pill modality">${pkg.modality}</span>
+          </div>
+          <h3>${pkg.name}</h3>
+          <p class="package-sub">${pkg.area} · ${formatCurrencyKrw(pkg.priceKrw)}</p>
+          <ul class="package-list">
+            ${pkg.items.map((item) => `<li>${item}</li>`).join("")}
+          </ul>
+          ${pkg.note ? `<p class="package-note">${pkg.note}</p>` : ""}
+        </article>
+      `).join("");
+    }
+
+    function renderHistory() {
+      historyGrid.innerHTML = DATA.history.map((item) => `
+        <article class="history-card">
+          <div class="history-head">
+            <span class="history-date">${formatDate(item.date)}</span>
+            <div class="history-meta">
+              <span class="pill category">${item.category}</span>
+            </div>
+            <h3>${item.procedure}</h3>
+          </div>
+          <div class="history-copy">
+            <div><span>Area:</span> ${item.area}</div>
+            <div><span>Product / Device:</span> ${item.productDevice}</div>
+            ${item.clinic ? `<div><span>Clinic:</span> ${item.clinic}</div>` : ""}
+            <div><span>Notes:</span> ${item.notes}</div>
+          </div>
+          <div class="arc-grid">
+            <div class="arc-step">
+              <span class="arc-label">Onset</span>
+              <span class="arc-value">${item.arc.onset}</span>
+            </div>
+            <div class="arc-step">
+              <span class="arc-label">Peak</span>
+              <span class="arc-value">${item.arc.peak}</span>
+            </div>
+            <div class="arc-step">
+              <span class="arc-label">Duration</span>
+              <span class="arc-value">${item.arc.duration}</span>
+            </div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function renderMetrics() {
+      latestVisitDate.textContent = formatDate(DATA.latestVisit.date);
+      historyCount.textContent = `${DATA.history.length} treatments`;
+      clinicCount.textContent = `${uniqueClinics()} clinics`;
+      latestVisitTotal.textContent = formatCurrencyUsd(DATA.latestVisit.totalUsdApprox);
+    }
+
+    renderMetrics();
+    renderNotes();
+    renderVisitSummary();
+    renderPackages();
+    renderHistory();
+  </script>
+</body>
+</html>
