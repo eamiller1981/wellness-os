@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f7efe8">
-  <meta name="description" content="Track in-office treatments and recovery arcs inside Wellness OS.">
+  <meta name="description" content="Track treatment history, outcomes, and recovery windows inside Wellness OS.">
   <title>Treatments | Wellness OS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -90,8 +90,7 @@
     }
 
     .hero,
-    .note-panel,
-    .visit-shell,
+    .outcome-shell,
     .history-shell {
       border-radius: var(--radius-lg);
       background: var(--paper-strong);
@@ -164,7 +163,7 @@
 
     .hero p {
       margin: 12px 0 0;
-      max-width: 700px;
+      max-width: 720px;
       color: var(--muted);
       font-size: 0.96rem;
       line-height: 1.65;
@@ -175,6 +174,18 @@
       flex-wrap: wrap;
       gap: 10px;
       margin-top: 16px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .source-link {
@@ -189,6 +200,37 @@
       font-weight: 700;
       box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
       transition: transform 0.2s ease;
+    }
+
+    .jump-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .jump-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted-soft);
+      font-size: 0.72rem;
+      pointer-events: none;
+    }
+
+    .jump-select {
+      min-height: 40px;
+      padding: 0 36px 0 14px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--paper);
+      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 0.82rem;
+      font-weight: 700;
+      appearance: none;
+      cursor: pointer;
     }
 
     .hero-metrics {
@@ -222,24 +264,20 @@
       line-height: 1.35;
     }
 
-    .note-panel {
-      margin-top: 14px;
-      padding: 14px 16px;
-      border-left: 3px solid var(--rose);
-      border-top-left-radius: 0;
-      border-bottom-left-radius: 0;
-      color: var(--muted);
-      font-size: 0.84rem;
-      line-height: 1.6;
-    }
-
     .section {
       margin-top: 14px;
     }
 
-    .visit-shell,
+    .widget-shell,
+    .outcome-shell,
     .history-shell {
       padding: 18px 16px;
+    }
+
+    .widget-shell {
+      border-radius: var(--radius-lg);
+      background: var(--paper-strong);
+      box-shadow: var(--shadow);
     }
 
     .section-head {
@@ -261,14 +299,15 @@
       text-transform: uppercase;
     }
 
-    .visit-shell .section-kicker {
-      background: var(--sage-soft);
-      color: #637664;
+    .widget-shell .section-kicker {
+      background: var(--amber-soft);
+      color: #77655f;
     }
 
+    .outcome-shell .section-kicker,
     .history-shell .section-kicker {
-      background: var(--wisteria-soft);
-      color: #715b79;
+      background: var(--sage-soft);
+      color: #637664;
     }
 
     .section-head h2 {
@@ -284,43 +323,162 @@
       line-height: 1.55;
     }
 
-    .visit-summary {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .summary-chip {
-      display: inline-flex;
-      align-items: center;
-      min-height: 30px;
-      padding: 0 12px;
-      border-radius: 999px;
-      background: rgba(255, 250, 246, 0.84);
-      color: var(--muted);
-      font-size: 0.78rem;
-      font-weight: 700;
-      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
-    }
-
-    .package-grid {
+    .snapshot-grid {
       display: grid;
-      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
     }
 
-    .package-card {
-      padding: 16px;
+    .outcome-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .topup-grid,
+    .active-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .snapshot-card,
+    .service-card,
+    .active-card,
+    .outcome-card {
+      padding: 12px;
       border-radius: var(--radius-md);
       background: rgba(255, 250, 246, 0.74);
       box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
     }
 
-    .package-meta {
+    .snapshot-card {
+      min-height: 132px;
+      display: grid;
+      align-content: start;
+      gap: 8px;
+    }
+
+    .snapshot-card.is-wide {
+      grid-column: 1 / -1;
+    }
+
+    .snapshot-label,
+    .service-label,
+    .active-label {
+      display: block;
+      color: var(--muted-soft);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .snapshot-value,
+    .service-value,
+    .active-value {
+      display: block;
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .snapshot-meta,
+    .service-meta,
+    .active-meta {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .service-card,
+    .active-card {
+      display: grid;
+      gap: 10px;
+    }
+
+    .service-head,
+    .active-head {
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 10px;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .service-name,
+    .active-title {
+      font-size: 0.96rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .service-panels,
+    .active-rows {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .service-panel,
+    .active-row {
+      display: grid;
+      gap: 3px;
+    }
+
+    .service-panel strong,
+    .active-row strong {
+      color: var(--muted-soft);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .service-panel span,
+    .active-row span {
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .active-row.area-row {
+      grid-column: 1 / -1;
+    }
+
+    .pill.pending {
+      background: rgba(202, 171, 166, 0.18);
+      color: #7f6760;
+    }
+
+    .pill.topup-state {
+      display: none;
+    }
+
+    .outcome-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+
+    .outcome-title strong {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .outcome-track {
+      margin-top: 10px;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(202, 171, 166, 0.16);
+      overflow: hidden;
+    }
+
+    .outcome-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(163, 181, 166, 0.86), rgba(198, 171, 209, 0.9));
     }
 
     .pill {
@@ -334,49 +492,24 @@
       font-weight: 700;
     }
 
-    .pill.price {
-      background: var(--amber-soft);
-      color: #7c6647;
-    }
-
-    .pill.modality {
-      background: var(--sage-soft);
-      color: #637664;
-    }
-
     .pill.category {
       background: var(--wisteria-soft);
       color: #725d7a;
     }
 
-    .package-card h3,
-    .history-card h3 {
-      margin: 0;
-      font-size: 1rem;
-      font-weight: 700;
-      line-height: 1.35;
+    .pill.status-active {
+      background: var(--sage-soft);
+      color: #5f7563;
     }
 
-    .package-sub {
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 0.84rem;
-      line-height: 1.55;
+    .pill.status-peak {
+      background: rgba(198, 171, 209, 0.24);
+      color: #705a7b;
     }
 
-    .package-list {
-      margin: 12px 0 0;
-      padding-left: 18px;
-      color: var(--ink);
-      font-size: 0.9rem;
-      line-height: 1.65;
-    }
-
-    .package-note {
-      margin: 12px 0 0;
-      color: var(--muted);
-      font-size: 0.82rem;
-      line-height: 1.55;
+    .pill.status-inactive {
+      background: var(--rose-soft);
+      color: #88665e;
     }
 
     .history-grid {
@@ -411,6 +544,13 @@
       gap: 6px;
     }
 
+    .history-card h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
     .history-copy {
       display: grid;
       gap: 8px;
@@ -432,10 +572,14 @@
     }
 
     .arc-step {
+      min-height: 104px;
       padding: 12px 10px;
       border-radius: 18px;
       background: rgba(255, 250, 246, 0.88);
       box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
     }
 
     .arc-label {
@@ -450,8 +594,18 @@
     .arc-value {
       display: block;
       margin-top: 6px;
+      min-height: 2.8em;
       font-size: 0.8rem;
       line-height: 1.45;
+    }
+
+    .arc-date-note {
+      display: block;
+      margin-top: 8px;
+      min-height: 2.8em;
+      color: var(--muted-soft);
+      font-size: 0.7rem;
+      line-height: 1.4;
     }
 
     @media (min-width: 760px) {
@@ -463,14 +617,19 @@
         padding: 26px 24px 22px;
       }
 
+      .topup-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .active-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
       .hero-metrics {
         grid-template-columns: repeat(4, minmax(0, 1fr));
       }
 
-      .package-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
+      .outcome-grid,
       .history-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -488,333 +647,993 @@
       <div class="hero-copy">
         <span class="eyebrow">Procedure History</span>
         <h1>Treatments</h1>
-        <p>Keep the recent clinic work, older aesthetic history, and the expected recovery arc for each procedure in one grounded timeline so you can reference what happened and when results should evolve.</p>
+        <p>A running log of your completed treatments, the outcomes they target, and where each one sits in its expected results window.</p>
         <div class="hero-actions">
-          <a class="source-link" id="notionLink" href="https://www.notion.so/34f627ee81db8115aa3eee1761ddbc07" target="_blank" rel="noreferrer">Open Source Notes</a>
+          <a class="source-link" id="databaseLink" href="https://www.notion.so/25c670a859fa43e98425807adab6318f" target="_blank" rel="noreferrer">Open Treatments Database</a>
+          <div class="jump-wrap">
+            <label class="sr-only" for="sectionJump">Jump to section</label>
+            <select class="jump-select" id="sectionJump">
+              <option value="">Jump to section</option>
+              <option value="botoxSection">Botox</option>
+              <option value="topUpSection">Top Up</option>
+              <option value="workNowSection">What's At Work Now</option>
+              <option value="outcomeSection">Outcome Mix</option>
+              <option value="historySection">Treatment History</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="hero-metrics" aria-label="Treatments summary">
         <div class="metric">
-          <span class="metric-label">Latest Visit</span>
-          <span class="metric-value" id="latestVisitDate">March 10, 2026</span>
+          <span class="metric-label">Total Cost</span>
+          <span class="metric-value" id="totalCostMetric">~$1,850</span>
         </div>
         <div class="metric">
-          <span class="metric-label">History Rows</span>
-          <span class="metric-value" id="historyCount">9 treatments</span>
+          <span class="metric-label">Total Treatments</span>
+          <span class="metric-value" id="totalTreatmentsMetric">15 logged</span>
         </div>
         <div class="metric">
           <span class="metric-label">Clinics</span>
-          <span class="metric-value" id="clinicCount">4 clinics</span>
+          <span class="metric-value" id="clinicCountMetric">4 clinics</span>
         </div>
         <div class="metric">
-          <span class="metric-label">Latest Total</span>
-          <span class="metric-value" id="latestVisitTotal">~$1,850 USD</span>
+          <span class="metric-label">Active Windows</span>
+          <span class="metric-value" id="activeWindowsMetric">7 active</span>
         </div>
       </div>
     </section>
 
-    <div class="note-panel" id="notePanel"></div>
-
-    <section class="section visit-shell" aria-labelledby="visitHeading">
+    <section class="section widget-shell" id="botoxSection" aria-label="Botox">
       <div class="section-head">
-        <span class="section-kicker">Latest Visit</span>
-        <h2 id="visitHeading">Muse Clinic — March 10, 2026</h2>
-        <p>The March visit normalized into two package-level records so the app can show the major service buckets first, then the exact included procedures underneath.</p>
+        <span class="section-kicker">Botox</span>
       </div>
-      <div class="visit-summary" id="visitSummary"></div>
-      <div class="package-grid" id="packageGrid"></div>
+      <div class="snapshot-grid" id="botoxGrid"></div>
     </section>
 
-    <section class="section history-shell" aria-labelledby="historyHeading">
+    <section class="section widget-shell" id="topUpSection" aria-label="Top Up">
       <div class="section-head">
-        <span class="section-kicker">History</span>
-        <h2 id="historyHeading">Completed procedures and effect arcs</h2>
-        <p>Each historical entry is normalized into date, modality, area, product or device, clinic context, and the typical onset, peak, and duration pattern so the log is easier to scan over time.</p>
+        <span class="section-kicker">Top Up</span>
+      </div>
+      <div class="topup-grid" id="topUpGrid"></div>
+    </section>
+
+    <section class="section widget-shell" id="workNowSection" aria-label="At Work Now">
+      <div class="section-head">
+        <span class="section-kicker">At Work Now</span>
+      </div>
+      <div class="active-grid" id="workNowGrid"></div>
+    </section>
+
+    <section class="section outcome-shell" id="outcomeSection" aria-label="Outcome Mix">
+      <div class="section-head">
+        <span class="section-kicker">Outcome Mix</span>
+      </div>
+      <div class="outcome-grid" id="outcomeGrid"></div>
+    </section>
+
+    <section class="section history-shell" id="historySection" aria-label="Treatment Log">
+      <div class="section-head">
+        <span class="section-kicker">Treatment Log</span>
       </div>
       <div class="history-grid" id="historyGrid"></div>
     </section>
   </main>
 
   <script>
-    const DATA = {
-      assumptions: [
-        "Older log dates are treated as 2025 because they precede the March 10, 2026 Muse Clinic visit.",
-        "The Muse Clinic note for the Ulshermage add-on ends after 'OR', so the second add-on option remains unconfirmed."
-      ],
-      latestVisit: {
-        clinic: "Muse Clinic",
+    const DATABASE_URL = "https://www.notion.so/25c670a859fa43e98425807adab6318f";
+    const BOTOX_CADENCE_MONTHS = 4;
+    const NOTIFICATION_LEAD_DAYS = 14;
+    const TRACKED_TOTAL_COST = 1850;
+    const AREA_ACRONYMS = new Set(["DAO"]);
+
+    const RECORDS = [
+      {
         date: "2026-03-10",
-        totalKrw: 2409000,
-        totalUsdApprox: 1850,
-        packages: [
-          {
-            name: "Ulshermage Classic",
-            area: "Jawline",
-            modality: "Energy tightening combo",
-            priceKrw: 1790000,
-            priceUsdApprox: 1375,
-            items: [
-              "Ulthera Prime 300 shots (jawline)",
-              "Thermage FLX 300 shots (jawline)",
-              "Confirmed add-on option: Shrink Booster 100 shots"
-            ],
-            note: "A second add-on option was referenced in the source notes but not included."
-          },
-          {
-            name: "All-in-One Skin Renewal",
-            area: "Face",
-            modality: "Regenerative skin renewal",
-            priceKrw: 619000,
-            priceUsdApprox: 475,
-            items: [
-              "Potenza RF microneedling",
-              "Olidia 4cc (PDO collagen stimulator)",
-              "Rejuran Healer 2cc",
-              "Cryo calming"
-            ],
-            note: ""
-          }
-        ]
-      },
-      history: [
-        {
-          date: "2025-12-02",
-          procedure: "Chin Lipo w/ Hammocking Sutures",
-          category: "Surgical contouring",
-          area: "Submental / neck",
-          clinic: "Genesis Clinic (Tijuana)",
-          productDevice: "Surgical fat removal + internal support",
-          notes: "Compression, lymphatic massage, and a fibrosis phase were expected.",
-          arc: {
-            onset: "Swelling days-weeks",
-            peak: "Contour 6-12 weeks",
-            duration: "Final 3-6 months"
-          }
-        },
-        {
-          date: "2025-11-26",
-          procedure: "Eyelid-Lifting Botox",
-          category: "Neuromodulator",
-          area: "Upper eyelids / brow",
-          clinic: "Aya Salon (Alpharetta)",
-          productDevice: "Botulinum toxin",
-          notes: "Subtle lid opening; avoid rubbing for 24 hours.",
-          arc: {
-            onset: "3-7 days",
-            peak: "2-4 weeks",
-            duration: "3-4 months"
-          }
-        },
-        {
-          date: "2025-10-25",
-          procedure: "RHA 3 (Lips)",
-          category: "HA filler",
-          area: "Lips",
-          clinic: "",
-          productDevice: "HA filler",
-          notes: "Hydration and shape, with settling around the 2-week mark.",
-          arc: {
-            onset: "Immediate",
-            peak: "2 weeks settle",
-            duration: "9-12 months"
-          }
-        },
-        {
-          date: "2025-10-09",
-          procedure: "Ultherapy (Upper Face)",
-          category: "Energy lifting",
-          area: "Brows / upper face",
-          clinic: "",
-          productDevice: "MFU-V",
-          notes: "Lifting and tightening with a slow onset.",
-          arc: {
-            onset: "4-8 weeks",
-            peak: "3-6 months",
-            duration: "12+ months"
-          }
-        },
-        {
-          date: "2025-10-09",
-          procedure: "Baby Botox",
-          category: "Neuromodulator",
-          area: "Forehead / glabella / crow's feet",
-          clinic: "",
-          productDevice: "Botulinum toxin",
-          notes: "Subtle smoothing.",
-          arc: {
-            onset: "3-7 days",
-            peak: "2-4 weeks",
-            duration: "3-4 months"
-          }
-        },
-        {
-          date: "2025-10-06",
-          procedure: "Juvelook (Under-Eyes)",
-          category: "Collagen stimulator",
-          area: "Tear troughs",
-          clinic: "",
-          productDevice: "PCL hybrid",
-          notes: "Collagen remodeling with possible swelling.",
-          arc: {
-            onset: "2-4 weeks",
-            peak: "8-12 weeks",
-            duration: "12+ months"
-          }
-        },
-        {
-          date: "2025-09-28",
-          procedure: "Mesotherapy - Brightening",
-          category: "Skin booster",
-          area: "Face",
-          clinic: "KKC Clinic (Thailand)",
-          productDevice: "Cocktail (brightening)",
-          notes: "Mild PIH-safe treatment; series often needed.",
-          arc: {
-            onset: "1-2 weeks",
-            peak: "4-6 weeks",
-            duration: "Variable maintenance"
-          }
-        },
-        {
-          date: "2025-09-28",
-          procedure: "Botox (Masseter)",
-          category: "Neuromodulator",
-          area: "Jawline",
-          clinic: "KKC Clinic (Thailand)",
-          productDevice: "Botulinum toxin",
-          notes: "Chewing strength drops first, then facial slimming appears later.",
-          arc: {
-            onset: "7-14 days",
-            peak: "6-8 weeks slimming",
-            duration: "3-6 months"
-          }
-        },
-        {
-          date: "2025-09-28",
-          procedure: "Radiesse (Cheeks)",
-          category: "Filler / biostimulator",
-          area: "Midface",
-          clinic: "KKC Clinic (Thailand)",
-          productDevice: "CaHA filler",
-          notes: "Immediate lift plus longer collagen stimulation.",
-          arc: {
-            onset: "Immediate lift",
-            peak: "12 weeks collagen",
-            duration: "12-18 months"
-          }
+        procedure: "Ulthera Prime 300 shots",
+        category: "Energy lifting",
+        area: "Jawline",
+        productDevice: "Ulthera Prime 300 shots + Shrink Booster 100 shots",
+        clinic: "Muse Clinic",
+        outcomes: ["Tightening", "Jawline contouring"],
+        notes: "Jawline lifting component from the Ulshermage bundle. Second add-on option was referenced in the source notes but not included.",
+        costLabel: "~$1,375 bundle total",
+        timeline: {
+          onset: { label: "Initial lift", startDays: 0, endDays: 30 },
+          peak: { label: "Visible results at 3 months", startDays: 90, endDays: 90 },
+          duration: { label: "12+ months", startDays: 365, endDays: 365, plus: true }
         }
-      ]
-    };
+      },
+      {
+        date: "2026-03-10",
+        procedure: "Thermage FLX 300 shots",
+        category: "Energy lifting",
+        area: "Jawline",
+        productDevice: "Thermage FLX 300 shots",
+        clinic: "Muse Clinic",
+        outcomes: ["Tightening", "Jawline contouring"],
+        notes: "Jawline tightening component from the Ulshermage bundle. Shared bundle cost is tracked on the Ulthera Prime row.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "Early tightening", startDays: 42, endDays: 60 },
+          peak: { label: "2-6 months", startDays: 60, endDays: 180 },
+          duration: { label: "1-2 years", startDays: 365, endDays: 730 }
+        }
+      },
+      {
+        date: "2026-03-10",
+        procedure: "Potenza RF microneedling",
+        category: "RF microneedling",
+        area: "Face",
+        productDevice: "Potenza RF microneedling",
+        clinic: "Muse Clinic",
+        outcomes: ["Texture refinement", "Brightening", "Collagen stimulation"],
+        notes: "Part of the All-in-One Skin Renewal bundle.",
+        costLabel: "~$475 bundle total",
+        timeline: {
+          onset: { label: "2-4 weeks", startDays: 14, endDays: 28 },
+          peak: { label: "3-6 months", startDays: 90, endDays: 180 },
+          duration: { label: "6-12 months", startDays: 180, endDays: 365 }
+        }
+      },
+      {
+        date: "2026-03-10",
+        procedure: "Olidia 4cc",
+        category: "Collagen stimulator",
+        area: "Face",
+        productDevice: "Olidia 4cc (PDO collagen stimulator)",
+        clinic: "Muse Clinic",
+        outcomes: ["Collagen stimulation", "Firming"],
+        notes: "PDO collagen stimulator included in the All-in-One Skin Renewal bundle. Shared bundle cost is tracked on the Potenza row.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "2-3 weeks", startDays: 14, endDays: 21 },
+          peak: { label: "3-6 weeks", startDays: 21, endDays: 42 },
+          duration: { label: "2-3 years", startDays: 730, endDays: 1095 }
+        }
+      },
+      {
+        date: "2026-03-10",
+        procedure: "Rejuran Healer 2cc",
+        category: "Skin healer",
+        area: "Face",
+        productDevice: "Rejuran Healer 2cc + Cryo calming",
+        clinic: "Muse Clinic",
+        outcomes: ["Barrier recovery", "Calming", "Hydration"],
+        notes: "Healing-focused component from the All-in-One Skin Renewal bundle. Shared bundle cost is tracked on the Potenza row. Was too painful and I did not complete the full 2cc.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "1 week", startDays: 7, endDays: 7 },
+          peak: { label: "14 days", startDays: 14, endDays: 14 },
+          duration: { label: "Up to 6 months", startDays: 180, endDays: 180 }
+        }
+      },
+      {
+        date: "2026-03-10",
+        procedure: "Botox",
+        category: "Neuromodulator",
+        area: "Crow's feet / forehead / DAO",
+        productDevice: "Botulinum toxin",
+        clinic: "Muse Clinic",
+        outcomes: ["Smoothing", "Lift"],
+        notes: "Muse Clinic Botox treatment for crow's feet, forehead, and DAO.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "3-7 days", startDays: 3, endDays: 7 },
+          peak: { label: "2-4 weeks", startDays: 14, endDays: 28 },
+          duration: { label: "3-4 months", startDays: 90, endDays: 120 }
+        }
+      },
+      {
+        date: "2025-12-02",
+        procedure: "Chin Lipo w/ Hammocking Sutures",
+        category: "Surgical contouring",
+        area: "Submental / neck",
+        productDevice: "Surgical fat removal + internal support",
+        clinic: "Genesis Clinic (Tijuana)",
+        outcomes: ["Jawline contouring", "Tightening"],
+        notes: "Compression, lymphatic massage, and a fibrosis phase were expected.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "Swelling days-weeks", startDays: 1, endDays: 49 },
+          peak: { label: "Contour 6-12 weeks", startDays: 42, endDays: 84 },
+          duration: { label: "Final 3-6 months", startDays: 90, endDays: 180 }
+        }
+      },
+      {
+        date: "2025-11-26",
+        procedure: "Eyelid-Lifting Botox",
+        category: "Neuromodulator",
+        area: "Upper eyelids / brow",
+        productDevice: "Botulinum toxin",
+        clinic: "Aya Salon (Alpharetta)",
+        outcomes: ["Lid opening", "Tightening"],
+        notes: "Subtle lid opening; avoid rubbing for 24 hours.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "3-7 days", startDays: 3, endDays: 7 },
+          peak: { label: "2-4 weeks", startDays: 14, endDays: 28 },
+          duration: { label: "3-4 months", startDays: 90, endDays: 120 }
+        }
+      },
+      {
+        date: "2025-10-25",
+        procedure: "RHA 3 (Lips)",
+        category: "HA filler",
+        area: "Lips",
+        productDevice: "HA filler",
+        clinic: "",
+        outcomes: ["Hydration", "Volume support"],
+        notes: "Hydration and shape, with settling around the 2-week mark.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "Immediate", startDays: 0, endDays: 0 },
+          peak: { label: "2 weeks settle", startDays: 14, endDays: 14 },
+          duration: { label: "9-12 months", startDays: 270, endDays: 365 }
+        }
+      },
+      {
+        date: "2025-10-09",
+        procedure: "Ultherapy (Upper Face)",
+        category: "Energy lifting",
+        area: "Brows / upper face",
+        productDevice: "MFU-V",
+        clinic: "",
+        outcomes: ["Tightening", "Brow lift"],
+        notes: "Lifting and tightening with a slow onset.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "4-8 weeks", startDays: 28, endDays: 56 },
+          peak: { label: "3-6 months", startDays: 90, endDays: 180 },
+          duration: { label: "12+ months", startDays: 365, endDays: 365, plus: true }
+        }
+      },
+      {
+        date: "2025-10-09",
+        procedure: "Baby Botox",
+        category: "Neuromodulator",
+        area: "Forehead / glabella / crow's feet",
+        productDevice: "Botulinum toxin",
+        clinic: "",
+        outcomes: ["Smoothing"],
+        notes: "Subtle smoothing.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "3-7 days", startDays: 3, endDays: 7 },
+          peak: { label: "2-4 weeks", startDays: 14, endDays: 28 },
+          duration: { label: "3-4 months", startDays: 90, endDays: 120 }
+        }
+      },
+      {
+        date: "2025-10-06",
+        procedure: "Juvelook (Under-Eyes)",
+        category: "Collagen stimulator",
+        area: "Tear troughs",
+        productDevice: "PCL hybrid",
+        clinic: "",
+        outcomes: ["Collagen stimulation", "Under-eye support"],
+        notes: "Collagen remodeling with possible swelling.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "2-4 weeks", startDays: 14, endDays: 28 },
+          peak: { label: "8-12 weeks", startDays: 56, endDays: 84 },
+          duration: { label: "12+ months", startDays: 365, endDays: 365, plus: true }
+        }
+      },
+      {
+        date: "2025-09-28",
+        procedure: "Mesotherapy - Brightening",
+        category: "Skin booster",
+        area: "Face",
+        productDevice: "Cocktail (brightening)",
+        clinic: "KKC Clinic (Thailand)",
+        outcomes: ["Brightening", "Pigment support"],
+        notes: "Mild PIH-safe treatment; series often needed.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "1-2 weeks", startDays: 7, endDays: 14 },
+          peak: { label: "4-6 weeks", startDays: 28, endDays: 42 },
+          duration: { label: "Variable maintenance", startDays: null, endDays: null, indefinite: true }
+        }
+      },
+      {
+        date: "2025-09-28",
+        procedure: "Botox (Masseter)",
+        category: "Neuromodulator",
+        area: "Jawline",
+        productDevice: "Botulinum toxin",
+        clinic: "KKC Clinic (Thailand)",
+        outcomes: ["Facial slimming", "Jawline contouring"],
+        notes: "Chewing strength drops first, then facial slimming appears later.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "7-14 days", startDays: 7, endDays: 14 },
+          peak: { label: "6-8 weeks slimming", startDays: 42, endDays: 56 },
+          duration: { label: "3-6 months", startDays: 90, endDays: 180 }
+        }
+      },
+      {
+        date: "2025-09-28",
+        procedure: "Radiesse (Cheeks)",
+        category: "Filler / biostimulator",
+        area: "Midface",
+        productDevice: "CaHA filler",
+        clinic: "KKC Clinic (Thailand)",
+        outcomes: ["Lift", "Collagen stimulation", "Volume support"],
+        notes: "Immediate lift plus longer collagen stimulation.",
+        costLabel: "",
+        timeline: {
+          onset: { label: "Immediate lift", startDays: 0, endDays: 0 },
+          peak: { label: "12 weeks collagen", startDays: 84, endDays: 84 },
+          duration: { label: "12-18 months", startDays: 365, endDays: 540 }
+        }
+      }
+    ];
 
-    const latestVisitDate = document.getElementById("latestVisitDate");
-    const historyCount = document.getElementById("historyCount");
-    const clinicCount = document.getElementById("clinicCount");
-    const latestVisitTotal = document.getElementById("latestVisitTotal");
-    const notePanel = document.getElementById("notePanel");
-    const visitSummary = document.getElementById("visitSummary");
-    const packageGrid = document.getElementById("packageGrid");
+    const TOP_UP_SERVICES = [
+      {
+        name: "RF Microneedling",
+        cadenceMonths: null,
+        anchorMode: "manual",
+        matcher: (record) => record.category === "RF microneedling"
+      },
+      {
+        name: "Energy Treatment",
+        cadenceMonths: null,
+        anchorMode: "latest",
+        matcher: (record) => record.category === "Energy lifting"
+      },
+      {
+        name: "Lip Filler",
+        cadenceMonths: null,
+        anchorMode: "latest",
+        matcher: (record) => record.category === "HA filler"
+      },
+      {
+        name: "Biostimulator",
+        cadenceMonths: null,
+        anchorMode: "latest",
+        matcher: (record) =>
+          record.category === "Collagen stimulator" ||
+          record.category === "Filler / biostimulator"
+      },
+      {
+        name: "Laser",
+        cadenceMonths: null,
+        anchorMode: "manual",
+        matcher: () => false
+      }
+    ];
+
+    const totalCostMetric = document.getElementById("totalCostMetric");
+    const totalTreatmentsMetric = document.getElementById("totalTreatmentsMetric");
+    const clinicCountMetric = document.getElementById("clinicCountMetric");
+    const activeWindowsMetric = document.getElementById("activeWindowsMetric");
+    const sectionJump = document.getElementById("sectionJump");
+    const botoxGrid = document.getElementById("botoxGrid");
+    const topUpGrid = document.getElementById("topUpGrid");
+    const workNowGrid = document.getElementById("workNowGrid");
+    const outcomeGrid = document.getElementById("outcomeGrid");
     const historyGrid = document.getElementById("historyGrid");
+    const databaseLink = document.getElementById("databaseLink");
 
-    function formatDate(value) {
+    function parseDate(value) {
+      return new Date(`${value}T00:00:00`);
+    }
+
+    function startOfToday() {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return today;
+    }
+
+    function addDays(date, days) {
+      const next = new Date(date.getTime());
+      next.setDate(next.getDate() + days);
+      return next;
+    }
+
+    function addMonths(date, months) {
+      const next = new Date(date.getTime());
+      const dayOfMonth = next.getDate();
+      next.setDate(1);
+      next.setMonth(next.getMonth() + months);
+      const maxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+      next.setDate(Math.min(dayOfMonth, maxDay));
+      return next;
+    }
+
+    function formatLongDate(value) {
       return new Intl.DateTimeFormat("en-US", {
         month: "long",
         day: "numeric",
         year: "numeric"
-      }).format(new Date(`${value}T00:00:00`));
+      }).format(parseDate(value));
     }
 
-    function formatCurrencyKrw(value) {
-      return new Intl.NumberFormat("en-US").format(value) + " KRW";
+    function formatLongDateFromDate(date) {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric"
+      }).format(date);
     }
 
-    function formatCurrencyUsd(value) {
-      return "~$" + new Intl.NumberFormat("en-US").format(value) + " USD";
+    function formatShortDate(date) {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      }).format(date);
     }
 
-    function uniqueClinics() {
-      const values = new Set([DATA.latestVisit.clinic]);
-      DATA.history.forEach((item) => {
-        if (item.clinic) values.add(item.clinic);
+    function formatUsd(value) {
+      return `~$${new Intl.NumberFormat("en-US").format(value)}`;
+    }
+
+    function titleCaseSegment(segment) {
+      return segment
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => {
+          const trimmed = word.trim();
+          if (!trimmed) return trimmed;
+
+          const upper = trimmed.toUpperCase();
+          if (AREA_ACRONYMS.has(upper)) {
+            return upper;
+          }
+
+          return trimmed
+            .toLowerCase()
+            .replace(/^[a-z]/, (letter) => letter.toUpperCase())
+            .replace(/([-/])([a-z])/g, (_, separator, letter) => `${separator}${letter.toUpperCase()}`);
+        })
+        .join(" ");
+    }
+
+    function formatAreaLabel(area) {
+      return area
+        .split(/[\/|,]/)
+        .map((segment) => titleCaseSegment(segment.trim()))
+        .filter(Boolean)
+        .join(", ");
+    }
+
+    function unique(values) {
+      return Array.from(new Set(values.filter(Boolean)));
+    }
+
+    function isFaceArea(area) {
+      const lower = area.toLowerCase();
+      if (
+        lower.includes("neck") ||
+        lower.includes("thigh") ||
+        lower.includes("butt") ||
+        lower.includes("chest")
+      ) {
+        return false;
+      }
+
+      return (
+        lower.includes("face") ||
+        lower.includes("jaw") ||
+        lower.includes("brow") ||
+        lower.includes("lip") ||
+        lower.includes("forehead") ||
+        lower.includes("glabella") ||
+        lower.includes("crow") ||
+        lower.includes("tear trough") ||
+        lower.includes("midface") ||
+        lower.includes("under-eye") ||
+        lower.includes("eyelid") ||
+        lower.includes("dao")
+      );
+    }
+
+    function getLatestGroup(matcher) {
+      const matches = RECORDS
+        .filter(matcher)
+        .sort((left, right) => {
+          if (right.date !== left.date) return right.date.localeCompare(left.date);
+          return left.procedure.localeCompare(right.procedure);
+        });
+
+      if (!matches.length) {
+        return null;
+      }
+
+      const latestDate = matches[0].date;
+      return {
+        date: latestDate,
+        records: matches.filter((record) => record.date === latestDate)
+      };
+    }
+
+    function summarizeAreas(records) {
+      return unique(records.map((record) => formatAreaLabel(record.area))).join(", ");
+      return unique(records.map((record) => record.area)).join(" • ");
+    }
+
+    function summarizeProcedures(records) {
+      return unique(records.map((record) => record.procedure)).join(", ");
+    }
+
+    function getDateNote(baseDate, stage) {
+      if (!stage || !stage.label) {
+        return "";
+      }
+
+      if (stage.indefinite) {
+        return "";
+      }
+
+      if (stage.startDays === null || stage.startDays === undefined) {
+        return "";
+      }
+
+      const startDate = addDays(baseDate, stage.startDays);
+
+      if (stage.plus) {
+        return `${formatShortDate(startDate)}+`;
+      }
+
+      if (stage.endDays !== null && stage.endDays !== undefined && stage.endDays !== stage.startDays) {
+        const endDate = addDays(baseDate, stage.endDays);
+        return `${formatShortDate(startDate)} - ${formatShortDate(endDate)}`;
+      }
+
+      return formatShortDate(startDate);
+    }
+
+    function getStatus(record) {
+      const timeline = record.timeline;
+      if (!timeline || !timeline.duration || !timeline.duration.label) {
+        return "";
+      }
+
+      const today = startOfToday();
+      const baseDate = parseDate(record.date);
+      const onsetStartDays =
+        timeline.onset && timeline.onset.startDays !== null && timeline.onset.startDays !== undefined
+          ? timeline.onset.startDays
+          : 0;
+      const onsetStartDate = addDays(baseDate, onsetStartDays);
+
+      const peakHasWindow =
+        timeline.peak &&
+        timeline.peak.startDays !== null &&
+        timeline.peak.startDays !== undefined;
+
+      if (peakHasWindow) {
+        const peakStart = addDays(baseDate, timeline.peak.startDays);
+        const peakEnd = addDays(
+          baseDate,
+          timeline.peak.endDays !== null && timeline.peak.endDays !== undefined
+            ? timeline.peak.endDays
+            : timeline.peak.startDays
+        );
+
+        if (today >= peakStart && today <= peakEnd) {
+          return "Peak";
+        }
+      }
+
+      const duration = timeline.duration;
+      if (duration.indefinite) {
+        return today >= onsetStartDate ? "Active" : "";
+      }
+
+      if (duration.endDays !== null && duration.endDays !== undefined) {
+        const durationEnd = addDays(baseDate, duration.endDays);
+        if (today > durationEnd) {
+          return "Inactive";
+        }
+      }
+
+      if (duration.plus && duration.startDays !== null && duration.startDays !== undefined) {
+        const minimumEnd = addDays(baseDate, duration.startDays);
+        return today <= minimumEnd ? "Active" : "Active";
+      }
+
+      return today >= onsetStartDate ? "Active" : "";
+    }
+
+    function statusClass(status) {
+      if (status === "Peak") return "status-peak";
+      if (status === "Active") return "status-active";
+      if (status === "Inactive") return "status-inactive";
+      return "";
+    }
+
+    function getDurationEndDate(record) {
+      const duration = record.timeline.duration;
+      if (!duration || duration.endDays === null || duration.endDays === undefined || duration.indefinite || duration.plus) {
+        return null;
+      }
+
+      return addDays(parseDate(record.date), duration.endDays);
+    }
+
+    function getDurationEndDisplay(record) {
+      const duration = record.timeline.duration;
+      if (!duration || !duration.label) {
+        return "Not set";
+      }
+
+      if (duration.indefinite) {
+        return "Open-ended";
+      }
+
+      if (duration.plus && duration.startDays !== null && duration.startDays !== undefined) {
+        return `${formatShortDate(addDays(parseDate(record.date), duration.startDays))}+`;
+      }
+
+      if (duration.endDays !== null && duration.endDays !== undefined) {
+        return formatShortDate(addDays(parseDate(record.date), duration.endDays));
+      }
+
+      if (duration.startDays !== null && duration.startDays !== undefined) {
+        return formatShortDate(addDays(parseDate(record.date), duration.startDays));
+      }
+
+      return duration.label;
+    }
+
+    function getStageDisplay(record, stageName) {
+      const baseDate = parseDate(record.date);
+      const stage = record.timeline[stageName];
+      if (!stage || !stage.label) {
+        return "Not set";
+      }
+
+      const note = getDateNote(baseDate, stage);
+      if (stageName === "duration" && stage.indefinite) {
+        return "Open-ended";
+      }
+
+      return note || stage.label;
+    }
+
+    function buildBotoxSnapshot() {
+      const latestBotox = getLatestGroup(
+        (record) => record.category === "Neuromodulator" && isFaceArea(record.area)
+      );
+
+      if (!latestBotox) {
+        return [];
+      }
+
+      const nextTreatmentDate = addMonths(parseDate(latestBotox.date), BOTOX_CADENCE_MONTHS);
+      const reminderDate = addDays(nextTreatmentDate, -NOTIFICATION_LEAD_DAYS);
+
+      return [
+        {
+          label: "Last Treatment",
+          value: formatLongDate(latestBotox.date),
+          meta: summarizeAreas(latestBotox.records),
+          detail: ""
+        },
+        {
+          label: "Next Treatment",
+          value: formatLongDateFromDate(nextTreatmentDate),
+          meta: "",
+          detail: ""
+        },
+        {
+          label: "Reminder Window",
+          value: formatLongDateFromDate(reminderDate),
+          meta: `${NOTIFICATION_LEAD_DAYS} days before the next treatment date`,
+          detail: "This is when the app reminder should trigger.",
+          visible: false
+        }
+      ];
+    }
+
+    function buildTopUpCards() {
+      return TOP_UP_SERVICES.map((service, originalIndex) => {
+        const anchorGroup =
+          service.anchorMode === "latest"
+            ? getLatestGroup(service.matcher)
+            : null;
+        const nextTreatmentDate =
+          service.cadenceMonths && anchorGroup
+            ? addMonths(parseDate(anchorGroup.date), service.cadenceMonths)
+            : null;
+
+        let stateLabel = "Set cadence";
+        let lastValue = "No anchor yet";
+        let lastMeta = "Add a baseline treatment date for this service.";
+        let nextValue = "Waiting on setup";
+        let nextMeta = "Set a cadence and anchor to calculate the next date.";
+        const cadenceValue = service.cadenceMonths
+          ? `${service.cadenceMonths} months`
+          : "Not set";
+
+        if (anchorGroup) {
+          lastValue = formatLongDate(anchorGroup.date);
+          lastMeta = `${summarizeAreas(anchorGroup.records)} | ${summarizeProcedures(anchorGroup.records)}`;
+        } else if (service.anchorMode === "manual") {
+          lastMeta = "This service still needs its first anchor date.";
+        }
+
+        if (nextTreatmentDate) {
+          stateLabel = "Ready";
+          nextValue = formatLongDateFromDate(nextTreatmentDate);
+          nextMeta = `Calculated from the ${formatLongDate(anchorGroup.date)} anchor.`;
+        } else if (service.cadenceMonths && !anchorGroup) {
+          stateLabel = "Needs anchor";
+          nextValue = "No anchor yet";
+          nextMeta = "Once a baseline date exists, the next treatment date will calculate automatically.";
+        } else if (!service.cadenceMonths && anchorGroup) {
+          nextValue = "Waiting on cadence";
+          nextMeta = "Set the service interval to generate the next treatment date.";
+        }
+
+        return {
+          name: service.name,
+          stateLabel,
+          cadenceValue,
+          lastValue,
+          lastMeta,
+          nextValue,
+          nextMeta,
+          nextSortValue: nextTreatmentDate ? nextTreatmentDate.getTime() : Number.POSITIVE_INFINITY,
+          originalIndex
+        };
+      }).sort((left, right) => {
+        if (left.nextSortValue !== right.nextSortValue) {
+          return left.nextSortValue - right.nextSortValue;
+        }
+
+        return left.originalIndex - right.originalIndex;
       });
-      return values.size;
     }
 
-    function renderNotes() {
-      notePanel.innerHTML = DATA.assumptions
-        .map((note) => `- ${note}`)
-        .join("<br>");
+    function buildActiveFaceRecords() {
+      return RECORDS
+        .filter((record) => isFaceArea(record.area))
+        .filter((record) => {
+          const status = getStatus(record);
+          return status === "Active" || status === "Peak";
+        })
+        .sort((left, right) => {
+          const leftEnd = getDurationEndDate(left);
+          const rightEnd = getDurationEndDate(right);
+          if (!leftEnd && rightEnd) return 1;
+          if (leftEnd && !rightEnd) return -1;
+          if (leftEnd && rightEnd && leftEnd.getTime() !== rightEnd.getTime()) {
+            return leftEnd.getTime() - rightEnd.getTime();
+          }
+
+          return right.date.localeCompare(left.date);
+        });
     }
 
-    function renderVisitSummary() {
-      visitSummary.innerHTML = `
-        <span class="summary-chip">${formatCurrencyKrw(DATA.latestVisit.totalKrw)}</span>
-        <span class="summary-chip">${formatCurrencyUsd(DATA.latestVisit.totalUsdApprox)}</span>
-        <span class="summary-chip">${DATA.latestVisit.packages.length} normalized packages</span>
-      `;
-    }
+    function buildOutcomeCounts() {
+      const counts = new Map();
 
-    function renderPackages() {
-      packageGrid.innerHTML = DATA.latestVisit.packages.map((pkg) => `
-        <article class="package-card">
-          <div class="package-meta">
-            <span class="pill price">${formatCurrencyUsd(pkg.priceUsdApprox)}</span>
-            <span class="pill modality">${pkg.modality}</span>
-          </div>
-          <h3>${pkg.name}</h3>
-          <p class="package-sub">${pkg.area} · ${formatCurrencyKrw(pkg.priceKrw)}</p>
-          <ul class="package-list">
-            ${pkg.items.map((item) => `<li>${item}</li>`).join("")}
-          </ul>
-          ${pkg.note ? `<p class="package-note">${pkg.note}</p>` : ""}
-        </article>
-      `).join("");
-    }
+      RECORDS.forEach((record) => {
+        record.outcomes.forEach((outcome) => {
+          counts.set(outcome, (counts.get(outcome) || 0) + 1);
+        });
+      });
 
-    function renderHistory() {
-      historyGrid.innerHTML = DATA.history.map((item) => `
-        <article class="history-card">
-          <div class="history-head">
-            <span class="history-date">${formatDate(item.date)}</span>
-            <div class="history-meta">
-              <span class="pill category">${item.category}</span>
-            </div>
-            <h3>${item.procedure}</h3>
-          </div>
-          <div class="history-copy">
-            <div><span>Area:</span> ${item.area}</div>
-            <div><span>Product / Device:</span> ${item.productDevice}</div>
-            ${item.clinic ? `<div><span>Clinic:</span> ${item.clinic}</div>` : ""}
-            <div><span>Notes:</span> ${item.notes}</div>
-          </div>
-          <div class="arc-grid">
-            <div class="arc-step">
-              <span class="arc-label">Onset</span>
-              <span class="arc-value">${item.arc.onset}</span>
-            </div>
-            <div class="arc-step">
-              <span class="arc-label">Peak</span>
-              <span class="arc-value">${item.arc.peak}</span>
-            </div>
-            <div class="arc-step">
-              <span class="arc-label">Duration</span>
-              <span class="arc-value">${item.arc.duration}</span>
-            </div>
-          </div>
-        </article>
-      `).join("");
+      return Array.from(counts.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((left, right) => {
+          if (right.count !== left.count) return right.count - left.count;
+          return left.name.localeCompare(right.name);
+        });
     }
 
     function renderMetrics() {
-      latestVisitDate.textContent = formatDate(DATA.latestVisit.date);
-      historyCount.textContent = `${DATA.history.length} treatments`;
-      clinicCount.textContent = `${uniqueClinics()} clinics`;
-      latestVisitTotal.textContent = formatCurrencyUsd(DATA.latestVisit.totalUsdApprox);
+      const activeCount = RECORDS.filter((record) => {
+        const status = getStatus(record);
+        return status === "Active" || status === "Peak";
+      }).length;
+
+      const clinicCount = new Set(
+        RECORDS.map((record) => record.clinic).filter(Boolean)
+      ).size;
+
+      totalCostMetric.textContent = `${formatUsd(TRACKED_TOTAL_COST)} tracked`;
+      totalTreatmentsMetric.textContent = `${RECORDS.length} logged`;
+      clinicCountMetric.textContent = `${clinicCount} clinics`;
+      activeWindowsMetric.textContent = `${activeCount} active`;
+
+      if (databaseLink) {
+        databaseLink.href = DATABASE_URL;
+      }
+    }
+
+    function renderBotox() {
+      const cards = buildBotoxSnapshot();
+      if (!cards.length) {
+        botoxGrid.innerHTML = `
+          <article class="snapshot-card is-wide">
+            <span class="snapshot-label">Botox</span>
+            <span class="snapshot-value">No Botox logged yet</span>
+            <span class="snapshot-meta">Add a Botox treatment record to start the reminder rhythm.</span>
+          </article>
+        `;
+        return;
+      }
+
+      botoxGrid.innerHTML = cards.filter((card) => card.visible !== false).map((card) => `
+        <article class="snapshot-card">
+          <span class="snapshot-label">${card.label}</span>
+          <span class="snapshot-value">${card.value}</span>
+          <span class="snapshot-meta">${card.meta}</span>
+          <span class="snapshot-meta">${card.detail}</span>
+        </article>
+      `).join("");
+    }
+
+    function renderTopUp() {
+      const cards = buildTopUpCards();
+      topUpGrid.innerHTML = cards.map((card) => {
+        const pillClass = card.stateLabel === "Ready" ? "status-active" : "pending";
+        return `
+          <article class="service-card">
+            <div class="service-head">
+              <div>
+                <span class="service-label">Service</span>
+                <div class="service-name">${card.name}</div>
+              </div>
+              <span class="pill topup-state ${pillClass}">${card.stateLabel}</span>
+            </div>
+            <div class="service-panels">
+              <div class="service-panel">
+                <strong>Last Treatment</strong>
+                <span class="service-value">${card.lastValue}</span>
+                <span class="service-meta">${card.lastMeta}</span>
+              </div>
+              <div class="service-panel">
+                <strong>Next Treatment</strong>
+                <span class="service-value">${card.nextValue}</span>
+                <span class="service-meta">${card.nextMeta}</span>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderWorkNow() {
+      const activeRecords = buildActiveFaceRecords();
+      if (!activeRecords.length) {
+        workNowGrid.innerHTML = `
+          <article class="active-card">
+            <span class="active-label">Active Treatments</span>
+            <span class="active-value">Nothing active right now</span>
+            <span class="active-meta">As new treatment windows open, they will appear here with peak and end timing.</span>
+          </article>
+        `;
+        return;
+      }
+
+      workNowGrid.innerHTML = activeRecords.map((record) => {
+        const status = getStatus(record);
+        return `
+          <article class="active-card">
+            <div class="active-head">
+              <div>
+                <span class="active-label">Current treatment</span>
+                <div class="active-title">${record.procedure}</div>
+              </div>
+              <div class="history-meta">
+                <span class="pill category">${record.category}</span>
+                <span class="pill ${statusClass(status)}">${status}</span>
+              </div>
+            </div>
+            <div class="active-rows">
+              <div class="active-row area-row">
+                <strong>Area</strong>
+                <span>${formatAreaLabel(record.area)}</span>
+              </div>
+              <div class="active-row">
+                <strong>Peak Dates</strong>
+                <span>${getStageDisplay(record, "peak")}</span>
+              </div>
+              <div class="active-row">
+                <strong>End Date</strong>
+                <span>${getDurationEndDisplay(record)}</span>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderOutcomes() {
+      const outcomes = buildOutcomeCounts();
+      const maxCount = outcomes.length ? outcomes[0].count : 1;
+
+      outcomeGrid.innerHTML = outcomes.map((item) => {
+        const width = Math.max(18, Math.round((item.count / maxCount) * 100));
+        return `
+          <article class="outcome-card">
+            <div class="outcome-title">
+              <strong>${item.name}</strong>
+              <span>${item.count}</span>
+            </div>
+            <div class="outcome-track" aria-hidden="true">
+              <div class="outcome-fill" style="width:${width}%"></div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function renderHistory() {
+      historyGrid.innerHTML = RECORDS.map((record) => {
+        const baseDate = parseDate(record.date);
+        const status = getStatus(record);
+        const onsetNote = getDateNote(baseDate, record.timeline.onset);
+        const peakNote = getDateNote(baseDate, record.timeline.peak);
+        const durationNote = getDateNote(baseDate, record.timeline.duration);
+
+        return `
+          <article class="history-card">
+            <div class="history-head">
+              <span class="history-date">${formatLongDate(record.date)}</span>
+              <div class="history-meta">
+                <span class="pill category">${record.category}</span>
+                ${status ? `<span class="pill ${statusClass(status)}">${status}</span>` : ""}
+              </div>
+              <h3>${record.procedure}</h3>
+            </div>
+            <div class="history-copy">
+              <div><span>Area:</span> ${formatAreaLabel(record.area)}</div>
+              <div><span>Treatment:</span> ${record.productDevice}</div>
+              ${record.clinic ? `<div><span>Clinic:</span> ${record.clinic}</div>` : ""}
+              <div><span>Outcome:</span> ${record.outcomes.join(", ")}</div>
+              ${record.costLabel ? `<div><span>Cost:</span> ${record.costLabel}</div>` : ""}
+              <div><span>Notes:</span> ${record.notes}</div>
+            </div>
+            <div class="arc-grid">
+              <div class="arc-step">
+                <span class="arc-label">Onset</span>
+                <span class="arc-value">${record.timeline.onset.label || "&nbsp;"}</span>
+                <span class="arc-date-note">${onsetNote || "&nbsp;"}</span>
+              </div>
+              <div class="arc-step">
+                <span class="arc-label">Peak</span>
+                <span class="arc-value">${record.timeline.peak.label || "&nbsp;"}</span>
+                <span class="arc-date-note">${peakNote || "&nbsp;"}</span>
+              </div>
+              <div class="arc-step">
+                <span class="arc-label">Duration</span>
+                <span class="arc-value">${record.timeline.duration.label || "&nbsp;"}</span>
+                <span class="arc-date-note">${durationNote || "&nbsp;"}</span>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    if (sectionJump) {
+      sectionJump.addEventListener("change", (event) => {
+        const targetId = event.target.value;
+        if (!targetId) {
+          return;
+        }
+
+        const section = document.getElementById(targetId);
+        if (section) {
+          section.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        event.target.value = "";
+      });
     }
 
     renderMetrics();
-    renderNotes();
-    renderVisitSummary();
-    renderPackages();
+    renderBotox();
+    renderTopUp();
+    renderWorkNow();
+    renderOutcomes();
     renderHistory();
   </script>
 </body>
