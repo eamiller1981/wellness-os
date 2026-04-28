@@ -572,9 +572,9 @@
       currentYear: new Date().getFullYear()
     };
 
-    // ---- Notion API helpers (via /api/notion proxy) ----
+    // ---- Notion API helpers (via /api/notion-reading proxy) ----
     async function notion(path, method = "GET", body = null) {
-      const r = await fetch("/api/notion", {
+      const r = await fetch("/api/notion-reading", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path, method, body })
