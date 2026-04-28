@@ -572,9 +572,9 @@
       currentYear: new Date().getFullYear()
     };
 
-    // ---- Notion API helpers (via /api/notion-reading proxy) ----
+    // ---- Notion API helpers (via /api/notion proxy) ----
     async function notion(path, method = "GET", body = null) {
-      const r = await fetch("/api/notion-reading", {
+      const r = await fetch("/api/notion", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ path, method, body })
@@ -608,7 +608,7 @@
       do {
         const body = { page_size: 100 };
         if (cursor) body.start_cursor = cursor;
-        const data = await notion(`/v1/databases/${BOOKS_DB_ID}/query`, "POST", body);
+        const data = await notion(`/databases/${BOOKS_DB_ID}/query`, "POST", body);
         all.push(...(data.results || []));
         cursor = data.has_more ? data.next_cursor : undefined;
       } while (cursor);
@@ -640,7 +640,7 @@
       const all = [];
       let cursor = undefined;
       do {
-        const path = `/v1/blocks/${TASTE_PROFILE_PAGE_ID}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ""}`;
+        const path = `/blocks/${TASTE_PROFILE_PAGE_ID}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ""}`;
         const data = await notion(path, "GET");
         all.push(...(data.results || []));
         cursor = data.has_more ? data.next_cursor : undefined;
@@ -898,7 +898,7 @@
       const newStatus = rating <= 1.5 ? "DNF" : "Finished";
 
       try {
-        await notion(`/v1/pages/${pageId}`, "PATCH", {
+        await notion(`/pages/${pageId}`, "PATCH", {
           properties: {
             "Rating": { number: rating },
             "Status": { select: { name: newStatus } },
@@ -933,7 +933,7 @@
       const status = document.getElementById("addStatus").value;
       const source = document.getElementById("addSource").value.trim();
       try {
-        await notion("/v1/pages", "POST", {
+        await notion("/pages", "POST", {
           parent: { database_id: BOOKS_DB_ID },
           properties: {
             "Title": { title: rt(title) },
