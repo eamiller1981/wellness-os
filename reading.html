@@ -622,13 +622,17 @@
       currentYear: new Date().getFullYear()
     };
 
-    // ---- Notion API helpers (via /api/notion proxy) ----
+    // ---- Notion API helpers (call Cloudflare worker directly) ----
+    const NOTION_WORKER = "https://notion-budget-manager.eamiller1981.workers.dev";
     async function notion(path, method = "GET", body = null) {
-      const r = await fetch("/api/notion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path, method, body })
-      });
+      const init = {
+        method,
+        headers: { "Content-Type": "application/json" }
+      };
+      if (!["GET", "HEAD"].includes(method)) {
+        init.body = JSON.stringify(body || {});
+      }
+      const r = await fetch(`${NOTION_WORKER}/notion${path}`, init);
       if (!r.ok) {
         const txt = await r.text().catch(() => "");
         throw new Error(`Notion ${method} ${path} → ${r.status}: ${txt.slice(0, 160)}`);
