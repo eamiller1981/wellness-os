@@ -1168,7 +1168,14 @@
       }
     }
 
-    refresh();
+    async function bootstrap() {
+      if (window.WellnessAuth && window.WellnessAuth.ready) {
+        await window.WellnessAuth.ready;
+      }
+      await refresh();
+    }
+
+    bootstrap();
   </script>
 </body>
 </html>
