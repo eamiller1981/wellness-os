@@ -91,6 +91,8 @@
       }
       return response;
     }).catch((error) => {
+      clearToken();
+      showLock("Sign in to Wellness OS.");
       throw error;
     });
   };
