@@ -1,0 +1,25 @@
+{
+  "name": "Wellness OS",
+  "short_name": "Wellness OS",
+  "description": "A personal wellness planning, ritual, tracking, and review app.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5eae3",
+  "theme_color": "#f5eae3",
+  "icons": [
+    {
+      "src": "assets/2.png",
+      "sizes": "300x300",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/header-logo.png",
+      "sizes": "267x205",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

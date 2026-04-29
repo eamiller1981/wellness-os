@@ -18,6 +18,7 @@ export default async function handler(request, response) {
   const notionResponse = await fetch(`${WORKER_URL}/notion${path}`, {
     method,
     headers: {
+      ...(request.headers.authorization ? { Authorization: request.headers.authorization } : {}),
       "Content-Type": "application/json",
       Origin: WORKER_ORIGIN
     },

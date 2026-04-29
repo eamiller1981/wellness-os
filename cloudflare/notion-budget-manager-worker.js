@@ -1,3 +1,5 @@
+import { authorizePersonalRequest } from "./personal-auth.js";
+
 const NOTION_API = "https://api.notion.com/v1";
 const DEFAULT_NOTION_VERSION = "2022-06-28";
 
@@ -17,7 +19,7 @@ function corsHeaders(origin) {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
     "Vary": "Origin"
   };
 }
@@ -46,6 +48,17 @@ export default {
 
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    const authResponse = await authorizePersonalRequest(request, env);
+    if (authResponse) {
+      return new Response(authResponse.body, {
+        status: authResponse.status,
+        headers: {
+          "Content-Type": "application/json",
+          ...corsHeaders(origin)
+        }
+      });
     }
 
     const url = new URL(request.url);

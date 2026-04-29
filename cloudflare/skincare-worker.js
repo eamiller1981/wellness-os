@@ -1,3 +1,5 @@
+import { authorizePersonalRequest } from "./personal-auth.js";
+
 const DEFAULT_NOTION_ORIGIN = "https://eamiller1981.github.io";
 const USER_TIME_ZONE = "America/New_York";
 const NOTION_UPLOAD_VERSION = "2026-03-11";
@@ -35,7 +37,7 @@ function corsHeaders(origin) {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
     Vary: "Origin"
   };
 }
@@ -1985,6 +1987,18 @@ export default {
 
     if (!isAllowedOrigin(origin)) {
       return jsonResponse({ ok: false, error: "Forbidden origin" }, 403, origin || DEFAULT_NOTION_ORIGIN);
+    }
+
+    const authResponse = await authorizePersonalRequest(request, env);
+    if (authResponse) {
+      return new Response(authResponse.body, {
+        status: authResponse.status,
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store",
+          ...corsHeaders(origin)
+        }
+      });
     }
 
     const url = new URL(request.url);
