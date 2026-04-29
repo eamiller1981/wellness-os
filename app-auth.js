@@ -5,6 +5,7 @@
   const TOKEN_KEY = "wellnessAuthToken";
   const EXPIRES_KEY = "wellnessAuthExpiresAt";
   const originalFetch = window.fetch.bind(window);
+  let stylesInjected = false;
 
   function decodeBase64Url(value) {
     const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
@@ -69,6 +70,9 @@
   };
 
   function injectStyles() {
+    if (stylesInjected) return;
+    stylesInjected = true;
+
     const style = document.createElement("style");
     style.textContent = `
       .wellness-auth-lock {
@@ -128,6 +132,24 @@
         min-height: 20px;
         color: #8d3030;
         font-size: 0.9rem;
+      }
+      .wellness-refresh-button {
+        position: fixed;
+        right: 14px;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        z-index: 2147483000;
+        min-height: 38px;
+        padding: 0 13px;
+        border: 1px solid rgba(128, 111, 100, 0.24);
+        border-radius: 999px;
+        background: rgba(255, 250, 246, 0.86);
+        color: #806f64;
+        box-shadow: 0 10px 26px rgba(80, 60, 50, 0.1);
+        font: 700 0.82rem ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        backdrop-filter: blur(12px);
+      }
+      .wellness-refresh-button:disabled {
+        opacity: 0.72;
       }
     `;
     document.head.appendChild(style);
@@ -196,6 +218,46 @@
     }
   }
 
+  async function refreshApp(button) {
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Refreshing";
+    }
+
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(
+        registrations.map(async (registration) => {
+          await registration.update().catch(() => {});
+          const worker = registration.waiting || registration.installing || registration.active;
+          if (worker) worker.postMessage({ type: "WELLNESS_REFRESH" });
+        })
+      );
+    }
+
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter((key) => key.startsWith("wellness-os-")).map((key) => caches.delete(key)));
+    }
+
+    window.location.reload();
+  }
+
+  function installRefreshButton() {
+    if (document.querySelector(".wellness-refresh-button")) return;
+    injectStyles();
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "wellness-refresh-button";
+    button.textContent = "Refresh";
+    button.setAttribute("aria-label", "Refresh Wellness OS");
+    button.addEventListener("click", () => {
+      refreshApp(button).catch(() => window.location.reload());
+    });
+    document.body.appendChild(button);
+  }
+
   window.WellnessAuth = {
     logout: async function logout() {
       clearToken();
@@ -212,8 +274,12 @@
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", verifyOrLock);
+    document.addEventListener("DOMContentLoaded", () => {
+      installRefreshButton();
+      verifyOrLock();
+    });
   } else {
+    installRefreshButton();
     verifyOrLock();
   }
 })();
