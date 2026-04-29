@@ -1,9 +1,9 @@
-const CACHE_NAME = "wellness-os-shell-v5";
+const CACHE_NAME = "wellness-os-shell-v6";
 const SHELL_ASSETS = [
   "./",
   "index.html",
   "space.css",
-  "app-auth.js?v=20260429c",
+  "app-auth.js?v=20260429d",
   "manifest.webmanifest",
   "assets/header-logo.png",
   "assets/1.png",
