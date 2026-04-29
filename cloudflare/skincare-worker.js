@@ -15,7 +15,8 @@ const ALLOWED_ORIGINS = new Set([
   "https://eamiller1981.github.io",
   "https://wellness-os.vercel.app",
   "http://127.0.0.1:4173",
-  "http://localhost:4173"
+  "http://localhost:4173",
+  "null"
 ]);
 
 const WELLNESS_PREVIEW_ORIGIN =
@@ -715,7 +716,38 @@ function compareAssignmentRecords(left, right) {
   return String(left.nightLabel || left.id).localeCompare(String(right.nightLabel || right.id));
 }
 
-async function resolveAssignmentsForCycle(env, cycleId) {
+function withDerivedAssignmentDate(assignment, cycleStartDate) {
+  if (assignment.date || !cycleStartDate || assignment.nightOrder == null) {
+    return assignment;
+  }
+
+  return {
+    ...assignment,
+    date: addDays(cycleStartDate, assignment.nightOrder - 1)
+  };
+}
+
+async function resolveCycleById(env, cycleId) {
+  if (!cycleId) return null;
+
+  const page = await notionGetPage(env, cycleId);
+  const props = page.properties || {};
+  const startDate = dateValue(props["Start Date"]);
+  const endDate = dateValue(props["End Date"]);
+
+  if (!startDate || !endDate) {
+    return null;
+  }
+
+  return {
+    id: page.id,
+    name: firstRichTextValue(props.Name),
+    startDate,
+    endDate
+  };
+}
+
+async function resolveAssignmentsForCycle(env, cycleId, cycle = null) {
   const data = await notionQueryDatabase(env, env.NIGHTLY_ASSIGNMENTS_DB_ID, {
     page_size: 200,
     filter: {
@@ -726,7 +758,14 @@ async function resolveAssignmentsForCycle(env, cycleId) {
     }
   });
 
-  return (data.results || []).map(buildAssignmentRecord).sort(compareAssignmentRecords);
+  const cycleRecord = cycle?.id === cycleId
+    ? cycle
+    : await resolveCycleById(env, cycleId);
+
+  return (data.results || [])
+    .map(buildAssignmentRecord)
+    .map((assignment) => withDerivedAssignmentDate(assignment, cycleRecord?.startDate || null))
+    .sort(compareAssignmentRecords);
 }
 
 async function resolveAllAssignments(env) {
@@ -734,10 +773,28 @@ async function resolveAllAssignments(env) {
     page_size: 200
   });
 
-  return (data.results || []).map(buildAssignmentRecord).sort(compareAssignmentRecords);
+  const cycleCache = new Map();
+  const assignments = (data.results || []).map(buildAssignmentRecord);
+
+  const resolvedAssignments = await Promise.all(
+    assignments.map(async (assignment) => {
+      if (assignment.date || !assignment.cycleId) {
+        return assignment;
+      }
+
+      if (!cycleCache.has(assignment.cycleId)) {
+        cycleCache.set(assignment.cycleId, resolveCycleById(env, assignment.cycleId));
+      }
+
+      const cycle = await cycleCache.get(assignment.cycleId);
+      return withDerivedAssignmentDate(assignment, cycle?.startDate || null);
+    })
+  );
+
+  return resolvedAssignments.sort(compareAssignmentRecords);
 }
 
-async function resolveAssignmentsForDate(env, dateString, cycleId) {
+async function resolveAssignmentsForDate(env, dateString, cycleId, cycle = null) {
   const data = await notionQueryDatabase(env, env.NIGHTLY_ASSIGNMENTS_DB_ID, {
     page_size: 10,
     filter: {
@@ -754,7 +811,8 @@ async function resolveAssignmentsForDate(env, dateString, cycleId) {
   });
 
   if (!assignments.length) {
-    return null;
+    const cycleAssignments = await resolveAssignmentsForCycle(env, cycleId, cycle);
+    return cycleAssignments.find((assignment) => assignment.date === dateString) || null;
   }
 
   if (assignments.length > 1) {
@@ -763,12 +821,22 @@ async function resolveAssignmentsForDate(env, dateString, cycleId) {
     });
   }
 
-  return buildAssignmentRecord(assignments[0]);
+  const directMatch = assignments[0] ? buildAssignmentRecord(assignments[0]) : null;
+  if (directMatch) {
+    const cycleRecord = cycle?.id === cycleId
+      ? cycle
+      : await resolveCycleById(env, cycleId);
+    return withDerivedAssignmentDate(directMatch, cycleRecord?.startDate || null);
+  }
+  
+  return null;
 }
 
 async function resolveAssignmentById(env, assignmentId) {
   const page = await notionGetPage(env, assignmentId);
-  return buildAssignmentRecord(page);
+  const assignment = buildAssignmentRecord(page);
+  const cycle = assignment.cycleId ? await resolveCycleById(env, assignment.cycleId) : null;
+  return withDerivedAssignmentDate(assignment, cycle?.startDate || null);
 }
 
 async function resolveAssignmentGroups(env, assignment) {

@@ -3,7 +3,7 @@ const SHELL_ASSETS = [
   "./",
   "index.html",
   "space.css",
-  "app-auth.js?v=20260429d",
+  "app-auth.js?v=20260429e",
   "manifest.webmanifest",
   "assets/header-logo.png",
   "assets/1.png",

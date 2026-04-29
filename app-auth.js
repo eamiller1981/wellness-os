@@ -241,12 +241,8 @@
       if (!response.ok) throw new Error("Session expired.");
       markAuthReady();
     } catch (error) {
-      if (error && error.message !== "Session expired." && tokenExpiresAt(token) > Date.now()) {
-        markAuthReady();
-        return authReady;
-      }
       clearToken();
-      showLock(error.message);
+      showLock(error && error.message ? error.message : "Unable to verify session.");
     }
 
     return authReady;

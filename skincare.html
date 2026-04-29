@@ -636,7 +636,7 @@
   </style>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/2.png">
-  <script src="app-auth.js?v=20260429d"></script>
+  <script src="app-auth.js?v=20260429e"></script>
 </head>
 <body>
   <main class="page">
@@ -1195,13 +1195,21 @@
     }
 
     async function fetchJson(path, init) {
-      const response = await fetch(`${API_BASE}${path}`, {
-        ...init,
-        headers: {
-          "Content-Type": "application/json",
-          ...(init && init.headers ? init.headers : {})
-        }
-      });
+      const nextInit = { ...(init || {}) };
+      const method = String(nextInit.method || "GET").toUpperCase();
+      const headers = new Headers(nextInit.headers || {});
+
+      if (method !== "GET" && method !== "HEAD" && nextInit.body != null && !headers.has("Content-Type")) {
+        headers.set("Content-Type", "application/json");
+      }
+
+      if ([...headers.keys()].length) {
+        nextInit.headers = headers;
+      } else {
+        delete nextInit.headers;
+      }
+
+      const response = await fetch(`${API_BASE}${path}`, nextInit);
 
       const text = await response.text();
       let data = {};
