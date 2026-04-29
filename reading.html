@@ -33,8 +33,19 @@
       line-height: 1.5;
     }
 
-    /* Hero compact override for reading page */
-    .space { align-items: flex-start; }
+    /* Hero override for reading page: stacked, centered, 16:9 art */
+    .space {
+      grid-template-columns: 1fr;
+      gap: 18px;
+      align-items: center;
+      justify-items: center;
+      text-align: center;
+    }
+    .space-art {
+      aspect-ratio: auto;
+      width: 100%;
+      max-width: 720px;
+    }
     .space h1 { font-size: 3rem; }
     @media (max-width: 720px) { .space h1 { font-size: 2.4rem; } }
 
