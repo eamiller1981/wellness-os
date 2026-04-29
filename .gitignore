@@ -3,3 +3,5 @@
 .env
 .env.local
 node_modules/
+.wrangler
+cloudflare/.wrangler
