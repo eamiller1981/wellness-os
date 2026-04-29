@@ -67,18 +67,32 @@
   window.fetch = function wellnessFetch(input, init) {
     const requestUrl = typeof input === "string" ? input : input && input.url;
     const url = new URL(requestUrl || window.location.href, window.location.href);
+    const protectedRequest = shouldAttachAuth(url);
     const token = getToken();
 
-    if (!token || !shouldAttachAuth(url)) {
+    if (!protectedRequest) {
       return originalFetch(input, init);
     }
 
     const nextInit = { ...(init || {}) };
-    const headers = new Headers(nextInit.headers || (typeof input !== "string" && input ? input.headers : undefined));
-    headers.set("Authorization", `Bearer ${token}`);
-    nextInit.headers = headers;
     nextInit.credentials = nextInit.credentials || "include";
-    return originalFetch(input, nextInit);
+
+    if (token) {
+      const headers = new Headers(nextInit.headers || (typeof input !== "string" && input ? input.headers : undefined));
+      headers.set("Authorization", `Bearer ${token}`);
+      nextInit.headers = headers;
+    }
+
+    return originalFetch(input, nextInit).then((response) => {
+      const isLoginRequest = url.origin === AUTH_URL && url.pathname.endsWith("/api/auth/login");
+      if (response.status === 401 && !isLoginRequest) {
+        clearToken();
+        showLock("Session expired.");
+      }
+      return response;
+    }).catch((error) => {
+      throw error;
+    });
   };
 
   function injectStyles() {
