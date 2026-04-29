@@ -665,9 +665,9 @@
       </section>
 
       <section class="routine-title" aria-label="Tonight's steps">
-        <h2 id="blockName">Retinol Block</h2>
+        <h2 id="blockName">Routine unavailable</h2>
         <p class="view-context" id="viewContext" hidden></p>
-        <span class="routine-tag" id="deviceBadge">LED Mask</span>
+        <span class="routine-tag" id="deviceBadge" hidden></span>
       </section>
 
       <section class="panel step-panel" aria-label="Routine steps">
@@ -675,7 +675,7 @@
       </section>
 
       <aside class="note" aria-label="Routine note">
-        <p id="blockNote">Retinol night. Skip if skin feels sensitized. If any stinging starts after toner, rinse and move straight to moisturizer.</p>
+        <p id="blockNote">Live skincare data could not load yet. Unlock Wellness OS or refresh to pull tonight's routine from your current Notion setup.</p>
       </aside>
 
       <section class="panel next-section" aria-label="Next up">
@@ -683,11 +683,11 @@
         <div class="next-items">
           <div class="next-card">
             <span class="next-card-title">Steps</span>
-            <span class="next-card-name" id="nextBlockName">LED Mask</span>
+            <span class="next-card-name" id="nextBlockName">TBD</span>
           </div>
           <div class="next-card">
             <span class="next-card-title">Device</span>
-            <span class="next-card-name" id="nextDeviceName">Dermaflash</span>
+            <span class="next-card-name" id="nextDeviceName">TBD</span>
           </div>
         </div>
         <a class="next-link" href="skincare-routine.html" id="routineLink">View 90 Day Routine</a>
@@ -703,8 +703,8 @@
       <button class="log-card" id="logCard" type="button">
         <span class="log-mark">&#10003;</span>
         <span>
-          <span class="log-title" id="logTitle">Last night: AHA Block</span>
-          <span class="log-meta" id="logMeta">Tap to edit within the 24-hour window.</span>
+          <span class="log-title" id="logTitle">Last night has not been logged yet.</span>
+          <span class="log-meta" id="logMeta">Live data will appear here when the routine loads.</span>
         </span>
       </button>
     </section>
@@ -732,88 +732,37 @@
     const FALLBACK_PAYLOAD = {
       mode: "cycle",
       cycle: {
-        name: "Q2 2026",
-        nightNumber: 34,
-        totalNights: 90,
-        progressPercent: 38
+        name: "Skincare Cycle",
+        nightNumber: 0,
+        totalNights: 0,
+        progressPercent: 0
       },
       routine: {
-        blockName: "Retinol Block",
-        devices: ["LED Mask"],
-        note: "Retinol night. Skip if skin feels sensitized. If any stinging starts after toner, rinse and move straight to moisturizer.",
-        sections: [
-          {
-            key: "base",
-            label: "Base",
-            steps: [
-              { id: "base-1", product: "DHC Deep Cleansing Oil", type: "Cleanse" },
-              { id: "base-2", product: "CeraVe Hydrating Cleanser", type: "Cleanse" }
-            ]
-          },
-          {
-            key: "device",
-            label: "Device",
-            steps: [
-              { id: "device-1", product: "LED Mask", type: "Tool" }
-            ]
-          },
-          {
-            key: "steps",
-            label: "Steps",
-            steps: [
-              { id: "block-1", product: "Paula's Choice 2% BHA Toner", type: "Tone" },
-              { id: "block-2", product: "SkinCeuticals 0.5% Retinol", type: "Treat" },
-              { id: "block-3", product: "CeraVe Moisturizing Cream", type: "Moisturize" }
-            ]
-          }
-        ]
+        blockName: "Routine unavailable",
+        devices: [],
+        note: "Live skincare data could not load yet. Unlock Wellness OS or refresh to pull tonight's routine from your current Notion setup.",
+        sections: []
       },
       next: {
-        blockName: "LED Mask",
-        deviceNames: ["Dermaflash"]
+        blockName: "TBD",
+        deviceNames: []
       },
       yesterday: {
-        log: {
-          blockName: "AHA Block",
-          completion: "100% completed",
-          canEdit: true
-        }
+        log: null
       }
     };
 
     const FALLBACK_PLAN_ROWS = [
       {
-        id: "fallback-83",
-        night: "Day 83",
-        nightOrder: 83,
-        date: "2026-04-23",
-        phase: "Pigment Correction",
-        stepGroups: ["HQ Brightening Support"],
-        steps: ["Omnilux LED Mask", "Hydroquonine 4%", "Snail Mucin Repairing Serum", "Cicaplast Balm B5", "ATOBARRIER365 Cream"],
-        intensityTier: 3,
+        id: "fallback-unavailable",
+        night: "Unavailable",
+        nightOrder: 0,
+        date: "",
+        phase: "",
+        stepGroups: [],
+        steps: [],
+        intensityTier: 0,
         isToday: true
-      },
-      {
-        id: "fallback-84",
-        night: "Day 84",
-        nightOrder: 84,
-        date: "2026-04-24",
-        phase: "Pigment Correction",
-        stepGroups: ["HQ Barrier Recovery"],
-        steps: ["Hydroquonine 4%", "Snail Mucin Repairing Serum", "Cicaplast Balm B5", "ATOBARRIER365 Cream"],
-        intensityTier: 3,
-        isToday: false
-      },
-      {
-        id: "fallback-85",
-        night: "Day 85",
-        nightOrder: 85,
-        date: "2026-04-25",
-        phase: "Controlled Resurfacing",
-        stepGroups: ["Mandelic Resurfacing"],
-        steps: ["Omnilux LED Mask", "Mandelic Acid 10% + HA"],
-        intensityTier: 4,
-        isToday: false
       }
     ];
 
@@ -879,8 +828,8 @@
       syncingMode: false,
       loadingSelection: false,
       planRows: [...FALLBACK_PLAN_ROWS],
-      activeAssignmentId: "fallback-83",
-      todayAssignmentId: "fallback-83",
+      activeAssignmentId: "fallback-unavailable",
+      todayAssignmentId: "fallback-unavailable",
       previewCache: new Map(),
       prefetching: new Set()
     };
@@ -924,6 +873,18 @@
     function hideStatus() {
       statusPanel.hidden = true;
       statusPanel.textContent = "";
+    }
+
+    function fallbackStatusMessage(message) {
+      if (!message) {
+        return "Live skincare data could not load yet.";
+      }
+
+      if (/unauthorized/i.test(message)) {
+        return "Unlock Wellness OS to load your live skincare routine.";
+      }
+
+      return message;
     }
 
     function formatShortDate(dateString) {
@@ -1340,7 +1301,7 @@
         state.usingFallback = true;
         state.todayAssignmentId = FALLBACK_PLAN_ROWS[0].id;
         state.activeAssignmentId = FALLBACK_PLAN_ROWS[0].id;
-        showStatus(error.message);
+        showStatus(fallbackStatusMessage(error.message));
       }
 
       if (shouldRender) {
@@ -1481,8 +1442,20 @@
       showToast("Yesterday editing will be unlocked once the log update flow is wired.");
     });
 
-    renderPayload();
-    loadTonightData().then(loadRoutinePlan);
+    async function bootstrapPage() {
+      renderPayload();
+
+      if (window.WellnessAuth && window.WellnessAuth.ready) {
+        await window.WellnessAuth.ready;
+      }
+
+      await loadTonightData();
+      await loadRoutinePlan();
+    }
+
+    bootstrapPage().catch((error) => {
+      showStatus(fallbackStatusMessage(error && error.message));
+    });
   </script>
 </body>
 </html>

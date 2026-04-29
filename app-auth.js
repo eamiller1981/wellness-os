@@ -6,6 +6,18 @@
   const EXPIRES_KEY = "wellnessAuthExpiresAt";
   const originalFetch = window.fetch.bind(window);
   let stylesInjected = false;
+  let authReadyResolved = false;
+  let resolveAuthReady;
+  const authReady = new Promise((resolve) => {
+    resolveAuthReady = resolve;
+  });
+
+  function markAuthReady() {
+    if (authReadyResolved) return;
+    authReadyResolved = true;
+    resolveAuthReady();
+    window.dispatchEvent(new CustomEvent("wellness-auth-ready"));
+  }
 
   function decodeBase64Url(value) {
     const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
@@ -195,6 +207,8 @@
         }
         saveToken(payload.token, payload.expiresAt);
         lock.remove();
+        markAuthReady();
+        window.dispatchEvent(new CustomEvent("wellness-auth-changed"));
       } catch (errorValue) {
         error.textContent = errorValue.message || "Unlock failed.";
       }
@@ -205,17 +219,23 @@
     const token = getToken();
     if (!token) {
       showLock();
-      return;
+      return authReady;
     }
 
     try {
       const response = await fetch(`${AUTH_URL}/api/auth/status`, { credentials: "include" });
       if (!response.ok) throw new Error("Session expired.");
+      markAuthReady();
     } catch (error) {
-      if (tokenExpiresAt(token) > Date.now()) return;
+      if (error && error.message !== "Session expired." && tokenExpiresAt(token) > Date.now()) {
+        markAuthReady();
+        return authReady;
+      }
       clearToken();
       showLock(error.message);
     }
+
+    return authReady;
   }
 
   async function refreshApp(button) {
@@ -259,6 +279,7 @@
   }
 
   window.WellnessAuth = {
+    ready: authReady,
     logout: async function logout() {
       clearToken();
       await originalFetch(`${AUTH_URL}/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
