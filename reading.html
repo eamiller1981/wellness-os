@@ -4,30 +4,1171 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f5eae3">
-  <title>Reading | Wellness OS</title>
+  <title>Library of Little Worlds | Wellness OS</title>
   <link rel="stylesheet" href="space.css">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="assets/2.png">
   <script src="app-auth.js"></script>
+  <style>
+    /* ---- Reading module styles, layered on top of space.css ---- */
+    .page { gap: 28px; }
+
+    .module-section {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .module-section h2 {
+      margin: 0 0 14px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.6rem;
+      font-weight: 400;
+      color: var(--ink);
+    }
+    .section-sub {
+      margin: -8px 0 16px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    /* Hero override for reading page: stacked, centered, 16:9 art */
+    .space {
+      grid-template-columns: 1fr;
+      gap: 18px;
+      align-items: center;
+      justify-items: center;
+      text-align: center;
+    }
+    .space-art {
+      aspect-ratio: auto;
+      width: 100%;
+      max-width: 720px;
+    }
+    .space h1 { font-size: 3rem; }
+    @media (max-width: 720px) { .space h1 { font-size: 2.4rem; } }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 720px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stat {
+      padding: 14px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.55);
+      text-align: center;
+    }
+    .stat-value {
+      display: block;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.7rem;
+      color: var(--ink);
+      line-height: 1.1;
+    }
+    .stat-label {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.74rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Jump-to grid */
+    .jump-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 720px) { .jump-grid { grid-template-columns: repeat(2, 1fr); } }
+    .jump-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 56px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1rem;
+      text-align: center;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .jump-link:hover, .jump-link:focus-visible {
+      border-color: #5f514a;
+      color: #5f514a;
+      background: rgba(255, 255, 255, 0.75);
+      outline: none;
+    }
+
+    /* Book card */
+    .book-card {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .book-card + .book-card { margin-top: 10px; }
+    .book-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .book-title {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.1rem;
+      font-weight: 400;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+    .book-author {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+    .book-rating {
+      flex-shrink: 0;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(128, 111, 100, 0.1);
+      color: var(--ink);
+      font-size: 0.8rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .book-rating.tier-loved   { background: rgba(170, 95, 180, 0.18); color: #6e3a78; }
+    .book-rating.tier-vg      { background: rgba(95, 140, 95, 0.18); color: #3f6238; }
+    .book-rating.tier-okay    { background: rgba(180, 150, 90, 0.18); color: #715a26; }
+    .book-rating.tier-notgood { background: rgba(180, 110, 80, 0.18); color: #794327; }
+    .book-rating.tier-dnf     { background: rgba(180, 70, 70, 0.18); color: #7a2828; }
+    .book-rating.tier-tbr     { background: rgba(120, 130, 170, 0.18); color: #3f4878; }
+
+    .book-why {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+      font-style: italic;
+    }
+    .book-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .tag {
+      padding: 3px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.4);
+      color: var(--ink);
+      font-size: 0.74rem;
+    }
+    .tag.tag-genre { background: rgba(128, 111, 100, 0.08); }
+
+    .book-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .btn {
+      min-height: 36px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      font-size: 0.84rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn:hover, .btn:focus-visible {
+      border-color: #5f514a;
+      color: #5f514a;
+      outline: none;
+    }
+    .btn-primary {
+      background: #806f64;
+      color: #f5eae3;
+      border-color: #806f64;
+    }
+    .btn-primary:hover, .btn-primary:focus-visible {
+      background: #5f514a;
+      border-color: #5f514a;
+      color: #f5eae3;
+    }
+    .btn-small {
+      min-height: 30px;
+      padding: 0 10px;
+      font-size: 0.78rem;
+    }
+
+    /* Filter bar */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .filter-bar input[type="search"] {
+      flex: 1 1 200px;
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    .filter-bar select {
+      min-height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      font-size: 0.86rem;
+      font-family: inherit;
+    }
+
+    /* Taste profile rendering */
+    .profile-content {
+      max-height: 320px;
+      overflow-y: auto;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+    .profile-content h3, .profile-content h4 {
+      margin: 12px 0 6px;
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 400;
+    }
+    .profile-content h3 { font-size: 1.05rem; }
+    .profile-content h4 { font-size: 0.96rem; }
+    .profile-content p { margin: 6px 0; }
+    .profile-content ul, .profile-content ol { margin: 6px 0 6px 22px; padding: 0; }
+    .profile-content li { margin: 3px 0; }
+    .profile-content em { color: var(--muted); }
+    .profile-content code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(128, 111, 100, 0.12);
+      font-size: 0.85em;
+    }
+
+    /* Chat */
+    .chat-window {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 380px;
+      overflow-y: auto;
+      padding: 12px;
+      margin-bottom: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.45);
+    }
+    .chat-msg {
+      max-width: 86%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .chat-msg.user { align-self: flex-end; background: rgba(128, 111, 100, 0.14); color: var(--ink); }
+    .chat-msg.assistant { align-self: flex-start; background: rgba(255, 255, 255, 0.7); color: var(--ink); border: 1px solid var(--line); }
+    .chat-msg.error { align-self: stretch; background: rgba(180, 70, 70, 0.12); color: #7a2828; }
+    .chat-empty { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 20px; }
+    .chat-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .chat-form textarea {
+      min-height: 60px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 0.92rem;
+      resize: vertical;
+    }
+    .chat-form-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chat-quick {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(80, 60, 50, 0.36);
+      z-index: 50;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 14px;
+      overflow-y: auto;
+    }
+    .modal-backdrop.is-open { display: flex; }
+    .modal {
+      width: min(560px, 100%);
+      padding: 22px;
+      border-radius: var(--radius);
+      background: var(--bg);
+      border: 1px solid var(--line);
+      box-shadow: 0 12px 40px rgba(80, 60, 50, 0.18);
+    }
+    .modal h3 {
+      margin: 0 0 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.5rem;
+      font-weight: 400;
+      color: var(--ink);
+    }
+    .modal .modal-sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .modal label {
+      display: block;
+      margin: 12px 0 4px;
+      color: var(--ink);
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+    .modal input[type="text"], .modal input[type="number"], .modal textarea, .modal select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.65);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 0.92rem;
+    }
+    .modal textarea { min-height: 70px; resize: vertical; }
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+    .rating-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .rating-row input[type="range"] { flex: 1; }
+    .rating-display {
+      min-width: 110px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.2rem;
+      color: var(--ink);
+      text-align: right;
+    }
+    .rating-display small { display: block; font-family: inherit; font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* States */
+    .loading { color: var(--muted); font-style: italic; padding: 8px 0; }
+    .empty { color: var(--muted); padding: 12px 0; font-size: 0.9rem; }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: var(--ink);
+      color: var(--bg);
+      font-size: 0.88rem;
+      box-shadow: 0 6px 20px rgba(80, 60, 50, 0.2);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; }
+
+    .ai-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(128, 111, 100, 0.1);
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+  </style>
 </head>
 <body>
   <main class="page">
     <nav class="topbar" aria-label="Page">
       <a class="home-link" href="/">Home</a>
-      <img class="brand" src="assets/header-logo.png" alt="Wellness OS">
     </nav>
+
+    <!-- Hero -->
     <section class="space">
-      <img class="space-art" src="assets/5.png" alt="Reading">
+      <img class="space-art" src="assets/reading-hero.jpg" alt="Library of Little Worlds">
       <div>
-        <p class="eyebrow">Read</p>
-        <h1>Reading</h1>
-        <p class="intro">Hold the current stack, future books, favorite passages, and the ideas worth keeping.</p>
-        <div class="next">
-          <h2>First build</h2>
-          <p>Create current, queued, and finished shelves with a space for notes.</p>
-        </div>
+        <p class="eyebrow">READ</p>
+        <h1>Library of Little Worlds</h1>
       </div>
     </section>
+
+    <!-- Quick stats -->
+    <section class="module-section">
+      <h2>My Stats</h2>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat"><span class="stat-value" id="statYTD">—</span><span class="stat-label">Read YTD</span></div>
+        <div class="stat"><span class="stat-value" id="statAvg">—</span><span class="stat-label">Avg rating</span></div>
+        <div class="stat"><span class="stat-value" id="statTBR">—</span><span class="stat-label">TBR titles</span></div>
+        <div class="stat"><span class="stat-value" id="statGenre">—</span><span class="stat-label">Top genre</span></div>
+      </div>
+    </section>
+
+    <!-- Jump to -->
+    <section class="module-section">
+      <h2>Jump To</h2>
+      <div class="jump-grid">
+        <a class="jump-link" href="#section-tbr">To Be Read</a>
+        <a class="jump-link" href="#section-library">Library</a>
+        <a class="jump-link" href="#section-taste">Taste Profile</a>
+        <a class="jump-link" href="#section-ai">AI Book Buddy</a>
+      </div>
+    </section>
+
+    <!-- Up Next -->
+    <section class="module-section">
+      <h2>Up Next</h2>
+      <div id="upNextList" class="loading">Loading…</div>
+    </section>
+
+    <!-- TBR -->
+    <section class="module-section" id="section-tbr">
+      <h2>To Be Read</h2>
+      <div class="filter-bar">
+        <input type="search" id="tbrSearch" placeholder="Search TBR…" aria-label="Search TBR">
+        <select id="tbrTagFilter" aria-label="Filter by tag">
+          <option value="">All tags</option>
+        </select>
+      </div>
+      <div id="tbrList" class="loading">Loading…</div>
+      <div class="book-actions" style="margin-top: 14px;">
+        <button class="btn" id="addBookBtn" type="button">+ Add book</button>
+        <button class="btn" id="vetListBtn" type="button">Will I like any of these? <span class="ai-badge">AI</span></button>
+      </div>
+    </section>
+
+    <!-- Library -->
+    <section class="module-section" id="section-library">
+      <h2>Library</h2>
+      <div class="filter-bar">
+        <input type="search" id="libSearch" placeholder="Search title or author…" aria-label="Search library">
+        <select id="libStatusFilter" aria-label="Filter by status">
+          <option value="">All</option>
+          <option value="Finished">Finished</option>
+          <option value="DNF">DNF</option>
+          <option value="Excluded">Excluded</option>
+        </select>
+        <select id="libTagFilter" aria-label="Filter by tag">
+          <option value="">All tags</option>
+        </select>
+      </div>
+      <div id="libList" class="loading">Loading…</div>
+    </section>
+
+    <!-- Taste profile -->
+    <section class="module-section" id="section-taste">
+      <h2>Taste Profile</h2>
+      <div class="profile-content" id="tasteProfileContent">Loading…</div>
+      <div class="book-actions" style="margin-top: 12px;">
+        <a class="btn" target="_blank" rel="noopener" href="https://www.notion.so/350627ee81db81aa87fde222e96e3e03">Edit in Notion ↗</a>
+      </div>
+    </section>
+
+    <!-- AI Book Buddy -->
+    <section class="module-section" id="section-ai">
+      <h2>AI Book Buddy</h2>
+      <p class="section-sub">Recommendations, recalibration, book-club discussion. Always spoiler-free. <span id="aiModelBadge" class="ai-badge">awaiting first message</span></p>
+      <div class="chat-quick">
+        <button class="btn btn-small" data-prompt="What are my top 3 highest-probability 5-star reads right now?" type="button">Top 3 next reads</button>
+        <button class="btn btn-small" data-prompt="What in my TBR is most likely to disappoint me, and why?" type="button">Most likely flops</button>
+        <button class="btn btn-small" data-prompt="Find me 5 new books not in my TBR that should be high-confidence hits." type="button">5 new hits</button>
+      </div>
+      <div class="chat-window" id="chatWindow">
+        <div class="chat-empty">Start a conversation to refine your taste profile or get a recommendation.</div>
+      </div>
+      <form class="chat-form" id="chatForm">
+        <textarea id="chatInput" placeholder="Ask anything about your reading…" required></textarea>
+        <div class="chat-form-row">
+          <button class="btn btn-primary" type="submit">Send</button>
+          <button class="btn" type="button" id="chatClear">Clear</button>
+        </div>
+      </form>
+    </section>
   </main>
+
+  <!-- Finish-book ritual modal -->
+  <div class="modal-backdrop" id="finishModal">
+    <div class="modal" role="dialog" aria-labelledby="finishTitle">
+      <h3 id="finishTitle">Finish a book</h3>
+      <p class="modal-sub" id="finishSubtitle">Capture the rating and what stuck with you.</p>
+      <input type="hidden" id="finishPageId">
+      <label for="finishRating">Rating</label>
+      <div class="rating-row">
+        <input type="range" id="finishRating" min="1" max="5" step="0.5" value="4">
+        <div class="rating-display"><span id="finishRatingValue">4</span><small id="finishRatingLabel">VERY GOOD</small></div>
+      </div>
+      <label for="finishLiked">What you liked</label>
+      <textarea id="finishLiked" placeholder="What worked? Pacing, character, atmosphere, ending…"></textarea>
+      <label for="finishDisliked">What you didn't like</label>
+      <textarea id="finishDisliked" placeholder="What fell short? This is gold for refining your taste profile."></textarea>
+      <label for="finishReflection">Reflection</label>
+      <textarea id="finishReflection" placeholder="What will stick with you? What do you want to remember?"></textarea>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close-modal="finishModal">Cancel</button>
+        <button class="btn btn-primary" type="button" id="finishSave">Save & recalibrate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add book modal -->
+  <div class="modal-backdrop" id="addBookModal">
+    <div class="modal" role="dialog">
+      <h3>Add a book</h3>
+      <p class="modal-sub">Add to your TBR. The AI will rank it after.</p>
+      <label for="addTitle">Title</label>
+      <input type="text" id="addTitle" required>
+      <label for="addAuthor">Author</label>
+      <input type="text" id="addAuthor">
+      <label for="addStatus">Status</label>
+      <select id="addStatus">
+        <option value="TBR">TBR</option>
+        <option value="Reading">Reading</option>
+        <option value="Finished">Finished</option>
+      </select>
+      <label for="addSource">Source <small style="color:var(--muted);font-weight:400">(where the rec came from)</small></label>
+      <input type="text" id="addSource" placeholder="e.g. Friend, Reddit, podcast">
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close-modal="addBookModal">Cancel</button>
+        <button class="btn btn-primary" type="button" id="addBookSave">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vet list modal -->
+  <div class="modal-backdrop" id="vetModal">
+    <div class="modal" role="dialog">
+      <h3>Will I like any of these?</h3>
+      <p class="modal-sub">Paste any list — book titles one per line, with or without authors. The AI classifies each as ADD / MAYBE / SKIP using your taste profile. Spoiler-free.</p>
+      <textarea id="vetInput" placeholder="Title 1&#10;Title 2 — Author&#10;Title 3" style="min-height: 140px;"></textarea>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close-modal="vetModal">Cancel</button>
+        <button class="btn btn-primary" type="button" id="vetSubmit">Analyze</button>
+      </div>
+      <div id="vetResults" style="margin-top: 14px;"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Config: Notion IDs ----
+    const BOOKS_DB_ID = "f75e04e67a7047408a6448f8879f0c29";
+    const TASTE_PROFILE_PAGE_ID = "350627ee-81db-81aa-87fd-e222e96e3e03";
+
+    // ---- State ----
+    const state = {
+      books: [],
+      profileMarkdown: "",
+      profileBlocks: [],
+      chatHistory: [],
+      currentYear: new Date().getFullYear()
+    };
+
+    // ---- Notion API helpers (via /api/notion proxy) ----
+    async function notion(path, method = "GET", body = null) {
+      const r = await fetch("/api/notion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, method, body })
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => "");
+        throw new Error(`Notion ${method} ${path} → ${r.status}: ${txt.slice(0, 160)}`);
+      }
+      return r.json();
+    }
+
+    function rt(text) {
+      return text ? [{ type: "text", text: { content: text } }] : [];
+    }
+
+    function plain(richTextArr) {
+      if (!Array.isArray(richTextArr)) return "";
+      return richTextArr.map(t => t.plain_text || "").join("");
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, m => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+      }[m]));
+    }
+
+    // ---- Fetch all books ----
+    async function fetchBooks() {
+      const all = [];
+      let cursor = undefined;
+      do {
+        const body = { page_size: 100 };
+        if (cursor) body.start_cursor = cursor;
+        const data = await notion(`/databases/${BOOKS_DB_ID}/query`, "POST", body);
+        all.push(...(data.results || []));
+        cursor = data.has_more ? data.next_cursor : undefined;
+      } while (cursor);
+
+      return all.map(page => {
+        const p = page.properties;
+        return {
+          id: page.id,
+          title: plain(p.Title?.title) || "(untitled)",
+          author: plain(p.Author?.rich_text) || "",
+          status: p.Status?.select?.name || "",
+          rating: typeof p.Rating?.number === "number" ? p.Rating.number : null,
+          predictedRating: typeof p["Predicted Rating"]?.number === "number" ? p["Predicted Rating"].number : null,
+          dateFinished: p["Date Finished"]?.date?.start || "",
+          genre: p.Genre?.select?.name || "",
+          tags: (p.Tags?.multi_select || []).map(t => t.name),
+          liked: plain(p.Liked?.rich_text),
+          disliked: plain(p.Disliked?.rich_text),
+          reflection: plain(p.Reflection?.rich_text),
+          whyItFits: plain(p["Why It Fits"]?.rich_text),
+          source: plain(p.Source?.rich_text),
+          tbrRank: typeof p["TBR Rank"]?.number === "number" ? p["TBR Rank"].number : null
+        };
+      });
+    }
+
+    // ---- Fetch taste profile blocks ----
+    async function fetchTasteProfile() {
+      const all = [];
+      let cursor = undefined;
+      do {
+        const path = `/blocks/${TASTE_PROFILE_PAGE_ID}/children?page_size=100${cursor ? `&start_cursor=${cursor}` : ""}`;
+        const data = await notion(path, "GET");
+        all.push(...(data.results || []));
+        cursor = data.has_more ? data.next_cursor : undefined;
+      } while (cursor);
+      return all;
+    }
+
+    function blocksToMarkdown(blocks) {
+      const lines = [];
+      for (const b of blocks) {
+        switch (b.type) {
+          case "heading_1": lines.push(`# ${plain(b.heading_1.rich_text)}`); break;
+          case "heading_2": lines.push(`## ${plain(b.heading_2.rich_text)}`); break;
+          case "heading_3": lines.push(`### ${plain(b.heading_3.rich_text)}`); break;
+          case "paragraph":  lines.push(plain(b.paragraph.rich_text)); break;
+          case "bulleted_list_item": lines.push(`- ${plain(b.bulleted_list_item.rich_text)}`); break;
+          case "numbered_list_item": lines.push(`1. ${plain(b.numbered_list_item.rich_text)}`); break;
+          case "divider": lines.push("---"); break;
+          case "quote": lines.push(`> ${plain(b.quote.rich_text)}`); break;
+          default: break;
+        }
+      }
+      return lines.join("\n");
+    }
+
+    function blocksToHtml(blocks) {
+      const out = [];
+      let listType = null;
+      const closeList = () => { if (listType) { out.push(`</${listType}>`); listType = null; } };
+
+      const renderRich = (arr) => {
+        if (!Array.isArray(arr)) return "";
+        return arr.map(t => {
+          let s = escapeHtml(t.plain_text || "");
+          const a = t.annotations || {};
+          if (a.code) s = `<code>${s}</code>`;
+          if (a.bold) s = `<strong>${s}</strong>`;
+          if (a.italic) s = `<em>${s}</em>`;
+          return s;
+        }).join("");
+      };
+
+      for (const b of blocks) {
+        switch (b.type) {
+          case "heading_1": closeList(); out.push(`<h3>${renderRich(b.heading_1.rich_text)}</h3>`); break;
+          case "heading_2": closeList(); out.push(`<h3>${renderRich(b.heading_2.rich_text)}</h3>`); break;
+          case "heading_3": closeList(); out.push(`<h4>${renderRich(b.heading_3.rich_text)}</h4>`); break;
+          case "paragraph":  closeList(); out.push(`<p>${renderRich(b.paragraph.rich_text)}</p>`); break;
+          case "bulleted_list_item":
+            if (listType !== "ul") { closeList(); out.push("<ul>"); listType = "ul"; }
+            out.push(`<li>${renderRich(b.bulleted_list_item.rich_text)}</li>`);
+            break;
+          case "numbered_list_item":
+            if (listType !== "ol") { closeList(); out.push("<ol>"); listType = "ol"; }
+            out.push(`<li>${renderRich(b.numbered_list_item.rich_text)}</li>`);
+            break;
+          case "divider": closeList(); out.push("<hr>"); break;
+          case "quote": closeList(); out.push(`<blockquote>${renderRich(b.quote.rich_text)}</blockquote>`); break;
+        }
+      }
+      closeList();
+      return out.join("");
+    }
+
+    // ---- Rating helpers ----
+    function ratingLabel(r) {
+      if (r == null) return "";
+      if (r >= 5) return "LOVED";
+      if (r >= 4) return "VERY GOOD";
+      if (r >= 3) return "OKAY";
+      if (r >= 2) return "NOT GOOD";
+      return "DNF";
+    }
+    function ratingTier(r) {
+      if (r == null) return "";
+      if (r >= 5) return "tier-loved";
+      if (r >= 4) return "tier-vg";
+      if (r >= 3) return "tier-okay";
+      if (r >= 2) return "tier-notgood";
+      return "tier-dnf";
+    }
+
+    // ---- Render ----
+    function renderStats() {
+      const ytdCount = state.books.filter(b => {
+        if (b.status !== "Finished") return false;
+        if (!b.dateFinished) return false;
+        return b.dateFinished.startsWith(String(state.currentYear));
+      }).length;
+      const ratings = state.books
+        .filter(b => b.rating != null && (b.status === "Finished" || b.status === "DNF"))
+        .map(b => b.rating);
+      const avg = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : null;
+      const tbrCount = state.books.filter(b => b.status === "TBR").length;
+      const genres = {};
+      state.books.filter(b => b.status === "Finished" && b.genre).forEach(b => {
+        genres[b.genre] = (genres[b.genre] || 0) + 1;
+      });
+      const topGenre = Object.entries(genres).sort((a, b) => b[1] - a[1])[0];
+
+      document.getElementById("statYTD").textContent = state.books.some(b => b.dateFinished) ? ytdCount : "—";
+      document.getElementById("statAvg").textContent = avg != null ? avg.toFixed(2) : "—";
+      document.getElementById("statTBR").textContent = tbrCount;
+      document.getElementById("statGenre").textContent = topGenre ? topGenre[0].split("/")[0].split(" ")[0] : "—";
+    }
+
+    function bookCardHtml(book, opts = {}) {
+      const showWhy = opts.showWhy !== false && book.whyItFits;
+      const showFinish = book.status === "TBR" || book.status === "Reading";
+      const showEdit = book.status === "Finished" || book.status === "DNF";
+      const ratingDisplay =
+        book.status === "TBR" && book.predictedRating != null
+          ? `Predicted ${book.predictedRating}`
+          : book.rating != null
+            ? `${book.rating} · ${ratingLabel(book.rating)}`
+            : book.status;
+      const ratingClass = book.rating != null ? ratingTier(book.rating) : (book.status === "TBR" ? "tier-tbr" : "");
+
+      const tagsHtml = [
+        book.genre ? `<span class="tag tag-genre">${escapeHtml(book.genre)}</span>` : "",
+        ...book.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`)
+      ].filter(Boolean).join("");
+
+      return `
+        <article class="book-card" data-id="${escapeHtml(book.id)}">
+          <div class="book-head">
+            <div>
+              <h3 class="book-title">${escapeHtml(book.title)}</h3>
+              ${book.author ? `<div class="book-author">${escapeHtml(book.author)}</div>` : ""}
+            </div>
+            <div class="book-rating ${ratingClass}">${escapeHtml(ratingDisplay)}</div>
+          </div>
+          ${showWhy ? `<p class="book-why">${escapeHtml(book.whyItFits)}</p>` : ""}
+          ${tagsHtml ? `<div class="book-meta">${tagsHtml}</div>` : ""}
+          <div class="book-actions">
+            ${showFinish ? `<button class="btn btn-small btn-primary" data-action="finish">Finish & rate</button>` : ""}
+            ${showEdit ? `<button class="btn btn-small" data-action="edit">Edit</button>` : ""}
+            <button class="btn btn-small" data-action="why">${book.status === "TBR" ? "Why this fits" : "Discuss"} <span class="ai-badge">AI</span></button>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderUpNext() {
+      const tbr = state.books
+        .filter(b => b.status === "TBR")
+        .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999))
+        .slice(0, 3);
+      const el = document.getElementById("upNextList");
+      el.innerHTML = tbr.length
+        ? tbr.map(b => bookCardHtml(b)).join("")
+        : `<div class="empty">No TBR yet. Add a book or ask the AI for a fresh batch.</div>`;
+      el.classList.remove("loading");
+    }
+
+    function renderTBR() {
+      const search = document.getElementById("tbrSearch").value.toLowerCase().trim();
+      const tagFilter = document.getElementById("tbrTagFilter").value;
+      const tbr = state.books
+        .filter(b => b.status === "TBR")
+        .filter(b => !search || b.title.toLowerCase().includes(search) || b.author.toLowerCase().includes(search))
+        .filter(b => !tagFilter || b.tags.includes(tagFilter))
+        .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999));
+      const el = document.getElementById("tbrList");
+      el.innerHTML = tbr.length
+        ? tbr.map(b => bookCardHtml(b)).join("")
+        : `<div class="empty">Nothing matches.</div>`;
+      el.classList.remove("loading");
+    }
+
+    function renderLibrary() {
+      const search = document.getElementById("libSearch").value.toLowerCase().trim();
+      const statusFilter = document.getElementById("libStatusFilter").value;
+      const tagFilter = document.getElementById("libTagFilter").value;
+      const finishedStatuses = new Set(["Finished", "DNF", "Excluded"]);
+      const lib = state.books
+        .filter(b => finishedStatuses.has(b.status))
+        .filter(b => !statusFilter || b.status === statusFilter)
+        .filter(b => !search || b.title.toLowerCase().includes(search) || b.author.toLowerCase().includes(search))
+        .filter(b => !tagFilter || b.tags.includes(tagFilter))
+        .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title));
+      const el = document.getElementById("libList");
+      el.innerHTML = lib.length
+        ? lib.map(b => bookCardHtml(b, { showWhy: false })).join("")
+        : `<div class="empty">Nothing matches.</div>`;
+      el.classList.remove("loading");
+    }
+
+    function populateTagFilters() {
+      const tagSet = new Set();
+      state.books.forEach(b => b.tags.forEach(t => tagSet.add(t)));
+      const tags = [...tagSet].sort();
+      const opts = `<option value="">All tags</option>` + tags.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+      document.getElementById("tbrTagFilter").innerHTML = opts;
+      document.getElementById("libTagFilter").innerHTML = opts;
+    }
+
+    function renderTasteProfile() {
+      const el = document.getElementById("tasteProfileContent");
+      el.innerHTML = state.profileBlocks.length
+        ? blocksToHtml(state.profileBlocks)
+        : `<div class="empty">No taste profile yet — edit in Notion to seed it.</div>`;
+    }
+
+    // ---- Modal helpers ----
+    function openModal(id) { document.getElementById(id).classList.add("is-open"); }
+    function closeModal(id) { document.getElementById(id).classList.remove("is-open"); }
+
+    document.querySelectorAll("[data-close-modal]").forEach(btn => {
+      btn.addEventListener("click", () => closeModal(btn.dataset.closeModal));
+    });
+    document.querySelectorAll(".modal-backdrop").forEach(bd => {
+      bd.addEventListener("click", e => { if (e.target === bd) closeModal(bd.id); });
+    });
+
+    function toast(msg, ms = 2400) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => t.classList.remove("show"), ms);
+    }
+
+    // ---- Finish-book ritual ----
+    const finishRange = document.getElementById("finishRating");
+    const finishVal = document.getElementById("finishRatingValue");
+    const finishLbl = document.getElementById("finishRatingLabel");
+    finishRange.addEventListener("input", () => {
+      const v = parseFloat(finishRange.value);
+      finishVal.textContent = v;
+      finishLbl.textContent = ratingLabel(v);
+    });
+
+    function openFinishModal(book) {
+      document.getElementById("finishPageId").value = book.id;
+      document.getElementById("finishTitle").textContent = `Rate "${book.title}"`;
+      document.getElementById("finishSubtitle").textContent = book.author ? `by ${book.author}` : "";
+      const startRating = book.rating ?? book.predictedRating ?? 4;
+      finishRange.value = startRating;
+      finishVal.textContent = startRating;
+      finishLbl.textContent = ratingLabel(startRating);
+      document.getElementById("finishLiked").value = book.liked || "";
+      document.getElementById("finishDisliked").value = book.disliked || "";
+      document.getElementById("finishReflection").value = book.reflection || "";
+      openModal("finishModal");
+    }
+
+    document.getElementById("finishSave").addEventListener("click", async () => {
+      const pageId = document.getElementById("finishPageId").value;
+      const rating = parseFloat(finishRange.value);
+      const liked = document.getElementById("finishLiked").value.trim();
+      const disliked = document.getElementById("finishDisliked").value.trim();
+      const reflection = document.getElementById("finishReflection").value.trim();
+      const today = new Date().toISOString().slice(0, 10);
+      const newStatus = rating <= 1.5 ? "DNF" : "Finished";
+
+      try {
+        await notion(`/pages/${pageId}`, "PATCH", {
+          properties: {
+            "Rating": { number: rating },
+            "Status": { select: { name: newStatus } },
+            "Date Finished": { date: { start: today } },
+            "Liked": { rich_text: rt(liked) },
+            "Disliked": { rich_text: rt(disliked) },
+            "Reflection": { rich_text: rt(reflection) }
+          }
+        });
+        closeModal("finishModal");
+        toast("Saved. Refreshing…");
+        await refresh();
+
+        const book = state.books.find(b => b.id === pageId);
+        if (book) {
+          const msg = `I just finished "${book.title}" by ${book.author || "?"} and rated it ${rating} (${ratingLabel(rating)}).\n\nLiked: ${liked || "—"}\nDisliked: ${disliked || "—"}\nReflection: ${reflection || "—"}\n\nUpdate my taste profile and adjust my TBR ranking.`;
+          appendChatUI("user", msg);
+          state.chatHistory.push({ role: "user", content: msg });
+          await sendChat();
+        }
+      } catch (err) {
+        toast("Save failed: " + err.message, 4000);
+      }
+    });
+
+    // ---- Add book ----
+    document.getElementById("addBookBtn").addEventListener("click", () => openModal("addBookModal"));
+    document.getElementById("addBookSave").addEventListener("click", async () => {
+      const title = document.getElementById("addTitle").value.trim();
+      if (!title) { toast("Title required"); return; }
+      const author = document.getElementById("addAuthor").value.trim();
+      const status = document.getElementById("addStatus").value;
+      const source = document.getElementById("addSource").value.trim();
+      try {
+        await notion("/pages", "POST", {
+          parent: { database_id: BOOKS_DB_ID },
+          properties: {
+            "Title": { title: rt(title) },
+            "Author": { rich_text: rt(author) },
+            "Status": { select: { name: status } },
+            "Source": { rich_text: rt(source) }
+          }
+        });
+        closeModal("addBookModal");
+        document.getElementById("addTitle").value = "";
+        document.getElementById("addAuthor").value = "";
+        document.getElementById("addSource").value = "";
+        toast("Added. Refreshing…");
+        await refresh();
+      } catch (err) {
+        toast("Add failed: " + err.message, 4000);
+      }
+    });
+
+    // ---- Vet a list ----
+    document.getElementById("vetListBtn").addEventListener("click", () => {
+      document.getElementById("vetResults").innerHTML = "";
+      openModal("vetModal");
+    });
+    document.getElementById("vetSubmit").addEventListener("click", async () => {
+      const list = document.getElementById("vetInput").value.trim();
+      if (!list) { toast("Paste a list first"); return; }
+      const resEl = document.getElementById("vetResults");
+      resEl.innerHTML = `<div class="loading">Analyzing…</div>`;
+      try {
+        const reply = await callChat([{
+          role: "user",
+          content: `Vet this list against my taste profile. For each book, classify as ADD / MAYBE / SKIP with a one-sentence spoiler-free reason. If a book is already in my library or TBR, say so.\n\nList:\n${list}`
+        }]);
+        resEl.innerHTML = `<div class="profile-content">${formatChatHtml(reply.response)}</div><div class="ai-badge" style="margin-top:8px;">via ${escapeHtml(reply.model)}</div>`;
+      } catch (err) {
+        resEl.innerHTML = `<div class="chat-msg error">${escapeHtml(err.message)}</div>`;
+      }
+    });
+
+    // ---- Chat ----
+    function buildChatContext() {
+      const pf = state.profileMarkdown;
+      const compact = state.books.map(b => {
+        const tags = b.tags.length ? ` [${b.tags.join(", ")}]` : "";
+        const r = b.rating != null ? ` ${b.rating}★` : (b.predictedRating != null ? ` predicted ${b.predictedRating}★` : "");
+        const note = b.disliked ? ` — disliked: ${b.disliked.slice(0, 80)}` : (b.liked ? ` — liked: ${b.liked.slice(0, 80)}` : "");
+        const why = b.whyItFits ? ` — why fits: ${b.whyItFits}` : "";
+        return `- ${b.status}${r} | ${b.title} — ${b.author}${tags}${why}${note}`;
+      }).join("\n");
+      return `TASTE PROFILE:\n${pf}\n\nBOOK LOG (compact):\n${compact}\n\nToday: ${new Date().toISOString().slice(0,10)}`;
+    }
+
+    async function callChat(messages) {
+      const r = await fetch("/api/reading-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages, context: buildChatContext() })
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || `Chat ${r.status}`);
+      }
+      return r.json();
+    }
+
+    function formatChatHtml(text) {
+      const escaped = escapeHtml(text);
+      return escaped
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+        .replace(/\n/g, "<br>");
+    }
+
+    function appendChatUI(role, content) {
+      const win = document.getElementById("chatWindow");
+      const empty = win.querySelector(".chat-empty");
+      if (empty) empty.remove();
+      const div = document.createElement("div");
+      div.className = `chat-msg ${role}`;
+      div.innerHTML = formatChatHtml(content);
+      win.appendChild(div);
+      win.scrollTop = win.scrollHeight;
+    }
+
+    async function sendChat() {
+      const win = document.getElementById("chatWindow");
+      const thinking = document.createElement("div");
+      thinking.className = "chat-msg assistant";
+      thinking.textContent = "Thinking…";
+      win.appendChild(thinking);
+      win.scrollTop = win.scrollHeight;
+
+      try {
+        const reply = await callChat(state.chatHistory);
+        thinking.remove();
+        appendChatUI("assistant", reply.response);
+        state.chatHistory.push({ role: "assistant", content: reply.response });
+        document.getElementById("aiModelBadge").textContent = `via ${reply.model}`;
+      } catch (err) {
+        thinking.remove();
+        appendChatUI("error", `Chat failed: ${err.message}`);
+      }
+    }
+
+    document.getElementById("chatForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const input = document.getElementById("chatInput");
+      const text = input.value.trim();
+      if (!text) return;
+      appendChatUI("user", text);
+      state.chatHistory.push({ role: "user", content: text });
+      input.value = "";
+      await sendChat();
+    });
+
+    document.getElementById("chatClear").addEventListener("click", () => {
+      state.chatHistory = [];
+      document.getElementById("chatWindow").innerHTML = `<div class="chat-empty">Cleared. Start a new conversation.</div>`;
+      document.getElementById("aiModelBadge").textContent = "awaiting first message";
+    });
+
+    document.querySelectorAll(".chat-quick button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const prompt = btn.dataset.prompt;
+        appendChatUI("user", prompt);
+        state.chatHistory.push({ role: "user", content: prompt });
+        sendChat();
+      });
+    });
+
+    // ---- Book card delegated click handler ----
+    document.body.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action]");
+      if (!btn) return;
+      const card = btn.closest(".book-card");
+      if (!card) return;
+      const id = card.dataset.id;
+      const book = state.books.find(b => b.id === id);
+      if (!book) return;
+      const action = btn.dataset.action;
+      if (action === "finish" || action === "edit") {
+        openFinishModal(book);
+      } else if (action === "why") {
+        const msg = book.status === "TBR"
+          ? `Tell me, spoiler-free, why "${book.title}" by ${book.author} fits my taste — atmosphere, structure, what to expect emotionally. Keep it under 5 sentences.`
+          : `Let's discuss "${book.title}" by ${book.author}. I rated it ${book.rating ?? "?"} (${ratingLabel(book.rating)}). What does this rating signal about my taste, and what should I read next?`;
+        appendChatUI("user", msg);
+        state.chatHistory.push({ role: "user", content: msg });
+        sendChat();
+        document.getElementById("chatWindow").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+
+    // ---- Filter listeners ----
+    document.getElementById("tbrSearch").addEventListener("input", renderTBR);
+    document.getElementById("tbrTagFilter").addEventListener("change", renderTBR);
+    document.getElementById("libSearch").addEventListener("input", renderLibrary);
+    document.getElementById("libStatusFilter").addEventListener("change", renderLibrary);
+    document.getElementById("libTagFilter").addEventListener("change", renderLibrary);
+
+    // ---- Init ----
+    async function refresh() {
+      try {
+        const [books, profileBlocks] = await Promise.all([fetchBooks(), fetchTasteProfile()]);
+        state.books = books;
+        state.profileBlocks = profileBlocks;
+        state.profileMarkdown = blocksToMarkdown(profileBlocks);
+        populateTagFilters();
+        renderStats();
+        renderUpNext();
+        renderTBR();
+        renderLibrary();
+        renderTasteProfile();
+      } catch (err) {
+        const msg = `Failed to load: ${err.message}`;
+        ["upNextList", "tbrList", "libList", "tasteProfileContent"].forEach(id => {
+          const el = document.getElementById(id);
+          el.innerHTML = `<div class="empty">${escapeHtml(msg)}</div>`;
+          el.classList.remove("loading");
+        });
+      }
+    }
+
+    refresh();
+  </script>
 </body>
 </html>
