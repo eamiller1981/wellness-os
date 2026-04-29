@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f5eae3">
-  <title>Reading | Wellness OS</title>
+  <title>Library of Little Worlds | Wellness OS</title>
   <link rel="stylesheet" href="space.css">
   <style>
     /* ---- Reading module styles, layered on top of space.css ---- */
@@ -63,6 +63,36 @@
       font-size: 0.74rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
+    }
+
+    /* Jump-to grid */
+    .jump-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    @media (max-width: 720px) { .jump-grid { grid-template-columns: repeat(2, 1fr); } }
+    .jump-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 56px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1rem;
+      text-align: center;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+    }
+    .jump-link:hover, .jump-link:focus-visible {
+      border-color: #5f514a;
+      color: #5f514a;
+      background: rgba(255, 255, 255, 0.75);
+      outline: none;
     }
 
     /* Book card */
@@ -396,22 +426,20 @@
   <main class="page">
     <nav class="topbar" aria-label="Page">
       <a class="home-link" href="/">Home</a>
-      <img class="brand" src="assets/header-logo.png" alt="Wellness OS">
     </nav>
 
     <!-- Hero -->
     <section class="space">
-      <img class="space-art" src="assets/5.png" alt="Reading">
+      <img class="space-art" src="assets/reading-hero.jpg" alt="Library of Little Worlds">
       <div>
-        <p class="eyebrow">Read</p>
-        <h1>Reading</h1>
-        <p class="intro">Hold the current stack, future books, favorite passages, and the ideas worth keeping.</p>
+        <p class="eyebrow">READ</p>
+        <h1>Library of Little Worlds</h1>
       </div>
     </section>
 
     <!-- Quick stats -->
     <section class="module-section">
-      <h2>At a glance</h2>
+      <h2>My Stats</h2>
       <div class="stats-grid" id="statsGrid">
         <div class="stat"><span class="stat-value" id="statYTD">—</span><span class="stat-label">Read YTD</span></div>
         <div class="stat"><span class="stat-value" id="statAvg">—</span><span class="stat-label">Avg rating</span></div>
@@ -420,16 +448,26 @@
       </div>
     </section>
 
+    <!-- Jump to -->
+    <section class="module-section">
+      <h2>Jump To</h2>
+      <div class="jump-grid">
+        <a class="jump-link" href="#section-tbr">To Be Read</a>
+        <a class="jump-link" href="#section-library">Library</a>
+        <a class="jump-link" href="#section-taste">Taste Profile</a>
+        <a class="jump-link" href="#section-ai">AI Book Buddy</a>
+      </div>
+    </section>
+
     <!-- Up Next -->
     <section class="module-section">
-      <h2>Up next</h2>
-      <p class="section-sub">Top three from your TBR, ranked by likelihood you'll love them. Spoiler-free fit notes.</p>
+      <h2>Up Next</h2>
       <div id="upNextList" class="loading">Loading…</div>
     </section>
 
     <!-- TBR -->
-    <section class="module-section">
-      <h2>To be read</h2>
+    <section class="module-section" id="section-tbr">
+      <h2>To Be Read</h2>
       <div class="filter-bar">
         <input type="search" id="tbrSearch" placeholder="Search TBR…" aria-label="Search TBR">
         <select id="tbrTagFilter" aria-label="Filter by tag">
@@ -444,9 +482,8 @@
     </section>
 
     <!-- Library -->
-    <section class="module-section">
+    <section class="module-section" id="section-library">
       <h2>Library</h2>
-      <p class="section-sub">Everything you've finished, DNF'd, or excluded. Search by title, author, or category tag.</p>
       <div class="filter-bar">
         <input type="search" id="libSearch" placeholder="Search title or author…" aria-label="Search library">
         <select id="libStatusFilter" aria-label="Filter by status">
@@ -463,18 +500,17 @@
     </section>
 
     <!-- Taste profile -->
-    <section class="module-section">
-      <h2>Taste profile</h2>
-      <p class="section-sub">The map driving every recommendation. Edit in Notion to adjust — both the app and the AI read this as the source of truth.</p>
+    <section class="module-section" id="section-taste">
+      <h2>Taste Profile</h2>
       <div class="profile-content" id="tasteProfileContent">Loading…</div>
       <div class="book-actions" style="margin-top: 12px;">
         <a class="btn" target="_blank" rel="noopener" href="https://www.notion.so/350627ee81db81aa87fde222e96e3e03">Edit in Notion ↗</a>
       </div>
     </section>
 
-    <!-- Ask Reading AI -->
-    <section class="module-section">
-      <h2>Ask Reading AI</h2>
+    <!-- AI Book Buddy -->
+    <section class="module-section" id="section-ai">
+      <h2>AI Book Buddy</h2>
       <p class="section-sub">Recommendations, recalibration, book-club discussion. Always spoiler-free. <span id="aiModelBadge" class="ai-badge">awaiting first message</span></p>
       <div class="chat-quick">
         <button class="btn btn-small" data-prompt="What are my top 3 highest-probability 5-star reads right now?" type="button">Top 3 next reads</button>
