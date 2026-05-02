@@ -654,9 +654,9 @@
       <section class="panel" aria-label="Cycle status">
         <div class="cycle-head">
           <div>
-            <strong class="cycle-name" id="cycleName">Q2 2026</strong>
+            <strong class="cycle-name" id="cycleName">Skincare Cycle</strong>
           </div>
-          <span class="cycle-meta" id="cycleMeta">Night 34 of 90</span>
+            <span class="cycle-meta" id="cycleMeta">Loading...</span>
         </div>
         <div class="progress-track" aria-hidden="true">
           <div class="progress-fill" id="progressFill"></div>
@@ -664,8 +664,8 @@
         <div class="mode-toggle" id="modeToggle" aria-label="Routine mode"></div>
       </section>
 
-      <section class="routine-title" aria-label="Tonight's steps">
-        <h2 id="blockName">Routine unavailable</h2>
+        <section class="routine-title" aria-label="Tonight's steps">
+         <h2 id="blockName">&nbsp;</h2>
         <p class="view-context" id="viewContext" hidden></p>
         <span class="routine-tag" id="deviceBadge" hidden></span>
       </section>
@@ -674,8 +674,8 @@
         <div id="stepSections"></div>
       </section>
 
-      <aside class="note" aria-label="Routine note">
-        <p id="blockNote">Live skincare data could not load yet. Unlock Wellness OS or refresh to pull tonight's routine from your current Notion setup.</p>
+        <aside class="note" aria-label="Routine note">
+         <p id="blockNote"></p>
       </aside>
 
       <section class="panel next-section" aria-label="Next up">
@@ -683,11 +683,11 @@
         <div class="next-items">
           <div class="next-card">
             <span class="next-card-title">Steps</span>
-            <span class="next-card-name" id="nextBlockName">TBD</span>
+              <span class="next-card-name" id="nextBlockName"></span>
           </div>
           <div class="next-card">
             <span class="next-card-title">Device</span>
-            <span class="next-card-name" id="nextDeviceName">TBD</span>
+              <span class="next-card-name" id="nextDeviceName"></span>
           </div>
         </div>
         <a class="next-link" href="skincare-routine.html" id="routineLink">View 90 Day Routine</a>
@@ -703,8 +703,8 @@
       <button class="log-card" id="logCard" type="button">
         <span class="log-mark">&#10003;</span>
         <span>
-          <span class="log-title" id="logTitle">Last night has not been logged yet.</span>
-          <span class="log-meta" id="logMeta">Live data will appear here when the routine loads.</span>
+            <span class="log-title" id="logTitle">Loading last night...</span>
+            <span class="log-meta" id="logMeta"></span>
         </span>
       </button>
     </section>
@@ -745,6 +745,29 @@
       },
       next: {
         blockName: "TBD",
+        deviceNames: []
+      },
+      yesterday: {
+        log: null
+      }
+    };
+
+    const LOADING_PAYLOAD = {
+      mode: "cycle",
+      cycle: {
+        name: "Skincare Cycle",
+        nightNumber: 0,
+        totalNights: 0,
+        progressPercent: 0
+      },
+      routine: {
+        blockName: "",
+        devices: [],
+        note: "",
+        sections: []
+      },
+      next: {
+        blockName: "",
         deviceNames: []
       },
       yesterday: {
@@ -823,13 +846,14 @@
 
     const state = {
       mode: "cycle",
-      payload: FALLBACK_PAYLOAD,
-      usingFallback: true,
+      payload: null,
+      usingFallback: false,
+      loadingInitial: true,
       syncingMode: false,
       loadingSelection: false,
-      planRows: [...FALLBACK_PLAN_ROWS],
-      activeAssignmentId: "fallback-unavailable",
-      todayAssignmentId: "fallback-unavailable",
+      planRows: [],
+      activeAssignmentId: "",
+      todayAssignmentId: "",
       previewCache: new Map(),
       prefetching: new Set()
     };
@@ -924,7 +948,7 @@
     }
 
     function currentAssignment() {
-      return state.payload.assignment || {};
+      return (state.payload && state.payload.assignment) || {};
     }
 
     function currentPlanRow() {
@@ -946,7 +970,7 @@
     function canPauseSelection() {
       const assignment = currentAssignment();
       if (!assignment.id || !assignment.date) return false;
-      if (state.payload.pause && state.payload.pause.active) return false;
+      if (state.payload && state.payload.pause && state.payload.pause.active) return false;
       return !isPreviewing();
     }
 
@@ -1065,7 +1089,7 @@
     }
 
     function renderViewContext() {
-      const assignment = state.payload.assignment || {};
+      const assignment = (state.payload && state.payload.assignment) || {};
       const row = currentPlanRow();
       const label = assignment.nightLabel || (row && row.night) || "";
       const date = assignment.date || (row && row.date) || "";
@@ -1090,10 +1114,13 @@
     }
 
     function renderSections() {
-      const sections = state.payload.routine && state.payload.routine.sections ? state.payload.routine.sections : [];
+      const sections = state.payload && state.payload.routine && state.payload.routine.sections ? state.payload.routine.sections : [];
       stepSections.innerHTML = "";
 
       if (!sections.length) {
+        if (state.loadingInitial) {
+          return;
+        }
         const empty = document.createElement("p");
         empty.className = "step-empty";
         empty.textContent = "This mode is mapped, but its step list has not been structured yet.";
@@ -1139,7 +1166,14 @@
     }
 
     function renderLogCard() {
-      const log = state.payload.yesterday && state.payload.yesterday.log ? state.payload.yesterday.log : null;
+      if (state.loadingInitial) {
+        logTitle.textContent = "Loading last night...";
+        logMeta.textContent = "";
+        logCard.disabled = true;
+        return;
+      }
+
+      const log = state.payload && state.payload.yesterday && state.payload.yesterday.log ? state.payload.yesterday.log : null;
 
       if (!log) {
         logTitle.textContent = "Last night has not been logged yet.";
@@ -1155,11 +1189,11 @@
       logCard.disabled = false;
     }
 
-    function renderPayload() {
-      const payload = state.payload;
-      const cycle = payload.cycle || FALLBACK_PAYLOAD.cycle;
-      const routine = payload.routine || FALLBACK_PAYLOAD.routine;
-      const next = payload.next || FALLBACK_PAYLOAD.next;
+      function renderPayload() {
+        const payload = state.payload || (state.loadingInitial ? LOADING_PAYLOAD : FALLBACK_PAYLOAD);
+        const cycle = payload.cycle || FALLBACK_PAYLOAD.cycle;
+        const routine = payload.routine || FALLBACK_PAYLOAD.routine;
+        const next = payload.next || FALLBACK_PAYLOAD.next;
       const currentDevices = routineDeviceNames(routine);
       const row = currentPlanRow();
       const totalRows = state.planRows.length;
@@ -1168,13 +1202,13 @@
         ? Math.round((((row.nightOrder != null ? row.nightOrder : currentIndex + 1) || 1) / totalRows) * 100)
         : (cycle.progressPercent || 0);
 
-      cycleName.textContent = cycle.name || "Skincare Cycle";
-      cycleMeta.textContent = row && totalRows
-        ? `${row.night || `Night ${currentIndex + 1}`} of ${totalRows}`
-        : `Night ${cycle.nightNumber || 1} of ${cycle.totalNights || 90}`;
-      progressFill.style.width = `${progressValue}%`;
+        cycleName.textContent = cycle.name || "Skincare Cycle";
+        cycleMeta.textContent = row && totalRows
+          ? `${row.night || `Night ${currentIndex + 1}`} of ${totalRows}`
+          : (state.loadingInitial ? "Loading..." : `Night ${cycle.nightNumber || 1} of ${cycle.totalNights || 90}`);
+        progressFill.style.width = `${state.loadingInitial ? 0 : progressValue}%`;
 
-      blockName.textContent = routine.blockName || "Tonight";
+        blockName.textContent = routine.blockName || (state.loadingInitial ? "\u00A0" : "Tonight");
       if (currentDevices.length) {
         deviceBadge.hidden = false;
         deviceBadge.textContent = currentDevices.join(" / ");
@@ -1182,10 +1216,10 @@
         deviceBadge.hidden = true;
       }
 
-      blockNote.textContent = routine.note || "Tonight's note will appear here once the selected routine carries note text.";
+        blockNote.textContent = routine.note || (state.loadingInitial ? "" : "Tonight's note will appear here once the selected routine carries note text.");
 
-      nextBlockName.textContent = next.blockName || "TBD";
-      nextDeviceName.textContent = nextDeviceText(next);
+        nextBlockName.textContent = next.blockName || (state.loadingInitial ? "" : "TBD");
+        nextDeviceName.textContent = state.loadingInitial ? "" : nextDeviceText(next);
 
       renderModes();
       renderViewContext();
@@ -1276,7 +1310,7 @@
       }
 
       const todayRow = state.planRows.find((row) => row.isToday) || state.planRows[0] || null;
-      state.todayAssignmentId = state.payload.assignment && state.payload.assignment.id
+      state.todayAssignmentId = state.payload && state.payload.assignment && state.payload.assignment.id
         ? state.payload.assignment.id
         : (todayRow && todayRow.id) || state.todayAssignmentId;
 
@@ -1288,27 +1322,29 @@
       prefetchAdjacentAssignments();
     }
 
-    async function loadTonightData(options = {}) {
-      const shouldRender = options.render !== false;
+      async function loadTonightData(options = {}) {
+        const shouldRender = options.render !== false;
 
-      try {
-        const data = await fetchJson("/api/tonight");
+        try {
+          const data = await fetchJson("/api/tonight");
         state.payload = data;
         state.mode = data.mode || state.mode;
         if (data.assignment && data.assignment.id) {
           state.todayAssignmentId = data.assignment.id;
           state.activeAssignmentId = data.assignment.id;
-        }
-        rememberPreview(data);
-        state.usingFallback = false;
-        hideStatus();
-      } catch (error) {
-        state.payload = {
-          ...FALLBACK_PAYLOAD,
-          mode: state.mode
-        };
-        state.usingFallback = true;
-        state.todayAssignmentId = FALLBACK_PLAN_ROWS[0].id;
+          }
+          rememberPreview(data);
+          state.loadingInitial = false;
+          state.usingFallback = false;
+          hideStatus();
+        } catch (error) {
+          state.payload = {
+            ...FALLBACK_PAYLOAD,
+            mode: state.mode
+          };
+          state.loadingInitial = false;
+          state.usingFallback = true;
+          state.todayAssignmentId = FALLBACK_PLAN_ROWS[0].id;
         state.activeAssignmentId = FALLBACK_PLAN_ROWS[0].id;
         showStatus(fallbackStatusMessage(error.message));
       }
@@ -1325,10 +1361,10 @@
       const cached = state.previewCache.get(cacheKey(assignmentId, state.mode));
       if (cached) {
         state.payload = {
-          ...state.payload,
+          ...(state.payload || {}),
           ...clonePayload(cached),
-          cycle: state.payload.cycle,
-          yesterday: state.payload.yesterday
+          cycle: state.payload ? state.payload.cycle : null,
+          yesterday: state.payload ? state.payload.yesterday : null
         };
         state.activeAssignmentId = cached.assignment && cached.assignment.id ? cached.assignment.id : assignmentId;
         renderPayload();
@@ -1346,10 +1382,10 @@
       try {
         const data = await fetchJson(`/api/routine-assignment?id=${encodeURIComponent(assignmentId)}&mode=${encodeURIComponent(state.mode)}`);
         state.payload = {
-          ...state.payload,
+          ...(state.payload || {}),
           ...data,
-          cycle: state.payload.cycle,
-          yesterday: state.payload.yesterday
+          cycle: state.payload ? state.payload.cycle : null,
+          yesterday: state.payload ? state.payload.yesterday : null
         };
         state.activeAssignmentId = data.assignment && data.assignment.id ? data.assignment.id : assignmentId;
         rememberPreview(data);
