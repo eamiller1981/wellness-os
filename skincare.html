@@ -1196,6 +1196,7 @@
 
     async function fetchJson(path, init) {
       const nextInit = { ...(init || {}) };
+      nextInit.credentials = "omit";
       const method = String(nextInit.method || "GET").toUpperCase();
       const headers = new Headers(nextInit.headers || {});
 
