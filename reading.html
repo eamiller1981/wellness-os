@@ -627,6 +627,7 @@
     async function notion(path, method = "GET", body = null) {
       const init = {
         method,
+        credentials: "omit",
         headers: { "Content-Type": "application/json" }
       };
       if (!["GET", "HEAD"].includes(method)) {
