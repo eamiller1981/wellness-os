@@ -9,6 +9,7 @@ const ALLOWED_ORIGINS = new Set([
   "https://wellness-os-eamiller1981-3240-eamiller1981-3240s-projects.vercel.app",
   "https://wellness-os.vercel.app",
   "https://wellness-os-psi.vercel.app",
+  "https://liz-wellness-os.vercel.app",
   "http://127.0.0.1:4173",
   "http://localhost:4173"
 ]);
