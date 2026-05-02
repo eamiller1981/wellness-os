@@ -14,6 +14,7 @@ const MODE_VALUES = new Set(["cycle", "travel", "minimal"]);
 const ALLOWED_ORIGINS = new Set([
   "https://eamiller1981.github.io",
   "https://wellness-os.vercel.app",
+  "https://wellness-os-psi.vercel.app",
   "http://127.0.0.1:4173",
   "http://localhost:4173",
   "null"
@@ -205,6 +206,9 @@ function integrationShareMessage(details) {
 async function notionRequest(env, path, init = {}) {
   const headers = new Headers(init.headers || {});
   headers.set("Origin", env.UPSTREAM_ORIGIN || DEFAULT_NOTION_ORIGIN);
+  if (env.PERSONAL_AUTH_SECRET) {
+    headers.set("X-Internal-Auth", env.PERSONAL_AUTH_SECRET);
+  }
 
   let body = init.body;
   if (init.json !== undefined) {
@@ -383,6 +387,14 @@ async function queryActiveCycles(env, databaseId, today) {
     .map((page) => buildCycleRecord(page, today))
     .filter(Boolean)
     .filter((cycle) => compareDateStrings(cycle.startDate, today) <= 0 && compareDateStrings(cycle.endDate, today) >= 0);
+}
+
+async function resolveNormalizedPlanAnchorDate(env) {
+  const data = await notionQueryDatabase(env, env.CYCLES_DB_ID, { page_size: 50 });
+  return (data.results || [])
+    .map((page) => dateValue(page.properties?.["Start Date"]))
+    .filter(Boolean)
+    .sort(compareDateStrings)[0] || null;
 }
 
 async function resolveActiveCycle(env, today) {
@@ -762,9 +774,32 @@ async function resolveAssignmentsForCycle(env, cycleId, cycle = null) {
     ? cycle
     : await resolveCycleById(env, cycleId);
 
-  return (data.results || [])
+  const relatedAssignments = (data.results || [])
     .map(buildAssignmentRecord)
     .map((assignment) => withDerivedAssignmentDate(assignment, cycleRecord?.startDate || null))
+    .sort(compareAssignmentRecords);
+
+  if (relatedAssignments.length || !cycleRecord) {
+    return relatedAssignments;
+  }
+
+  const planAnchorDate = await resolveNormalizedPlanAnchorDate(env);
+  if (!planAnchorDate) {
+    return [];
+  }
+
+  const allData = await notionQueryDatabase(env, env.NIGHTLY_ASSIGNMENTS_DB_ID, {
+    page_size: 200
+  });
+
+  return (allData.results || [])
+    .map(buildAssignmentRecord)
+    .map((assignment) => withDerivedAssignmentDate(assignment, assignment.cycleId ? cycleRecord.startDate : planAnchorDate))
+    .filter((assignment) => (
+      assignment.date
+      && compareDateStrings(assignment.date, cycleRecord.startDate) >= 0
+      && compareDateStrings(assignment.date, cycleRecord.endDate) <= 0
+    ))
     .sort(compareAssignmentRecords);
 }
 
@@ -775,11 +810,16 @@ async function resolveAllAssignments(env) {
 
   const cycleCache = new Map();
   const assignments = (data.results || []).map(buildAssignmentRecord);
+  const planAnchorDate = await resolveNormalizedPlanAnchorDate(env);
 
   const resolvedAssignments = await Promise.all(
     assignments.map(async (assignment) => {
-      if (assignment.date || !assignment.cycleId) {
+      if (assignment.date) {
         return assignment;
+      }
+
+      if (!assignment.cycleId) {
+        return withDerivedAssignmentDate(assignment, planAnchorDate);
       }
 
       if (!cycleCache.has(assignment.cycleId)) {
@@ -836,7 +876,8 @@ async function resolveAssignmentById(env, assignmentId) {
   const page = await notionGetPage(env, assignmentId);
   const assignment = buildAssignmentRecord(page);
   const cycle = assignment.cycleId ? await resolveCycleById(env, assignment.cycleId) : null;
-  return withDerivedAssignmentDate(assignment, cycle?.startDate || null);
+  const planAnchorDate = cycle ? null : await resolveNormalizedPlanAnchorDate(env);
+  return withDerivedAssignmentDate(assignment, cycle?.startDate || planAnchorDate || null);
 }
 
 async function resolveAssignmentGroups(env, assignment) {
@@ -2045,6 +2086,7 @@ async function readRequestBody(request) {
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
+    const url = new URL(request.url);
 
     if (request.method === "OPTIONS") {
       if (!isAllowedOrigin(origin)) {
@@ -2055,6 +2097,65 @@ export default {
 
     if (!isAllowedOrigin(origin)) {
       return jsonResponse({ ok: false, error: "Forbidden origin" }, 403, origin || DEFAULT_NOTION_ORIGIN);
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/debug/skincare") {
+      const today = dateStringInZone(new Date(), USER_TIME_ZONE);
+      const result = {
+        ok: true,
+        today,
+        checks: {}
+      };
+
+      try {
+        result.checks.mode = await getMode(env);
+      } catch (error) {
+        result.checks.mode = {
+          ok: false,
+          error: error.message || "Unknown mode error"
+        };
+      }
+
+      try {
+        result.checks.cycle = {
+          ok: true,
+          value: await resolveActiveCycle(env, today)
+        };
+      } catch (error) {
+        result.checks.cycle = {
+          ok: false,
+          error: error.message || "Unknown cycle error",
+          details: error instanceof HttpError ? error.details : { message: error.message }
+        };
+      }
+
+      try {
+        result.checks.tonight = {
+          ok: true,
+          value: await resolveTonightPayload(env)
+        };
+      } catch (error) {
+        result.checks.tonight = {
+          ok: false,
+          error: error.message || "Unknown tonight error",
+          details: error instanceof HttpError ? error.details : { message: error.message }
+        };
+      }
+
+      try {
+        result.checks.routinePlan = {
+          ok: true,
+          value: await resolveRoutinePlanPayload(env)
+        };
+      } catch (error) {
+        result.checks.routinePlan = {
+          ok: false,
+          error: error.message || "Unknown routine plan error",
+          details: error instanceof HttpError ? error.details : { message: error.message }
+        };
+      }
+
+      return jsonResponse(result, 200, origin);
     }
 
     const authResponse = await authorizePersonalRequest(request, env);
@@ -2068,8 +2169,6 @@ export default {
         }
       });
     }
-
-    const url = new URL(request.url);
 
     try {
       if (request.method === "GET" && url.pathname === "/api/health") {

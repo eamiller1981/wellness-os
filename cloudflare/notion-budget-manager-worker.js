@@ -8,6 +8,7 @@ const ALLOWED_ORIGINS = new Set([
   "https://wellness-os-eamiller1981-eamiller1981-3240s-projects.vercel.app",
   "https://wellness-os-eamiller1981-3240-eamiller1981-3240s-projects.vercel.app",
   "https://wellness-os.vercel.app",
+  "https://wellness-os-psi.vercel.app",
   "http://127.0.0.1:4173",
   "http://localhost:4173"
 ]);
@@ -41,6 +42,12 @@ function jsonResponse(body, status, origin) {
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin") || "";
+    const internalAuth = request.headers.get("X-Internal-Auth") || "";
+    const trustedInternalRequest = Boolean(
+      internalAuth &&
+      env.PERSONAL_AUTH_SECRET &&
+      internalAuth === env.PERSONAL_AUTH_SECRET
+    );
 
     if (!isAllowedOrigin(origin)) {
       return jsonResponse({ error: "Forbidden origin", received: origin }, 403, origin || "*");
@@ -50,15 +57,17 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders(origin) });
     }
 
-    const authResponse = await authorizePersonalRequest(request, env);
-    if (authResponse) {
-      return new Response(authResponse.body, {
-        status: authResponse.status,
-        headers: {
-          "Content-Type": "application/json",
-          ...corsHeaders(origin)
-        }
-      });
+    if (!trustedInternalRequest) {
+      const authResponse = await authorizePersonalRequest(request, env);
+      if (authResponse) {
+        return new Response(authResponse.body, {
+          status: authResponse.status,
+          headers: {
+            "Content-Type": "application/json",
+            ...corsHeaders(origin)
+          }
+        });
+      }
     }
 
     const url = new URL(request.url);

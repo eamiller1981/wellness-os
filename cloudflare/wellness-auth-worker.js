@@ -11,6 +11,7 @@ const DEFAULT_ORIGIN = "https://wellness-os.vercel.app";
 const ALLOWED_ORIGINS = new Set([
   "https://eamiller1981.github.io",
   "https://wellness-os.vercel.app",
+  "https://wellness-os-psi.vercel.app",
   "http://127.0.0.1:4173",
   "http://localhost:4173",
   "null"
