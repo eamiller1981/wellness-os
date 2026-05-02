@@ -1112,15 +1112,27 @@ async function resolveYesterdayPayload(env) {
   }
 
   for (const databaseId of databaseIds) {
-    const data = await notionQueryDatabase(env, databaseId, {
-      page_size: 5,
-      filter: {
-        property: "Date",
-        date: {
-          equals: yesterday
+    let data;
+    try {
+      data = await notionQueryDatabase(env, databaseId, {
+        page_size: 5,
+        filter: {
+          property: "Date",
+          date: {
+            equals: yesterday
+          }
         }
+      });
+    } catch (error) {
+      if (
+        error instanceof HttpError
+        && error.status === 404
+        && error.details?.upstream?.code === "object_not_found"
+      ) {
+        continue;
       }
-    });
+      throw error;
+    }
 
     if (!(data.results || []).length) {
       continue;
