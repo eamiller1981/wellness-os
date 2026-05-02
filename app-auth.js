@@ -236,14 +236,18 @@
       return authReady;
     }
 
-    try {
-      const response = await fetch(`${AUTH_URL}/api/auth/status`, { credentials: "include" });
-      if (!response.ok) throw new Error("Session expired.");
-      markAuthReady();
-    } catch (error) {
-      clearToken();
-      showLock(error && error.message ? error.message : "Unable to verify session.");
-    }
+    markAuthReady();
+
+    fetch(`${AUTH_URL}/api/auth/status`, { credentials: "include" })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Session expired.");
+        }
+      })
+      .catch((error) => {
+        clearToken();
+        showLock(error && error.message ? error.message : "Unable to verify session.");
+      });
 
     return authReady;
   }

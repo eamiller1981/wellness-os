@@ -879,6 +879,8 @@
     const nextDeviceName = document.getElementById("nextDeviceName");
 
     let toastTimer = null;
+    const TONIGHT_CACHE_KEY = "wellnessSkincareTonightCache";
+    const PLAN_CACHE_KEY = "wellnessSkincarePlanCache";
 
     function showToast(message) {
       toast.textContent = message;
@@ -922,6 +924,91 @@
       } catch {
         return dateString;
       }
+    }
+
+    function dateStringInZone(date = new Date(), timeZone = "America/New_York") {
+      try {
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        }).formatToParts(date);
+        const year = parts.find((part) => part.type === "year")?.value || "0000";
+        const month = parts.find((part) => part.type === "month")?.value || "00";
+        const day = parts.find((part) => part.type === "day")?.value || "00";
+        return `${year}-${month}-${day}`;
+      } catch {
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 10);
+      }
+    }
+
+    function readJsonStorage(key) {
+      try {
+        const raw = window.localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function writeJsonStorage(key, value) {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(value));
+      } catch {
+        // Ignore storage quota or privacy-mode failures.
+      }
+    }
+
+    function hydrateCachedTonight() {
+      const cached = readJsonStorage(TONIGHT_CACHE_KEY);
+      const today = dateStringInZone();
+      if (!cached || cached.day !== today || !cached.payload) return false;
+
+      state.payload = cached.payload;
+      state.mode = cached.payload.mode || state.mode;
+      state.loadingInitial = false;
+      state.usingFallback = false;
+
+      if (cached.payload.assignment && cached.payload.assignment.id) {
+        state.todayAssignmentId = cached.payload.assignment.id;
+        state.activeAssignmentId = cached.payload.assignment.id;
+        rememberPreview(cached.payload);
+      }
+
+      return true;
+    }
+
+    function hydrateCachedPlan() {
+      const cached = readJsonStorage(PLAN_CACHE_KEY);
+      const today = dateStringInZone();
+      if (!cached || cached.day !== today || !Array.isArray(cached.rows) || !cached.rows.length) return false;
+
+      state.planRows = cached.rows;
+      const todayRow = state.planRows.find((row) => row.isToday) || state.planRows[0] || null;
+      if (!state.todayAssignmentId && todayRow && todayRow.id) {
+        state.todayAssignmentId = todayRow.id;
+      }
+      if (!state.activeAssignmentId && state.todayAssignmentId) {
+        state.activeAssignmentId = state.todayAssignmentId;
+      }
+      return true;
+    }
+
+    function persistTonightCache(payload) {
+      if (!payload) return;
+      writeJsonStorage(TONIGHT_CACHE_KEY, {
+        day: dateStringInZone(),
+        payload
+      });
+    }
+
+    function persistPlanCache(rows) {
+      if (!Array.isArray(rows) || !rows.length) return;
+      writeJsonStorage(PLAN_CACHE_KEY, {
+        day: dateStringInZone(),
+        rows
+      });
     }
 
     function uniqueOrdered(values) {
@@ -1301,12 +1388,16 @@
       }
     }
 
-    async function loadRoutinePlan() {
+    async function loadRoutinePlan(options = {}) {
+      const shouldRender = options.render !== false;
       try {
         const data = await fetchJson("/api/routine-plan");
         state.planRows = Array.isArray(data.rows) && data.rows.length ? data.rows : [...FALLBACK_PLAN_ROWS];
+        persistPlanCache(state.planRows);
       } catch (error) {
-        state.planRows = [...FALLBACK_PLAN_ROWS];
+        if (!state.planRows.length) {
+          state.planRows = [...FALLBACK_PLAN_ROWS];
+        }
       }
 
       const todayRow = state.planRows.find((row) => row.isToday) || state.planRows[0] || null;
@@ -1318,8 +1409,10 @@
         state.activeAssignmentId = state.todayAssignmentId;
       }
 
-      renderPayload();
-      prefetchAdjacentAssignments();
+      if (shouldRender) {
+        renderPayload();
+        prefetchAdjacentAssignments();
+      }
     }
 
       async function loadTonightData(options = {}) {
@@ -1334,20 +1427,27 @@
           state.activeAssignmentId = data.assignment.id;
           }
           rememberPreview(data);
+          persistTonightCache(data);
           state.loadingInitial = false;
           state.usingFallback = false;
           hideStatus();
         } catch (error) {
-          state.payload = {
-            ...FALLBACK_PAYLOAD,
-            mode: state.mode
-          };
+          if (!state.payload) {
+            state.payload = {
+              ...FALLBACK_PAYLOAD,
+              mode: state.mode
+            };
+          }
           state.loadingInitial = false;
           state.usingFallback = true;
-          state.todayAssignmentId = FALLBACK_PLAN_ROWS[0].id;
-        state.activeAssignmentId = FALLBACK_PLAN_ROWS[0].id;
-        showStatus(fallbackStatusMessage(error.message));
-      }
+          if (!state.todayAssignmentId) {
+            state.todayAssignmentId = FALLBACK_PLAN_ROWS[0].id;
+          }
+          if (!state.activeAssignmentId) {
+            state.activeAssignmentId = state.todayAssignmentId;
+          }
+          showStatus(fallbackStatusMessage(error.message));
+        }
 
       if (shouldRender) {
         renderPayload();
@@ -1488,14 +1588,21 @@
     });
 
     async function bootstrapPage() {
+      hydrateCachedTonight();
+      hydrateCachedPlan();
       renderPayload();
 
       if (window.WellnessAuth && window.WellnessAuth.ready) {
         await window.WellnessAuth.ready;
       }
 
-      await loadTonightData();
-      await loadRoutinePlan();
+      await Promise.all([
+        loadTonightData({ render: false }),
+        loadRoutinePlan({ render: false })
+      ]);
+
+      renderPayload();
+      prefetchAdjacentAssignments();
     }
 
     bootstrapPage().catch((error) => {
