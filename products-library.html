@@ -4,44 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#f7efe8">
-  <meta name="description" content="Track skincare products, wish list picks, and reorder needs inside Wellness OS.">
-  <title>Products | Wellness OS</title>
+  <meta name="description" content="Filtered skincare product shelves inside Wellness OS.">
+  <title>Products Shelf | Wellness OS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #f7efe8;
-      --paper: #fffaf6;
-      --paper-strong: rgba(255, 250, 246, 0.94);
+      --paper: rgba(255, 250, 246, 0.94);
       --ink: #403534;
       --muted: #8f7c78;
       --muted-soft: #b8a7a1;
       --line: rgba(115, 91, 84, 0.14);
-      --rose: #caaba6;
       --rose-soft: #f3dfd8;
-      --sage: #a3b5a6;
       --sage-soft: #dce6dd;
-      --wisteria: #c6abd1;
       --wisteria-soft: #ede3f2;
-      --amber: #c8aa7f;
       --amber-soft: #f2eadb;
       --shadow: 0 18px 38px rgba(104, 79, 71, 0.08);
       --radius-lg: 28px;
       --radius-md: 20px;
-      --radius-sm: 14px;
       --sans: "Outfit", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       --script: "Great Vibes", cursive;
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
@@ -51,32 +38,19 @@
       color: var(--ink);
       font-family: var(--sans);
     }
-
-    a,
-    button,
-    input {
-      font: inherit;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
+    a, button { color: inherit; font: inherit; text-decoration: none; }
     .page {
-      width: min(100%, 1120px);
+      width: min(100%, 920px);
       min-height: 100vh;
       margin: 0 auto;
       padding: 14px 14px 34px;
     }
-
     .topbar {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       margin-bottom: 14px;
     }
-
     .nav-link {
       min-height: 38px;
       padding: 0 14px;
@@ -89,61 +63,23 @@
       font-size: 0.84rem;
       font-weight: 700;
       backdrop-filter: blur(10px);
-      transition: transform 0.2s ease;
     }
-
-    .nav-link:hover,
-    .nav-link:focus-visible,
-    .product-link:hover,
-    .product-link:focus-visible {
-      outline: none;
-      transform: translateY(-1px);
+    .hero,
+    .status-panel,
+    .section-card {
+      border-radius: var(--radius-lg);
+      background: var(--paper);
+      box-shadow: var(--shadow);
     }
-
     .hero {
       position: relative;
       overflow: hidden;
-      border-radius: 34px;
+      padding: 22px 18px 18px;
       background:
         radial-gradient(circle at 88% 16%, rgba(198, 171, 209, 0.46), transparent 26%),
         radial-gradient(circle at 14% 80%, rgba(163, 181, 166, 0.22), transparent 28%),
         linear-gradient(180deg, rgba(255, 250, 246, 0.96), rgba(255, 250, 246, 0.88));
-      box-shadow: var(--shadow);
-      padding: 22px 18px 18px;
     }
-
-    .hero::before,
-    .hero::after {
-      content: "";
-      position: absolute;
-      border-radius: 999px;
-      pointer-events: none;
-      opacity: 0.9;
-    }
-
-    .hero::before {
-      width: 168px;
-      height: 168px;
-      right: -18px;
-      top: -52px;
-      background: rgba(243, 223, 216, 0.72);
-      filter: blur(2px);
-    }
-
-    .hero::after {
-      width: 118px;
-      height: 118px;
-      left: -18px;
-      bottom: -26px;
-      background: rgba(220, 230, 221, 0.7);
-    }
-
-    .hero-content,
-    .hero-metrics {
-      position: relative;
-      z-index: 1;
-    }
-
     .eyebrow {
       display: inline-flex;
       align-items: center;
@@ -157,7 +93,6 @@
       letter-spacing: 0.16em;
       text-transform: uppercase;
     }
-
     .hero h1 {
       margin: 14px 0 0;
       font-family: var(--script);
@@ -166,7 +101,6 @@
       line-height: 0.95;
       color: #8f7570;
     }
-
     .hero p {
       margin: 12px 0 0;
       max-width: 620px;
@@ -174,42 +108,18 @@
       font-size: 0.96rem;
       line-height: 1.65;
     }
-
-    .hero-note {
-      margin-top: 14px;
-      color: var(--muted);
-      font-size: 0.82rem;
-      line-height: 1.55;
-    }
-
     .hero-metrics {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-top: 18px;
     }
-
     .metric {
       padding: 12px 14px;
       border-radius: var(--radius-md);
       background: rgba(255, 250, 246, 0.72);
       box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.06);
-      backdrop-filter: blur(6px);
     }
-
-    .metric-link {
-      display: block;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-    }
-
-    .metric-link:hover,
-    .metric-link:focus-visible {
-      outline: none;
-      transform: translateY(-1px);
-      box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.12), 0 14px 30px rgba(104, 79, 71, 0.08);
-      background: rgba(255, 250, 246, 0.92);
-    }
-
     .metric-label {
       display: block;
       color: var(--muted-soft);
@@ -218,7 +128,6 @@
       letter-spacing: 0.14em;
       text-transform: uppercase;
     }
-
     .metric-value {
       display: block;
       margin-top: 6px;
@@ -226,57 +135,26 @@
       font-weight: 600;
       line-height: 1.35;
     }
-
-    .status-panel,
-    .section-card {
-      border-radius: var(--radius-lg);
-      background: var(--paper-strong);
-      box-shadow: var(--shadow);
-    }
-
     .status-panel {
       margin-top: 14px;
       padding: 12px 14px;
-      border-left: 3px solid var(--rose);
+      border-left: 3px solid #caaba6;
       border-top-left-radius: 0;
       border-bottom-left-radius: 0;
       font-size: 0.82rem;
       color: var(--muted);
       line-height: 1.5;
     }
-
-    .status-panel[hidden] {
-      display: none;
-    }
-
-    .section-grid {
-      display: grid;
-      gap: 14px;
-      margin-top: 14px;
-    }
-
+    .status-panel[hidden] { display: none; }
     .section-card {
+      margin-top: 14px;
       padding: 18px 16px;
     }
-
-    .section-card.wishlist {
-      background:
-        linear-gradient(180deg, rgba(255, 250, 246, 0.96), rgba(255, 250, 246, 0.9)),
-        linear-gradient(90deg, rgba(237, 227, 242, 0.28), transparent 36%);
-    }
-
-    .section-card.low-on {
-      background:
-        linear-gradient(180deg, rgba(255, 250, 246, 0.96), rgba(255, 250, 246, 0.9)),
-        linear-gradient(90deg, rgba(243, 223, 216, 0.28), transparent 36%);
-    }
-
     .section-head {
       display: grid;
       gap: 8px;
       margin-bottom: 12px;
     }
-
     .section-kicker {
       display: inline-flex;
       align-items: center;
@@ -284,66 +162,44 @@
       min-height: 26px;
       padding: 0 10px;
       border-radius: 999px;
+      background: var(--wisteria-soft);
+      color: #715b79;
       font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
     }
-
-    .wishlist .section-kicker {
-      background: var(--wisteria-soft);
-      color: #715b79;
-    }
-
-    .low-on .section-kicker {
-      background: var(--rose-soft);
-      color: #7b6460;
-    }
-
     .section-head h2 {
       margin: 0;
       font-size: 1.08rem;
       font-weight: 700;
     }
-
     .section-head p {
       margin: 0;
       color: var(--muted);
       font-size: 0.84rem;
       line-height: 1.55;
     }
-
     .product-list {
       display: grid;
     }
-
     .product-item {
       display: grid;
       gap: 12px;
       padding: 16px 0;
       border-bottom: 1px solid rgba(115, 91, 84, 0.09);
     }
-
-    .product-item:first-child {
-      padding-top: 4px;
-    }
-
+    .product-item:first-child { padding-top: 4px; }
     .product-item:last-child {
       border-bottom: 0;
       padding-bottom: 0;
     }
-
-    .product-main {
-      min-width: 0;
-    }
-
     .product-meta {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       margin-bottom: 8px;
     }
-
     .pill,
     .chip {
       display: inline-flex;
@@ -354,165 +210,90 @@
       font-size: 0.74rem;
       line-height: 1.25;
     }
-
-    .pill {
-      font-weight: 700;
-      letter-spacing: 0.04em;
-    }
-
-    .pill.priority-high {
-      background: rgba(163, 181, 166, 0.22);
-      color: #5e7260;
-    }
-
-    .pill.priority-medium {
-      background: rgba(242, 234, 219, 0.9);
-      color: #846f4f;
-    }
-
-    .pill.priority-low {
-      background: rgba(237, 227, 242, 0.92);
-      color: #78647f;
-    }
-
-    .pill.restock {
-      background: rgba(243, 223, 216, 0.92);
-      color: #7e6662;
-    }
-
-    .pill.repurchase-yes {
-      background: rgba(220, 230, 221, 0.9);
-      color: #607361;
-    }
-
-    .pill.repurchase-maybe {
-      background: rgba(242, 234, 219, 0.92);
-      color: #816c4e;
-    }
-
+    .pill { font-weight: 700; letter-spacing: 0.04em; }
+    .pill.priority-high { background: rgba(163, 181, 166, 0.22); color: #5e7260; }
+    .pill.priority-medium { background: rgba(242, 234, 219, 0.9); color: #846f4f; }
+    .pill.priority-low { background: rgba(237, 227, 242, 0.92); color: #78647f; }
+    .pill.restock { background: rgba(243, 223, 216, 0.92); color: #7e6662; }
+    .pill.repurchase-yes { background: rgba(220, 230, 221, 0.9); color: #607361; }
+    .pill.repurchase-maybe { background: rgba(242, 234, 219, 0.92); color: #816c4e; }
     .chip {
       font-weight: 600;
       color: var(--muted);
       background: rgba(255, 250, 246, 0.9);
       box-shadow: inset 0 0 0 1px rgba(115, 91, 84, 0.08);
     }
-
     .product-name {
       margin: 0;
       font-size: 1rem;
       font-weight: 700;
       line-height: 1.35;
     }
-
     .product-subtitle {
       margin: 6px 0 0;
       color: var(--muted);
       font-size: 0.86rem;
       line-height: 1.55;
     }
-
     .product-copy {
       margin: 10px 0 0;
       color: var(--ink);
       font-size: 0.9rem;
       line-height: 1.6;
     }
-
-    .product-copy.muted {
-      color: var(--muted);
-    }
-
+    .product-copy.muted { color: var(--muted); }
     .product-chip-row {
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
       margin-top: 10px;
     }
-
     .product-aside {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 10px;
+      flex-wrap: wrap;
     }
-
     .product-price {
-      color: var(--ink);
-      font-size: 0.96rem;
+      font-size: 0.88rem;
       font-weight: 700;
-      white-space: nowrap;
+      color: var(--ink);
     }
-
-    .product-price.muted {
-      color: var(--muted-soft);
-      font-weight: 500;
-    }
-
+    .product-price.muted { color: var(--muted-soft); }
     .product-link {
       min-height: 40px;
       padding: 0 14px;
       border-radius: 999px;
+      background: var(--amber-soft);
+      color: #7c6647;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      white-space: nowrap;
       font-size: 0.82rem;
       font-weight: 700;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      transition: transform 0.2s ease;
     }
-
-    .wishlist .product-link {
-      background: var(--wisteria-soft);
-      color: #705c79;
-    }
-
-    .low-on .product-link {
-      background: var(--amber-soft);
-      color: #7c6647;
-    }
-
     .link-placeholder {
       color: var(--muted-soft);
       font-size: 0.78rem;
-      line-height: 1.45;
-      text-align: right;
+      font-weight: 600;
     }
-
     .empty-state {
       padding: 20px 0 4px;
       color: var(--muted);
-      font-size: 0.9rem;
-      line-height: 1.6;
+      font-size: 0.88rem;
+      line-height: 1.55;
     }
-
     @media (min-width: 760px) {
-      .page {
-        padding: 18px 18px 40px;
-      }
-
-      .hero {
-        padding: 26px 24px 22px;
-      }
-
-      .hero-metrics {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-
-      .section-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-
-    @media (min-width: 860px) {
+      .hero-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .product-item {
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: start;
       }
-
       .product-aside {
         flex-direction: column;
         align-items: flex-end;
-        justify-content: flex-start;
       }
     }
   </style>
@@ -525,71 +306,93 @@
     <nav class="topbar" aria-label="Page">
       <a class="nav-link" href="index.html">Home</a>
       <a class="nav-link" href="skincare.html">Back to Skincare</a>
+      <a class="nav-link" href="products.html">Back to Products</a>
     </nav>
 
     <section class="hero">
-      <div class="hero-content">
-        <span class="eyebrow">Skincare Inventory</span>
-        <h1>Products</h1>
-        <p>Keep the products you are eyeing and the ones you need to replace in one calm place, grounded in your live Products database.</p>
-        <div class="hero-note">Wish List reflects products with <strong>Status = Wishlist</strong>. Low On reflects products marked <strong>Status = Empty</strong>, with purchase links when you have them saved.</div>
-      </div>
+      <span class="eyebrow" id="heroEyebrow">Products Shelf</span>
+      <h1 id="heroTitle">Products</h1>
+      <p id="heroCopy">Loading your live products shelf from Notion.</p>
 
-      <div class="hero-metrics" aria-label="Products summary">
-        <a class="metric metric-link" href="products-library.html?view=wishlist">
-          <span class="metric-label">Wish List</span>
-          <span class="metric-value" id="wishlistCount">0 products</span>
-        </a>
-        <a class="metric metric-link" href="products-library.html?view=low-on">
-          <span class="metric-label">Low On</span>
-          <span class="metric-value" id="lowOnCount">0 products</span>
-        </a>
-        <a class="metric metric-link" href="products-library.html?view=active">
-          <span class="metric-label">Active</span>
-          <span class="metric-value" id="activeCount">0 products</span>
-        </a>
-        <a class="metric metric-link" href="products-library.html?view=links">
-          <span class="metric-label">Purchase Links</span>
+      <div class="hero-metrics" aria-label="Shelf summary">
+        <div class="metric">
+          <span class="metric-label">View</span>
+          <span class="metric-value" id="viewLabel">Loading</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Items</span>
+          <span class="metric-value" id="itemCount">0 products</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Linked</span>
           <span class="metric-value" id="linkedCount">0 saved</span>
-        </a>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Source</span>
+          <span class="metric-value">Products DB</span>
+        </div>
       </div>
     </section>
 
     <div class="status-panel" id="statusPanel" hidden></div>
 
-    <div class="section-grid">
-      <section class="section-card wishlist" aria-labelledby="wishlistHeading">
-        <div class="section-head">
-          <span class="section-kicker">Wish List</span>
-          <h2 id="wishlistHeading">Products I am considering next</h2>
-          <p>Priority and research notes come directly from your Products database, so this stays aligned with what you are actively thinking about.</p>
-        </div>
-        <div class="product-list" id="wishlistList"></div>
-        <div class="empty-state" id="wishlistEmpty" hidden>No products are marked Wishlist right now.</div>
-      </section>
-
-      <section class="section-card low-on" aria-labelledby="lowOnHeading">
-        <div class="section-head">
-          <span class="section-kicker">Low On</span>
-          <h2 id="lowOnHeading">Products ready to reorder</h2>
-          <p>This section pulls products marked Empty and keeps purchase links close so replenishing your lineup is quick when something runs out.</p>
-        </div>
-        <div class="product-list" id="lowOnList"></div>
-        <div class="empty-state" id="lowOnEmpty" hidden>Nothing is marked Empty right now, so your reorder shelf is clear.</div>
-      </section>
-    </div>
+    <section class="section-card" aria-labelledby="sectionHeading">
+      <div class="section-head">
+        <span class="section-kicker" id="sectionKicker">Shelf</span>
+        <h2 id="sectionHeading">Loading products</h2>
+        <p id="sectionCopy">This shelf will update once the live Products payload loads.</p>
+      </div>
+      <div class="product-list" id="productList"></div>
+      <div class="empty-state" id="emptyState" hidden>No products in this shelf right now.</div>
+    </section>
   </main>
 
   <script>
     const API_BASE = "https://skincare.eamiller1981.workers.dev";
+    const params = new URLSearchParams(window.location.search);
+    const currentView = params.get("view") || "wishlist";
+
+    const VIEW_CONFIG = {
+      wishlist: {
+        label: "Wish List",
+        eyebrow: "Products Shelf",
+        title: "Wish List",
+        copy: "Products you are considering next, pulled live from your Notion products database.",
+        heading: "Products I am considering next",
+        sectionCopy: "Priority and research notes come directly from Notion, so this shelf stays aligned with what you are actively thinking about.",
+        empty: "No products are marked Wishlist right now."
+      },
+      "low-on": {
+        label: "Low On",
+        eyebrow: "Products Shelf",
+        title: "Low On",
+        copy: "Products marked Empty, with purchase links close by when you have them saved.",
+        heading: "Products ready to reorder",
+        sectionCopy: "This shelf keeps your empty products and reorder links together so replenishing your lineup is quick.",
+        empty: "Nothing is marked Empty right now."
+      },
+      active: {
+        label: "Active",
+        eyebrow: "Products Shelf",
+        title: "Active Products",
+        copy: "Your current active skincare lineup from the live Products database.",
+        heading: "Products currently in rotation",
+        sectionCopy: "This shelf shows all products marked Active in Notion.",
+        empty: "No products are marked Active right now."
+      },
+      links: {
+        label: "Purchase Links",
+        eyebrow: "Products Shelf",
+        title: "Purchase Links",
+        copy: "Products that already have a saved purchase URL, all in one place.",
+        heading: "Products with saved links",
+        sectionCopy: "Use this shelf when you want to jump directly to saved reorder or research links.",
+        empty: "No purchase links are saved right now."
+      }
+    };
 
     const EMPTY_PAYLOAD = {
-      totals: {
-        wishlist: 0,
-        lowOn: 0,
-        active: 0,
-        linked: 0
-      },
+      totals: { wishlist: 0, lowOn: 0, active: 0, linked: 0 },
       wishlist: [],
       lowOn: [],
       active: [],
@@ -598,19 +401,21 @@
     };
 
     const state = {
-      payload: EMPTY_PAYLOAD,
-      usingFallback: false
+      payload: EMPTY_PAYLOAD
     };
 
-    const statusPanel = document.getElementById("statusPanel");
-    const wishlistCount = document.getElementById("wishlistCount");
-    const lowOnCount = document.getElementById("lowOnCount");
-    const activeCount = document.getElementById("activeCount");
+    const heroEyebrow = document.getElementById("heroEyebrow");
+    const heroTitle = document.getElementById("heroTitle");
+    const heroCopy = document.getElementById("heroCopy");
+    const sectionKicker = document.getElementById("sectionKicker");
+    const sectionHeading = document.getElementById("sectionHeading");
+    const sectionCopy = document.getElementById("sectionCopy");
+    const viewLabel = document.getElementById("viewLabel");
+    const itemCount = document.getElementById("itemCount");
     const linkedCount = document.getElementById("linkedCount");
-    const wishlistList = document.getElementById("wishlistList");
-    const lowOnList = document.getElementById("lowOnList");
-    const wishlistEmpty = document.getElementById("wishlistEmpty");
-    const lowOnEmpty = document.getElementById("lowOnEmpty");
+    const statusPanel = document.getElementById("statusPanel");
+    const productList = document.getElementById("productList");
+    const emptyState = document.getElementById("emptyState");
 
     function showStatus(message) {
       statusPanel.hidden = false;
@@ -638,7 +443,6 @@
 
     function formatCurrency(value) {
       if (value == null || value === "") return "";
-
       try {
         return new Intl.NumberFormat("en-US", {
           style: "currency",
@@ -652,7 +456,6 @@
 
     function formatDate(value) {
       if (!value) return "";
-
       try {
         return new Intl.DateTimeFormat("en-US", {
           month: "short",
@@ -675,126 +478,124 @@
       return Array.isArray(values) ? values.filter(Boolean).slice(0, limit) : [];
     }
 
-    function renderMetaPills(product, kind) {
+    function renderMetaPills(product, view) {
       const pills = [];
-
-      if (kind === "wishlist" && product.wishlistPriority) {
+      if (view === "wishlist" && product.wishlistPriority) {
         pills.push(`<span class="pill ${priorityClass(product.wishlistPriority)}">${escapeHtml(product.wishlistPriority)} Priority</span>`);
       }
-
-      if (kind === "wishlist" && product.wishlistStatus) {
+      if (view === "wishlist" && product.wishlistStatus) {
         pills.push(`<span class="chip">${escapeHtml(product.wishlistStatus)}</span>`);
       }
-
-      if (kind === "lowOn") {
+      if (view === "low-on") {
         pills.push('<span class="pill restock">Restock</span>');
       }
-
       if (product.repurchase) {
         const normalized = String(product.repurchase).trim().toLowerCase();
         const repurchaseClass = normalized === "yes" ? "repurchase-yes" : normalized === "maybe" ? "repurchase-maybe" : "";
         pills.push(`<span class="${repurchaseClass ? `pill ${repurchaseClass}` : "chip"}">Repurchase ${escapeHtml(product.repurchase)}</span>`);
       }
-
       if (product.category) {
         pills.push(`<span class="chip">${escapeHtml(product.category)}</span>`);
       }
-
+      if (product.status && view === "active") {
+        pills.push(`<span class="chip">${escapeHtml(product.status)}</span>`);
+      }
       return pills.join("");
     }
 
     function renderTagChips(product) {
-      const tags = [
-        ...trimList(product.keyIngredients, 2),
-        ...trimList(product.skinTargets, 2)
-      ].slice(0, 4);
-
-      if (!tags.length) {
-        return "";
-      }
-
-      return `
-        <div class="product-chip-row">
-          ${tags.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}
-        </div>
-      `;
+      const tags = [...trimList(product.keyIngredients, 2), ...trimList(product.skinTargets, 2)].slice(0, 4);
+      if (!tags.length) return "";
+      return `<div class="product-chip-row">${tags.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("")}</div>`;
     }
 
-    function renderDescription(product, kind) {
-      const primary = product.wishlistReason || product.notes;
-      const secondary = kind === "lowOn" && product.purchaseDate
-        ? `Last purchased ${formatDate(product.purchaseDate)}`
-        : "";
-
+    function renderDescription(product, view) {
       const lines = [];
-
-      if (primary) {
-        lines.push(`<p class="product-copy">${escapeHtml(primary)}</p>`);
+      if (product.wishlistReason) {
+        lines.push(`<p class="product-copy">${escapeHtml(product.wishlistReason)}</p>`);
+      } else if (product.notes) {
+        lines.push(`<p class="product-copy">${escapeHtml(product.notes)}</p>`);
       }
-
-      if (secondary) {
-        lines.push(`<p class="product-copy muted">${escapeHtml(secondary)}</p>`);
+      if (view === "low-on" && product.purchaseDate) {
+        lines.push(`<p class="product-copy muted">Last purchased ${escapeHtml(formatDate(product.purchaseDate))}</p>`);
       }
-
+      if (view === "active" && product.openedDate) {
+        lines.push(`<p class="product-copy muted">Opened ${escapeHtml(formatDate(product.openedDate))}</p>`);
+      }
+      if (view === "active" && product.expiryDate) {
+        lines.push(`<p class="product-copy muted">Expires ${escapeHtml(formatDate(product.expiryDate))}</p>`);
+      }
       return lines.join("");
     }
 
-    function renderLink(product, kind) {
+    function renderLink(product, view) {
       if (!product.purchaseLink) {
         return '<div class="link-placeholder">Add a purchase link in Notion</div>';
       }
-
-      const label = kind === "lowOn" ? "Reorder" : "Open Link";
+      const label = view === "low-on" ? "Reorder" : "Open Link";
       return `<a class="product-link" href="${escapeHtml(product.purchaseLink)}" target="_blank" rel="noreferrer">${label}</a>`;
     }
 
-    function renderProductItem(product, kind) {
+    function renderProductItem(product, view) {
       const subtitle = product.brand
         ? `${product.brand}${product.category ? ` - ${product.category}` : ""}`
         : (product.category || "Skincare Product");
       const price = formatCurrency(product.price);
-
       return `
         <article class="product-item">
           <div class="product-main">
-            <div class="product-meta">${renderMetaPills(product, kind)}</div>
+            <div class="product-meta">${renderMetaPills(product, view)}</div>
             <h3 class="product-name">${escapeHtml(product.name)}</h3>
             <p class="product-subtitle">${escapeHtml(subtitle)}</p>
-            ${renderDescription(product, kind)}
+            ${renderDescription(product, view)}
             ${renderTagChips(product)}
           </div>
           <div class="product-aside">
             <div class="product-price${price ? "" : " muted"}">${price || "Price not set"}</div>
-            ${renderLink(product, kind)}
+            ${renderLink(product, view)}
           </div>
         </article>
       `;
     }
 
-    function renderSection(target, emptyState, items, kind) {
-      target.innerHTML = "";
+    function currentItems() {
+      if (currentView === "low-on") return state.payload.lowOn || [];
+      if (currentView === "active") return state.payload.active || [];
+      if (currentView === "links") return state.payload.linked || [];
+      return state.payload.wishlist || [];
+    }
 
-      if (!Array.isArray(items) || !items.length) {
+    function currentLinkedCount(items) {
+      return items.filter((item) => Boolean(item.purchaseLink)).length;
+    }
+
+    function applyViewCopy() {
+      const config = VIEW_CONFIG[currentView] || VIEW_CONFIG.wishlist;
+      heroEyebrow.textContent = config.eyebrow;
+      heroTitle.textContent = config.title;
+      heroCopy.textContent = config.copy;
+      sectionKicker.textContent = config.label;
+      sectionHeading.textContent = config.heading;
+      sectionCopy.textContent = config.sectionCopy;
+      viewLabel.textContent = config.label;
+      emptyState.textContent = config.empty;
+      document.title = `${config.title} | Wellness OS`;
+    }
+
+    function renderPage() {
+      applyViewCopy();
+      const items = currentItems();
+      itemCount.textContent = formatCount(items.length, "product");
+      linkedCount.textContent = `${currentLinkedCount(items)} saved`;
+      productList.innerHTML = "";
+
+      if (!items.length) {
         emptyState.hidden = false;
         return;
       }
 
       emptyState.hidden = true;
-      target.innerHTML = items.map((item) => renderProductItem(item, kind)).join("");
-    }
-
-    function renderSummary(payload) {
-      const totals = payload.totals || {};
-      wishlistCount.textContent = formatCount(totals.wishlist, "product");
-      lowOnCount.textContent = formatCount(totals.lowOn, "product");
-      activeCount.textContent = formatCount(totals.active, "product");
-      linkedCount.textContent = `${Number(totals.linked) || 0} saved`;
-    }
-
-    function renderPage() {
-      renderSummary(state.payload);
-      renderSection(wishlistList, wishlistEmpty, state.payload.wishlist, "wishlist");
-      renderSection(lowOnList, lowOnEmpty, state.payload.lowOn, "lowOn");
+      productList.innerHTML = items.map((item) => renderProductItem(item, currentView)).join("");
     }
 
     async function fetchJson(path) {
@@ -807,7 +608,6 @@
 
       const text = await response.text();
       let data = null;
-
       try {
         data = text ? JSON.parse(text) : null;
       } catch {
@@ -822,20 +622,6 @@
       return data;
     }
 
-    async function loadProducts() {
-      renderPage();
-
-      try {
-        const payload = await fetchJson("/api/products");
-        state.payload = payload;
-        state.usingFallback = false;
-        hideStatus();
-        renderPage();
-      } catch (error) {
-        showStatus(`Live products could not load yet. ${error.message}`);
-      }
-    }
-
     async function bootstrapPage() {
       renderPage();
 
@@ -843,11 +629,15 @@
         await window.WellnessAuth.ready;
       }
 
-      await loadProducts();
+      const payload = await fetchJson("/api/products");
+      state.payload = payload;
+      hideStatus();
+      renderPage();
     }
 
     bootstrapPage().catch((error) => {
       showStatus(`Live products could not load yet. ${error && error.message ? error.message : "Unable to reach the products API."}`);
+      renderPage();
     });
   </script>
 </body>

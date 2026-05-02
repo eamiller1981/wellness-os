@@ -1360,6 +1360,19 @@ function compareLowOnProducts(left, right) {
   return compareTextValues(left.name, right.name);
 }
 
+function compareCatalogProducts(left, right) {
+  const statusDiff = compareTextValues(left.status, right.status);
+  if (statusDiff !== 0) return statusDiff;
+
+  const categoryDiff = compareTextValues(left.category, right.category);
+  if (categoryDiff !== 0) return categoryDiff;
+
+  const brandDiff = compareTextValues(left.brand, right.brand);
+  if (brandDiff !== 0) return brandDiff;
+
+  return compareTextValues(left.name, right.name);
+}
+
 async function resolveProductsPayload(env) {
   const pages = await notionQueryDatabaseAll(env, env.PRODUCTS_DB_ID, {
     page_size: 100
@@ -1377,17 +1390,28 @@ async function resolveProductsPayload(env) {
     .filter((product) => product.status === "Empty")
     .sort(compareLowOnProducts);
 
+  const active = products
+    .filter((product) => product.status === "Active")
+    .sort(compareCatalogProducts);
+
+  const linked = products
+    .filter((product) => Boolean(product.purchaseLink))
+    .sort(compareCatalogProducts);
+
   return {
     ok: true,
     totals: {
       all: products.length,
-      active: products.filter((product) => product.status === "Active").length,
+      active: active.length,
       wishlist: wishlist.length,
       lowOn: lowOn.length,
-      linked: products.filter((product) => Boolean(product.purchaseLink)).length
+      linked: linked.length
     },
+    products: products.sort(compareCatalogProducts),
     wishlist,
     lowOn,
+    active,
+    linked,
     generatedAt: new Date().toISOString()
   };
 }
