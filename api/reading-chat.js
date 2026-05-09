@@ -1,11 +1,14 @@
 // Reading AI chat endpoint.
 // Tries Google Gemini 2.0 Flash first (free tier).
+// Falls back to OpenAI if configured.
 // Falls back to Anthropic Claude Sonnet if Gemini fails or is missing.
 // Both keys are env vars — never sent to the browser.
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const OPENAI_URL = "https://api.openai.com/v1/responses";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-nano";
 const CLAUDE_URL = "https://api.anthropic.com/v1/messages";
 const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929";
 const MAX_OUTPUT_TOKENS = 2048;
@@ -101,6 +104,45 @@ async function callClaude(systemPrompt, messages, apiKey) {
   return text;
 }
 
+async function callOpenAI(systemPrompt, messages, apiKey) {
+  const input = [
+    { role: "system", content: systemPrompt },
+    ...messages.map((m) => ({
+      role: m.role === "assistant" ? "assistant" : "user",
+      content: String(m.content || "")
+    }))
+  ];
+
+  const r = await fetchWithTimeout(OPENAI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      input,
+      max_output_tokens: MAX_OUTPUT_TOKENS,
+      temperature: 0.7
+    })
+  }, "OpenAI");
+
+  if (!r.ok) {
+    const text = await r.text().catch(() => "");
+    throw new Error(`OpenAI ${r.status}: ${text.slice(0, 200)}`);
+  }
+
+  const j = await r.json();
+  const text =
+    j.output_text ||
+    j?.output?.flatMap((item) => item.content || [])
+      .map((part) => part.text || "")
+      .join("")
+      .trim();
+  if (!text) throw new Error("OpenAI returned no text");
+  return text;
+}
+
 export default async function handler(request, response) {
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
@@ -116,12 +158,13 @@ export default async function handler(request, response) {
 
   const systemPrompt = buildSystemPrompt(context);
   const geminiKey = process.env.GEMINI_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
   const claudeKey = process.env.ANTHROPIC_API_KEY;
 
-  if (!geminiKey && !claudeKey) {
+  if (!geminiKey && !openaiKey && !claudeKey) {
     response.status(500).json({
       error:
-        "No AI provider configured. Set GEMINI_API_KEY (free, primary) or ANTHROPIC_API_KEY (paid, backup) in Vercel env vars."
+        "No AI provider configured. Set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY in Vercel env vars."
     });
     return;
   }
@@ -135,6 +178,16 @@ export default async function handler(request, response) {
       return;
     } catch (err) {
       errors.push(`gemini: ${err.message}`);
+    }
+  }
+
+  if (openaiKey) {
+    try {
+      const reply = await callOpenAI(systemPrompt, messages, openaiKey);
+      response.status(200).json({ response: reply, model: OPENAI_MODEL });
+      return;
+    } catch (err) {
+      errors.push(`openai: ${err.message}`);
     }
   }
 

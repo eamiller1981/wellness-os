@@ -259,10 +259,35 @@
       border-color: #5f514a;
       color: #f5eae3;
     }
+    .btn-notion {
+      background: rgba(255, 255, 255, 0.7);
+      color: #5f514a;
+      border-color: #806f64;
+      text-decoration: none;
+    }
+    .btn-notion:hover, .btn-notion:focus-visible {
+      background: rgba(128, 111, 100, 0.12);
+      color: #3f332d;
+      border-color: #5f514a;
+    }
     .btn-small {
       min-height: 30px;
       padding: 0 10px;
       font-size: 0.78rem;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .section-heading h2 {
+      margin: 0;
+    }
+    .section-heading .btn {
+      flex-shrink: 0;
     }
 
     /* Filter bar */
@@ -324,18 +349,71 @@
       background: rgba(128, 111, 100, 0.12);
       font-size: 0.85em;
     }
+    .profile-editor-shell {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.72);
+      overflow: hidden;
+    }
+    .profile-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.55);
+    }
+    .format-btn {
+      min-width: 34px;
+      min-height: 32px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.76);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .format-btn:hover,
+    .format-btn:focus-visible {
+      border-color: #5f514a;
+      outline: none;
+    }
     .profile-editor {
       width: 100%;
       min-height: 340px;
       padding: 14px 16px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.72);
+      border: 0;
+      background: transparent;
       color: var(--ink);
       font-family: inherit;
       font-size: 0.92rem;
       line-height: 1.55;
-      resize: vertical;
+      overflow-y: auto;
+      outline: none;
+    }
+    .profile-editor:empty::before {
+      content: "Write your taste profile...";
+      color: var(--muted);
+      font-style: italic;
+    }
+    .profile-editor h3,
+    .profile-editor h4 {
+      margin: 12px 0 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 400;
+    }
+    .profile-editor p { margin: 6px 0; }
+    .profile-editor ul,
+    .profile-editor ol { margin: 6px 0 6px 22px; padding: 0; }
+    .profile-editor li { margin: 3px 0; }
+    .profile-editor blockquote {
+      margin: 8px 0;
+      padding-left: 12px;
+      border-left: 3px solid var(--line);
+      color: var(--muted);
     }
     [hidden] {
       display: none !important;
@@ -520,7 +598,7 @@
       <h2>Jump To</h2>
       <div class="jump-grid">
         <a class="jump-link" href="#section-tbr">To Be Read</a>
-        <a class="jump-link" href="#section-library">Library</a>
+        <a class="jump-link" href="#section-library">Reading Log</a>
         <a class="jump-link" href="#section-taste">Taste Profile</a>
         <a class="jump-link" href="#section-ai">AI Book Buddy</a>
       </div>
@@ -530,22 +608,19 @@
     <section class="module-section">
       <h2>My Stats</h2>
       <div class="stats-grid" id="statsGrid">
-        <div class="stat"><span class="stat-value" id="statYTD">—</span><span class="stat-label">Read YTD</span></div>
+        <div class="stat"><span class="stat-value" id="statRated">—</span><span class="stat-label">Books Rated</span></div>
         <div class="stat"><span class="stat-value" id="statAvg">—</span><span class="stat-label">Avg rating</span></div>
         <div class="stat"><span class="stat-value" id="statTBR">—</span><span class="stat-label">TBR titles</span></div>
-        <div class="stat"><span class="stat-value" id="statGenre">—</span><span class="stat-label">Top genre</span></div>
+        <div class="stat"><span class="stat-value" id="statTag">—</span><span class="stat-label">Top rated tag</span></div>
       </div>
-    </section>
-
-    <!-- Up Next -->
-    <section class="module-section">
-      <h2>Up Next</h2>
-      <div id="upNextList" class="loading">Loading…</div>
     </section>
 
     <!-- TBR -->
     <section class="module-section" id="section-tbr">
-      <h2>To Be Read</h2>
+      <div class="section-heading">
+        <h2>To Be Read</h2>
+        <button class="btn btn-primary" id="addBookBtn" type="button">+ Add book</button>
+      </div>
       <div class="filter-bar">
         <input type="search" id="tbrSearch" placeholder="Search TBR…" aria-label="Search TBR">
         <select id="tbrTagFilter" aria-label="Filter by tag">
@@ -554,16 +629,15 @@
       </div>
       <div id="tbrList" class="loading">Loading…</div>
       <div class="book-actions" style="margin-top: 14px;">
-        <button class="btn" id="addBookBtn" type="button">+ Add book</button>
         <button class="btn" id="vetListBtn" type="button">Will I like any of these? <span class="ai-badge">AI</span></button>
       </div>
     </section>
 
-    <!-- Library -->
+    <!-- Reading Log -->
     <section class="module-section" id="section-library">
-      <h2>Library</h2>
+      <h2>Reading Log</h2>
       <div class="filter-bar">
-        <input type="search" id="libSearch" placeholder="Search title or author…" aria-label="Search library">
+        <input type="search" id="libSearch" placeholder="Search title or author…" aria-label="Search reading log">
         <select id="libStatusFilter" aria-label="Filter by status">
           <option value="">All</option>
           <option value="Finished">Finished</option>
@@ -581,12 +655,22 @@
     <section class="module-section" id="section-taste">
       <h2>Taste Profile</h2>
       <div class="profile-content" id="tasteProfileContent">Loading…</div>
-      <textarea class="profile-editor" id="tasteProfileEditor" aria-label="Edit taste profile" hidden></textarea>
+      <div class="profile-editor-shell" id="tasteProfileEditorShell" hidden>
+        <div class="profile-toolbar" aria-label="Taste profile formatting">
+          <button class="format-btn" type="button" data-format="bold">B</button>
+          <button class="format-btn" type="button" data-format="italic"><em>I</em></button>
+          <button class="format-btn" type="button" data-format="heading3">H</button>
+          <button class="format-btn" type="button" data-format="insertUnorderedList">List</button>
+          <button class="format-btn" type="button" data-format="insertOrderedList">1.</button>
+          <button class="format-btn" type="button" data-format="formatBlock" data-value="blockquote">Quote</button>
+        </div>
+        <div class="profile-editor" id="tasteProfileEditor" contenteditable="true" role="textbox" aria-label="Edit taste profile" spellcheck="true"></div>
+      </div>
       <div class="book-actions" style="margin-top: 12px;">
         <button class="btn btn-primary" id="editTasteBtn" type="button">Edit profile</button>
         <button class="btn btn-primary" id="saveTasteBtn" type="button" hidden>Save profile</button>
         <button class="btn" id="cancelTasteBtn" type="button" hidden>Cancel</button>
-        <a class="btn" target="_blank" rel="noopener" href="https://www.notion.so/350627ee81db81aa87fde222e96e3e03">Open Notion ↗</a>
+        <a class="btn btn-notion" target="_blank" rel="noopener" href="https://www.notion.so/350627ee81db81aa87fde222e96e3e03">Open Notion ↗</a>
       </div>
     </section>
 
@@ -843,9 +927,93 @@
       return blocks.length ? blocks.slice(0, 100) : [{ type: "paragraph", paragraph: { rich_text: [] } }];
     }
 
-    async function saveTasteProfileMarkdown(markdown) {
-      const blocks = markdownToBlocks(markdown);
+    function richTextChunksWithAnnotations(text, annotations = {}) {
+      const value = String(text || "");
+      if (!value) return [];
+      const chunks = [];
+      for (let i = 0; i < value.length; i += 1900) {
+        chunks.push({
+          type: "text",
+          text: { content: value.slice(i, i + 1900) },
+          annotations
+        });
+      }
+      return chunks;
+    }
 
+    function richTextFromNode(node, annotations = {}) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return richTextChunksWithAnnotations(node.textContent, annotations);
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return [];
+
+      const tag = node.tagName.toLowerCase();
+      const next = { ...annotations };
+      if (tag === "strong" || tag === "b") next.bold = true;
+      if (tag === "em" || tag === "i") next.italic = true;
+      if (tag === "code") next.code = true;
+
+      return Array.from(node.childNodes).flatMap(child => richTextFromNode(child, next));
+    }
+
+    function richTextFromElement(el) {
+      const rich = Array.from(el.childNodes).flatMap(node => richTextFromNode(node));
+      return rich.filter(item => item.text.content.length);
+    }
+
+    function paragraphBlockFromElement(el) {
+      return { type: "paragraph", paragraph: { rich_text: richTextFromElement(el) } };
+    }
+
+    function editorToBlocks() {
+      const editor = document.getElementById("tasteProfileEditor");
+      const blocks = [];
+
+      Array.from(editor.childNodes).forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent.trim();
+          if (text) blocks.push({ type: "paragraph", paragraph: { rich_text: richTextChunks(text) } });
+          return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const el = node;
+        const tag = el.tagName.toLowerCase();
+        if (tag === "ul" || tag === "ol") {
+          const type = tag === "ul" ? "bulleted_list_item" : "numbered_list_item";
+          Array.from(el.children).forEach(li => {
+            if (li.textContent.trim()) {
+              blocks.push({ type, [type]: { rich_text: richTextFromElement(li) } });
+            }
+          });
+          return;
+        }
+
+        if (tag === "h1" || tag === "h2" || tag === "h3") {
+          const type = tag === "h1" ? "heading_1" : tag === "h2" ? "heading_2" : "heading_3";
+          blocks.push({ type, [type]: { rich_text: richTextFromElement(el) } });
+          return;
+        }
+
+        if (tag === "blockquote") {
+          blocks.push({ type: "quote", quote: { rich_text: richTextFromElement(el) } });
+          return;
+        }
+
+        if (tag === "hr") {
+          blocks.push({ type: "divider", divider: {} });
+          return;
+        }
+
+        if (el.textContent.trim()) {
+          blocks.push(paragraphBlockFromElement(el));
+        }
+      });
+
+      return blocks.length ? blocks.slice(0, 100) : [{ type: "paragraph", paragraph: { rich_text: [] } }];
+    }
+
+    async function saveTasteProfileBlocks(blocks) {
       for (const block of state.profileBlocks) {
         if (block.id) {
           await notion(`/blocks/${block.id}`, "PATCH", { archived: true });
@@ -861,6 +1029,10 @@
       state.profileBlocks = await fetchTasteProfile();
       state.profileMarkdown = blocksToMarkdown(state.profileBlocks);
       renderTasteProfile();
+    }
+
+    async function saveTasteProfileMarkdown(markdown) {
+      await saveTasteProfileBlocks(markdownToBlocks(markdown));
     }
 
     function blocksToMarkdown(blocks) {
@@ -938,28 +1110,31 @@
       return "tier-dnf";
     }
 
+    function formatDate(date) {
+      if (!date) return "";
+      const [year, month, day] = String(date).split("-");
+      if (!year || !month || !day) return date;
+      return `${month}/${day}/${year}`;
+    }
+
     // ---- Render ----
     function renderStats() {
-      const ytdCount = state.books.filter(b => {
-        if (b.status !== "Finished") return false;
-        if (!b.dateFinished) return false;
-        return b.dateFinished.startsWith(String(state.currentYear));
-      }).length;
       const ratings = state.books
-        .filter(b => b.rating != null && (b.status === "Finished" || b.status === "DNF"))
-        .map(b => b.rating);
-      const avg = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : null;
+        .filter(b => b.rating != null);
+      const avg = ratings.length ? (ratings.reduce((sum, b) => sum + b.rating, 0) / ratings.length) : null;
       const tbrCount = state.books.filter(b => b.status === "TBR").length;
-      const genres = {};
-      state.books.filter(b => b.status === "Finished" && b.genre).forEach(b => {
-        genres[b.genre] = (genres[b.genre] || 0) + 1;
+      const tags = {};
+      ratings.forEach(b => {
+        b.tags.forEach(tag => {
+          tags[tag] = (tags[tag] || 0) + 1;
+        });
       });
-      const topGenre = Object.entries(genres).sort((a, b) => b[1] - a[1])[0];
+      const topTag = Object.entries(tags).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
 
-      document.getElementById("statYTD").textContent = state.books.some(b => b.dateFinished) ? ytdCount : "—";
+      document.getElementById("statRated").textContent = ratings.length;
       document.getElementById("statAvg").textContent = avg != null ? avg.toFixed(2) : "—";
       document.getElementById("statTBR").textContent = tbrCount;
-      document.getElementById("statGenre").textContent = topGenre ? topGenre[0].split("/")[0].split(" ")[0] : "—";
+      document.getElementById("statTag").textContent = topTag ? topTag[0] : "—";
     }
 
     function bookCardHtml(book, opts = {}) {
@@ -978,6 +1153,9 @@
         book.genre ? `<span class="tag tag-genre">${escapeHtml(book.genre)}</span>` : "",
         ...book.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`)
       ].filter(Boolean).join("");
+      const dateHtml = opts.showDate && book.dateFinished
+        ? `<div class="book-author">Finished and rated ${escapeHtml(formatDate(book.dateFinished))}</div>`
+        : "";
 
       return `
         <article class="book-card" data-id="${escapeHtml(book.id)}">
@@ -989,6 +1167,7 @@
             <div class="book-rating ${ratingClass}">${escapeHtml(ratingDisplay)}</div>
           </div>
           ${showWhy ? `<p class="book-why">${escapeHtml(book.whyItFits)}</p>` : ""}
+          ${dateHtml}
           ${tagsHtml ? `<div class="book-meta">${tagsHtml}</div>` : ""}
           <div class="book-actions">
             ${showFinish ? `<button class="btn btn-small btn-primary" data-action="finish">Finish & rate</button>` : ""}
@@ -997,18 +1176,6 @@
           </div>
         </article>
       `;
-    }
-
-    function renderUpNext() {
-      const tbr = state.books
-        .filter(b => b.status === "TBR")
-        .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999))
-        .slice(0, 3);
-      const el = document.getElementById("upNextList");
-      el.innerHTML = tbr.length
-        ? tbr.map(b => bookCardHtml(b)).join("")
-        : `<div class="empty">No TBR yet. Add a book or ask the AI for a fresh batch.</div>`;
-      el.classList.remove("loading");
     }
 
     function renderTBR() {
@@ -1039,7 +1206,7 @@
         .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title));
       const el = document.getElementById("libList");
       el.innerHTML = lib.length
-        ? lib.map(b => bookCardHtml(b, { showWhy: false })).join("")
+        ? lib.map(b => bookCardHtml(b, { showWhy: false, showDate: true })).join("")
         : `<div class="empty">Nothing matches.</div>`;
       el.classList.remove("loading");
     }
@@ -1059,36 +1226,37 @@
         ? blocksToHtml(state.profileBlocks)
         : `<div class="empty">No taste profile yet — edit in Notion to seed it.</div>`;
 
+      const editorShell = document.getElementById("tasteProfileEditorShell");
       const editor = document.getElementById("tasteProfileEditor");
-      if (editor.hidden) {
-        editor.value = state.profileMarkdown;
+      if (editorShell.hidden) {
+        editor.innerHTML = state.profileBlocks.length ? blocksToHtml(state.profileBlocks) : "";
       }
     }
 
     function setTasteEditMode(isEditing) {
       document.getElementById("tasteProfileContent").hidden = isEditing;
-      document.getElementById("tasteProfileEditor").hidden = !isEditing;
+      document.getElementById("tasteProfileEditorShell").hidden = !isEditing;
       document.getElementById("editTasteBtn").hidden = isEditing;
       document.getElementById("saveTasteBtn").hidden = !isEditing;
       document.getElementById("cancelTasteBtn").hidden = !isEditing;
       if (isEditing) {
-        document.getElementById("tasteProfileEditor").value = state.profileMarkdown;
-        document.getElementById("tasteProfileEditor").focus();
+        const editor = document.getElementById("tasteProfileEditor");
+        editor.innerHTML = state.profileBlocks.length ? blocksToHtml(state.profileBlocks) : "";
+        editor.focus();
       }
     }
 
     async function saveProfileFromEditor() {
       const editor = document.getElementById("tasteProfileEditor");
       const button = document.getElementById("saveTasteBtn");
-      const nextMarkdown = editor.value.trim();
-      if (!nextMarkdown) {
+      if (!editor.textContent.trim()) {
         toast("Taste profile cannot be blank");
         return;
       }
       try {
         button.disabled = true;
         button.textContent = "Saving";
-        await saveTasteProfileMarkdown(nextMarkdown);
+        await saveTasteProfileBlocks(editorToBlocks());
         setTasteEditMode(false);
         toast("Taste profile saved");
       } catch (err) {
@@ -1113,9 +1281,21 @@
     document.getElementById("editTasteBtn").addEventListener("click", () => setTasteEditMode(true));
     document.getElementById("cancelTasteBtn").addEventListener("click", () => {
       setTasteEditMode(false);
-      document.getElementById("tasteProfileEditor").value = state.profileMarkdown;
+      document.getElementById("tasteProfileEditor").innerHTML = state.profileBlocks.length ? blocksToHtml(state.profileBlocks) : "";
     });
     document.getElementById("saveTasteBtn").addEventListener("click", saveProfileFromEditor);
+    document.querySelectorAll("[data-format]").forEach(button => {
+      button.addEventListener("click", () => {
+        const command = button.dataset.format;
+        const value = button.dataset.value || null;
+        document.getElementById("tasteProfileEditor").focus();
+        if (command === "heading3") {
+          document.execCommand("formatBlock", false, "h3");
+        } else {
+          document.execCommand(command, false, value);
+        }
+      });
+    });
 
     function toast(msg, ms = 2400) {
       const t = document.getElementById("toast");
@@ -1430,13 +1610,12 @@ ${state.profileMarkdown}`;
         state.profileMarkdown = blocksToMarkdown(profileBlocks);
         populateTagFilters();
         renderStats();
-        renderUpNext();
         renderTBR();
         renderLibrary();
         renderTasteProfile();
       } catch (err) {
         const msg = `Failed to load: ${err.message}`;
-        ["upNextList", "tbrList", "libList", "tasteProfileContent"].forEach(id => {
+        ["tbrList", "libList", "tasteProfileContent"].forEach(id => {
           const el = document.getElementById(id);
           el.innerHTML = `<div class="empty">${escapeHtml(msg)}</div>`;
           el.classList.remove("loading");
