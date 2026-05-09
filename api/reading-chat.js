@@ -2,7 +2,7 @@
 // Tries Google Gemini 2.0 Flash first (free tier).
 // Falls back to OpenAI if configured.
 // Falls back to Anthropic Claude Sonnet if Gemini fails or is missing.
-// Both keys are env vars — never sent to the browser.
+// Provider keys are env vars - never sent to the browser.
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 const GEMINI_URL =
@@ -16,9 +16,9 @@ const PROVIDER_TIMEOUT_MS = 25000;
 
 const SYSTEM_BASE = `You are the Reading AI for the Wellness OS Reading module. You help the user log, rate, and refine recommendations for psychological/paranormal horror books.
 
-CRITICAL RULES — never break these:
+CRITICAL RULES - never break these:
 1. SPOILER-FREE. Never include plot specifics, twists, character fates, endings, or specific events. The user loves going into books cold and being surprised. Only describe: tone, atmosphere, setting type (house, cabin, isolated, etc.), cast size, POV structure (single/dual/ensemble), thematic territory (grief, identity, isolation, etc.), and comparisons to her anchors.
-2. Use her rating language: LOVED (5), VERY GOOD (4–4.5), OKAY (3–3.5), NOT GOOD (2–2.5), SO BAD I DNF (1–1.5).
+2. Use her rating language: LOVED (5), VERY GOOD (4-4.5), OKAY (3-3.5), NOT GOOD (2-2.5), SO BAD I DNF (1-1.5).
 3. When she shares a new rating with notes, propose specific updates to her taste profile and explain what the rating signals.
 4. When she asks for recommendations, surface her existing TBR FIRST (ranked by likelihood of LOVED). Only suggest new books if she explicitly asks for new ones.
 5. When she pastes a list of books, classify each as ADD / MAYBE / SKIP with a one-sentence spoiler-free reason rooted in her taste profile.
@@ -105,13 +105,10 @@ async function callClaude(systemPrompt, messages, apiKey) {
 }
 
 async function callOpenAI(systemPrompt, messages, apiKey) {
-  const input = [
-    { role: "system", content: systemPrompt },
-    ...messages.map((m) => ({
-      role: m.role === "assistant" ? "assistant" : "user",
-      content: String(m.content || "")
-    }))
-  ];
+  const input = messages.map((m) => ({
+    role: m.role === "assistant" ? "assistant" : "user",
+    content: String(m.content || "")
+  }));
 
   const r = await fetchWithTimeout(OPENAI_URL, {
     method: "POST",
@@ -121,6 +118,7 @@ async function callOpenAI(systemPrompt, messages, apiKey) {
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
+      instructions: systemPrompt,
       input,
       max_output_tokens: MAX_OUTPUT_TOKENS,
       temperature: 0.7

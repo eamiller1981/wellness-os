@@ -932,11 +932,12 @@
       if (!value) return [];
       const chunks = [];
       for (let i = 0; i < value.length; i += 1900) {
-        chunks.push({
+        const chunk = {
           type: "text",
-          text: { content: value.slice(i, i + 1900) },
-          annotations
-        });
+          text: { content: value.slice(i, i + 1900) }
+        };
+        if (Object.keys(annotations).length) chunk.annotations = annotations;
+        chunks.push(chunk);
       }
       return chunks;
     }
