@@ -1,13 +1,15 @@
 // Reading AI chat endpoint.
 // Tries Google Gemini 2.0 Flash first (free tier).
-// Falls back to Anthropic Claude Sonnet 4.6 if Gemini fails or is missing.
+// Falls back to Anthropic Claude Sonnet if Gemini fails or is missing.
 // Both keys are env vars — never sent to the browser.
 
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 const GEMINI_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const CLAUDE_URL = "https://api.anthropic.com/v1/messages";
-const CLAUDE_MODEL = "claude-sonnet-4-5";
+const CLAUDE_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-5-20250929";
 const MAX_OUTPUT_TOKENS = 2048;
+const PROVIDER_TIMEOUT_MS = 25000;
 
 const SYSTEM_BASE = `You are the Reading AI for the Wellness OS Reading module. You help the user log, rate, and refine recommendations for psychological/paranormal horror books.
 
@@ -27,6 +29,21 @@ function buildSystemPrompt(context) {
   return `${SYSTEM_BASE}\n\n--- CURRENT CONTEXT ---\n${context}`;
 }
 
+async function fetchWithTimeout(url, options, label) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error(`${label} timed out after ${Math.round(PROVIDER_TIMEOUT_MS / 1000)}s`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callGemini(systemPrompt, messages, apiKey) {
   const url = `${GEMINI_URL}?key=${encodeURIComponent(apiKey)}`;
   const contents = messages.map((m) => ({
@@ -41,11 +58,11 @@ async function callGemini(systemPrompt, messages, apiKey) {
       maxOutputTokens: MAX_OUTPUT_TOKENS
     }
   };
-  const r = await fetch(url, {
+  const r = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
-  });
+  }, "Gemini");
   if (!r.ok) {
     const text = await r.text().catch(() => "");
     throw new Error(`Gemini ${r.status}: ${text.slice(0, 200)}`);
@@ -57,7 +74,7 @@ async function callGemini(systemPrompt, messages, apiKey) {
 }
 
 async function callClaude(systemPrompt, messages, apiKey) {
-  const r = await fetch(CLAUDE_URL, {
+  const r = await fetchWithTimeout(CLAUDE_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -73,7 +90,7 @@ async function callClaude(systemPrompt, messages, apiKey) {
         content: String(m.content || "")
       }))
     })
-  });
+  }, "Claude");
   if (!r.ok) {
     const text = await r.text().catch(() => "");
     throw new Error(`Claude ${r.status}: ${text.slice(0, 200)}`);
@@ -114,7 +131,7 @@ export default async function handler(request, response) {
   if (geminiKey) {
     try {
       const reply = await callGemini(systemPrompt, messages, geminiKey);
-      response.status(200).json({ response: reply, model: "gemini-2.0-flash" });
+      response.status(200).json({ response: reply, model: GEMINI_MODEL });
       return;
     } catch (err) {
       errors.push(`gemini: ${err.message}`);

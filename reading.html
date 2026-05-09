@@ -13,6 +13,10 @@
     /* ---- Reading module styles, layered on top of space.css ---- */
     .page { gap: 28px; }
 
+    html {
+      scroll-padding-top: 98px;
+    }
+
     .module-section {
       padding: 22px;
       border: 1px solid var(--line);
@@ -79,25 +83,42 @@
       text-transform: uppercase;
     }
 
-    /* Jump-to grid */
+    /* Sticky section navigation */
+    .jump-section {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding: 10px 0;
+      border: 0;
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(14px);
+    }
+    .jump-section h2 {
+      margin: 0 0 8px;
+      font-size: 0.78rem;
+      font-family: inherit;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
     .jump-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
+      gap: 8px;
     }
-    @media (max-width: 720px) { .jump-grid { grid-template-columns: repeat(2, 1fr); } }
     .jump-link {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 56px;
-      padding: 10px 14px;
+      min-height: 38px;
+      padding: 8px 10px;
       border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.55);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
       color: var(--ink);
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 1rem;
+      font-size: 0.88rem;
       text-align: center;
       text-decoration: none;
       transition: border-color 0.15s, color 0.15s, background 0.15s;
@@ -107,6 +128,33 @@
       color: #5f514a;
       background: rgba(255, 255, 255, 0.75);
       outline: none;
+    }
+    @media (max-width: 720px) {
+      html { scroll-padding-top: 104px; }
+      .page { gap: 18px; }
+      .jump-section {
+        margin-inline: -4px;
+        padding: 8px 4px 10px;
+      }
+      .jump-grid {
+        grid-template-columns: repeat(4, minmax(92px, 1fr));
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+      .jump-grid::-webkit-scrollbar { display: none; }
+      .jump-link {
+        min-height: 36px;
+        padding-inline: 12px;
+        white-space: nowrap;
+      }
+    }
+
+    #section-tbr,
+    #section-library,
+    #section-taste,
+    #section-ai {
+      scroll-margin-top: 104px;
     }
 
     /* Book card */
@@ -275,6 +323,22 @@
       border-radius: 4px;
       background: rgba(128, 111, 100, 0.12);
       font-size: 0.85em;
+    }
+    .profile-editor {
+      width: 100%;
+      min-height: 340px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      resize: vertical;
+    }
+    [hidden] {
+      display: none !important;
     }
 
     /* Chat */
@@ -451,6 +515,17 @@
       </div>
     </section>
 
+    <!-- Jump to -->
+    <section class="jump-section" aria-label="Reading sections">
+      <h2>Jump To</h2>
+      <div class="jump-grid">
+        <a class="jump-link" href="#section-tbr">To Be Read</a>
+        <a class="jump-link" href="#section-library">Library</a>
+        <a class="jump-link" href="#section-taste">Taste Profile</a>
+        <a class="jump-link" href="#section-ai">AI Book Buddy</a>
+      </div>
+    </section>
+
     <!-- Quick stats -->
     <section class="module-section">
       <h2>My Stats</h2>
@@ -459,17 +534,6 @@
         <div class="stat"><span class="stat-value" id="statAvg">—</span><span class="stat-label">Avg rating</span></div>
         <div class="stat"><span class="stat-value" id="statTBR">—</span><span class="stat-label">TBR titles</span></div>
         <div class="stat"><span class="stat-value" id="statGenre">—</span><span class="stat-label">Top genre</span></div>
-      </div>
-    </section>
-
-    <!-- Jump to -->
-    <section class="module-section">
-      <h2>Jump To</h2>
-      <div class="jump-grid">
-        <a class="jump-link" href="#section-tbr">To Be Read</a>
-        <a class="jump-link" href="#section-library">Library</a>
-        <a class="jump-link" href="#section-taste">Taste Profile</a>
-        <a class="jump-link" href="#section-ai">AI Book Buddy</a>
       </div>
     </section>
 
@@ -517,8 +581,12 @@
     <section class="module-section" id="section-taste">
       <h2>Taste Profile</h2>
       <div class="profile-content" id="tasteProfileContent">Loading…</div>
+      <textarea class="profile-editor" id="tasteProfileEditor" aria-label="Edit taste profile" hidden></textarea>
       <div class="book-actions" style="margin-top: 12px;">
-        <a class="btn" target="_blank" rel="noopener" href="https://www.notion.so/350627ee81db81aa87fde222e96e3e03">Edit in Notion ↗</a>
+        <button class="btn btn-primary" id="editTasteBtn" type="button">Edit profile</button>
+        <button class="btn btn-primary" id="saveTasteBtn" type="button" hidden>Save profile</button>
+        <button class="btn" id="cancelTasteBtn" type="button" hidden>Cancel</button>
+        <a class="btn" target="_blank" rel="noopener" href="https://www.notion.so/350627ee81db81aa87fde222e96e3e03">Open Notion ↗</a>
       </div>
     </section>
 
@@ -619,6 +687,7 @@
       profileMarkdown: "",
       profileBlocks: [],
       chatHistory: [],
+      chatBusy: false,
       currentYear: new Date().getFullYear()
     };
 
@@ -701,6 +770,97 @@
         cursor = data.has_more ? data.next_cursor : undefined;
       } while (cursor);
       return all;
+    }
+
+    function richTextChunks(text) {
+      const value = String(text || "");
+      if (!value) return [];
+      const chunks = [];
+      for (let i = 0; i < value.length; i += 1900) {
+        chunks.push({ type: "text", text: { content: value.slice(i, i + 1900) } });
+      }
+      return chunks;
+    }
+
+    function markdownLineToBlock(line) {
+      const text = line.trim();
+      if (!text) return null;
+      if (text === "---") return { type: "divider", divider: {} };
+
+      const heading = text.match(/^(#{1,3})\s+(.+)$/);
+      if (heading) {
+        const type = heading[1].length === 1 ? "heading_1" : heading[1].length === 2 ? "heading_2" : "heading_3";
+        return { type, [type]: { rich_text: richTextChunks(heading[2]) } };
+      }
+
+      const bullet = text.match(/^[-*]\s+(.+)$/);
+      if (bullet) {
+        return { type: "bulleted_list_item", bulleted_list_item: { rich_text: richTextChunks(bullet[1]) } };
+      }
+
+      const numbered = text.match(/^\d+\.\s+(.+)$/);
+      if (numbered) {
+        return { type: "numbered_list_item", numbered_list_item: { rich_text: richTextChunks(numbered[1]) } };
+      }
+
+      const quote = text.match(/^>\s+(.+)$/);
+      if (quote) {
+        return { type: "quote", quote: { rich_text: richTextChunks(quote[1]) } };
+      }
+
+      return { type: "paragraph", paragraph: { rich_text: richTextChunks(text) } };
+    }
+
+    function markdownToBlocks(markdown) {
+      const blocks = [];
+      let paragraph = [];
+
+      const flushParagraph = () => {
+        if (!paragraph.length) return;
+        blocks.push({
+          type: "paragraph",
+          paragraph: { rich_text: richTextChunks(paragraph.join(" ")) }
+        });
+        paragraph = [];
+      };
+
+      String(markdown || "").split(/\r?\n/).forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          flushParagraph();
+          return;
+        }
+        if (/^(#{1,3})\s+/.test(trimmed) || /^[-*]\s+/.test(trimmed) || /^\d+\.\s+/.test(trimmed) || /^>\s+/.test(trimmed) || trimmed === "---") {
+          flushParagraph();
+          const block = markdownLineToBlock(trimmed);
+          if (block) blocks.push(block);
+          return;
+        }
+        paragraph.push(trimmed);
+      });
+      flushParagraph();
+
+      return blocks.length ? blocks.slice(0, 100) : [{ type: "paragraph", paragraph: { rich_text: [] } }];
+    }
+
+    async function saveTasteProfileMarkdown(markdown) {
+      const blocks = markdownToBlocks(markdown);
+
+      for (const block of state.profileBlocks) {
+        if (block.id) {
+          await notion(`/blocks/${block.id}`, "PATCH", { archived: true });
+        }
+      }
+
+      for (let i = 0; i < blocks.length; i += 100) {
+        await notion(`/blocks/${TASTE_PROFILE_PAGE_ID}/children`, "PATCH", {
+          children: blocks.slice(i, i + 100)
+        });
+      }
+
+      state.profileBlocks = await fetchTasteProfile();
+      state.profileMarkdown = blocksToMarkdown(state.profileBlocks);
+      renderTasteProfile();
     }
 
     function blocksToMarkdown(blocks) {
@@ -898,6 +1058,45 @@
       el.innerHTML = state.profileBlocks.length
         ? blocksToHtml(state.profileBlocks)
         : `<div class="empty">No taste profile yet — edit in Notion to seed it.</div>`;
+
+      const editor = document.getElementById("tasteProfileEditor");
+      if (editor.hidden) {
+        editor.value = state.profileMarkdown;
+      }
+    }
+
+    function setTasteEditMode(isEditing) {
+      document.getElementById("tasteProfileContent").hidden = isEditing;
+      document.getElementById("tasteProfileEditor").hidden = !isEditing;
+      document.getElementById("editTasteBtn").hidden = isEditing;
+      document.getElementById("saveTasteBtn").hidden = !isEditing;
+      document.getElementById("cancelTasteBtn").hidden = !isEditing;
+      if (isEditing) {
+        document.getElementById("tasteProfileEditor").value = state.profileMarkdown;
+        document.getElementById("tasteProfileEditor").focus();
+      }
+    }
+
+    async function saveProfileFromEditor() {
+      const editor = document.getElementById("tasteProfileEditor");
+      const button = document.getElementById("saveTasteBtn");
+      const nextMarkdown = editor.value.trim();
+      if (!nextMarkdown) {
+        toast("Taste profile cannot be blank");
+        return;
+      }
+      try {
+        button.disabled = true;
+        button.textContent = "Saving";
+        await saveTasteProfileMarkdown(nextMarkdown);
+        setTasteEditMode(false);
+        toast("Taste profile saved");
+      } catch (err) {
+        toast("Profile save failed: " + err.message, 5000);
+      } finally {
+        button.disabled = false;
+        button.textContent = "Save profile";
+      }
     }
 
     // ---- Modal helpers ----
@@ -910,6 +1109,13 @@
     document.querySelectorAll(".modal-backdrop").forEach(bd => {
       bd.addEventListener("click", e => { if (e.target === bd) closeModal(bd.id); });
     });
+
+    document.getElementById("editTasteBtn").addEventListener("click", () => setTasteEditMode(true));
+    document.getElementById("cancelTasteBtn").addEventListener("click", () => {
+      setTasteEditMode(false);
+      document.getElementById("tasteProfileEditor").value = state.profileMarkdown;
+    });
+    document.getElementById("saveTasteBtn").addEventListener("click", saveProfileFromEditor);
 
     function toast(msg, ms = 2400) {
       const t = document.getElementById("toast");
@@ -969,9 +1175,19 @@
 
         const book = state.books.find(b => b.id === pageId);
         if (book) {
-          const msg = `I just finished "${book.title}" by ${book.author || "?"} and rated it ${rating} (${ratingLabel(rating)}).\n\nLiked: ${liked || "—"}\nDisliked: ${disliked || "—"}\nReflection: ${reflection || "—"}\n\nUpdate my taste profile and adjust my TBR ranking.`;
+          const msg = `I just finished "${book.title}" by ${book.author || "?"} and rated it ${rating} (${ratingLabel(rating)}).\n\nLiked: ${liked || "—"}\nDisliked: ${disliked || "—"}\nReflection: ${reflection || "—"}\n\nUpdate my taste profile and tell me what this changes about my next reads.`;
           appendChatUI("user", msg);
           state.chatHistory.push({ role: "user", content: msg });
+
+          try {
+            const model = await updateTasteProfileFromFinish(book, rating, liked, disliked, reflection);
+            if (model) {
+              appendChatUI("assistant", `Taste profile updated and saved via ${model}.`);
+            }
+          } catch (err) {
+            appendChatUI("error", `Taste profile recalibration failed: ${err.message}`);
+          }
+
           await sendChat();
         }
       } catch (err) {
@@ -1042,17 +1258,65 @@
       return `TASTE PROFILE:\n${pf}\n\nBOOK LOG (compact):\n${compact}\n\nToday: ${new Date().toISOString().slice(0,10)}`;
     }
 
-    async function callChat(messages) {
+    async function callChat(messages, options = {}) {
+      const controller = new AbortController();
+      const timeoutMs = options.timeoutMs || 45000;
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       const r = await fetch("/api/reading-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, context: buildChatContext() })
-      });
+        body: JSON.stringify({ messages, context: buildChatContext(), mode: options.mode || "chat" }),
+        signal: controller.signal
+      }).catch(err => {
+        if (err.name === "AbortError") {
+          throw new Error("Reading AI timed out. Your rating was saved, but recalibration did not finish.");
+        }
+        throw err;
+      }).finally(() => clearTimeout(timer));
+
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
-        throw new Error(j.error || `Chat ${r.status}`);
+        const details = Array.isArray(j.details) && j.details.length ? ` (${j.details.join("; ")})` : "";
+        throw new Error((j.error || `Chat ${r.status}`) + details);
       }
       return r.json();
+    }
+
+    function stripMarkdownFence(text) {
+      return String(text || "")
+        .replace(/^```(?:markdown|md)?\s*/i, "")
+        .replace(/```$/i, "")
+        .trim();
+    }
+
+    async function updateTasteProfileFromFinish(book, rating, liked, disliked, reflection) {
+      if (!state.profileMarkdown.trim()) return false;
+
+      const prompt = `Update my Taste Profile markdown after this finished book. Return ONLY the complete updated Taste Profile markdown, no preface and no code fence.
+
+Keep the existing structure as much as possible. Preserve what is still true. Add or tighten signals from the new rating. Use concise, direct language.
+
+Finished book:
+- Title: ${book.title}
+- Author: ${book.author || "Unknown"}
+- Rating: ${rating} (${ratingLabel(rating)})
+- Liked: ${liked || "none captured"}
+- Disliked: ${disliked || "none captured"}
+- Reflection: ${reflection || "none captured"}
+
+Current Taste Profile markdown:
+${state.profileMarkdown}`;
+
+      const reply = await callChat([{ role: "user", content: prompt }], {
+        mode: "taste-profile-update",
+        timeoutMs: 60000
+      });
+      const nextMarkdown = stripMarkdownFence(reply.response);
+      if (nextMarkdown.length < 40) {
+        throw new Error("Reading AI returned an empty taste profile update.");
+      }
+      await saveTasteProfileMarkdown(nextMarkdown);
+      return reply.model || "Reading AI";
     }
 
     function formatChatHtml(text) {
@@ -1075,6 +1339,8 @@
     }
 
     async function sendChat() {
+      if (state.chatBusy) return null;
+      state.chatBusy = true;
       const win = document.getElementById("chatWindow");
       const thinking = document.createElement("div");
       thinking.className = "chat-msg assistant";
@@ -1088,9 +1354,14 @@
         appendChatUI("assistant", reply.response);
         state.chatHistory.push({ role: "assistant", content: reply.response });
         document.getElementById("aiModelBadge").textContent = `via ${reply.model}`;
+        return reply;
       } catch (err) {
         thinking.remove();
         appendChatUI("error", `Chat failed: ${err.message}`);
+        document.getElementById("aiModelBadge").textContent = "chat unavailable";
+        return null;
+      } finally {
+        state.chatBusy = false;
       }
     }
 
