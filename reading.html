@@ -576,6 +576,128 @@
       color: var(--muted);
       font-size: 0.72rem;
     }
+
+    .intelligence-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+    @media (max-width: 720px) { .intelligence-panel { grid-template-columns: 1fr; } }
+    .signal-card {
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.48);
+    }
+    .signal-label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .signal-title {
+      margin: 0 0 4px;
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.05rem;
+      line-height: 1.25;
+    }
+    .signal-body {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: rgba(128, 111, 100, 0.12);
+      color: var(--ink);
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .status-pill.ready { background: rgba(178, 143, 72, 0.18); color: #715a26; }
+    .status-pill.processing { background: rgba(120, 130, 170, 0.18); color: #3f4878; }
+    .status-pill.applied { background: rgba(95, 140, 95, 0.18); color: #3f6238; }
+    .status-pill.attention { background: rgba(180, 70, 70, 0.15); color: #7a2828; }
+    .wildcard-lane {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+    .lane-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .book-card.is-wildcard {
+      border-color: rgba(110, 58, 120, 0.34);
+      background: rgba(255, 255, 255, 0.62);
+    }
+    .wildcard-badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(170, 95, 180, 0.16);
+      color: #6e3a78;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .book-trace {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+    .bridge-card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.5);
+    }
+    .bridge-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .bridge-fallback {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+    .bridge-fallback summary {
+      width: fit-content;
+      cursor: pointer;
+      color: var(--muted);
+    }
+    .check-row {
+      display: flex !important;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px !important;
+      color: var(--ink);
+      font-size: 0.88rem !important;
+      font-weight: 600 !important;
+    }
+    .check-row input { width: auto; }
   </style>
 </head>
 <body>
@@ -613,6 +735,18 @@
         <div class="stat"><span class="stat-value" id="statTBR">—</span><span class="stat-label">TBR titles</span></div>
         <div class="stat"><span class="stat-value" id="statTag">—</span><span class="stat-label">Top rated tag</span></div>
       </div>
+      <div class="intelligence-panel" aria-label="Reading intelligence">
+        <div class="signal-card">
+          <span class="signal-label">What changed</span>
+          <p class="signal-title" id="latestChangeTitle">Awaiting a finished book</p>
+          <p class="signal-body" id="latestChangeBody">Finish and rate a title to create a traceable taste signal.</p>
+        </div>
+        <div class="signal-card">
+          <span class="signal-label">Current appetite</span>
+          <p class="signal-title" id="currentAppetiteTitle">Stable baseline</p>
+          <p class="signal-body" id="currentAppetiteBody">Recent ratings have not created a temporary re-ranking signal yet.</p>
+        </div>
+      </div>
     </section>
 
     <!-- TBR -->
@@ -628,8 +762,15 @@
         </select>
       </div>
       <div id="tbrList" class="loading">Loading…</div>
+      <div class="wildcard-lane" id="wildcardLane" hidden>
+        <div class="lane-heading">
+          <span>Wildcard Slot</span>
+          <span>separate from ranked TBR</span>
+        </div>
+        <div id="wildcardList"></div>
+      </div>
       <div class="book-actions" style="margin-top: 14px;">
-        <button class="btn" id="vetListBtn" type="button">Will I like any of these? <span class="ai-badge">AI</span></button>
+        <button class="btn" id="vetListBtn" type="button">Will I like any of these? <span class="ai-badge">Book Buddy</span></button>
       </div>
     </section>
 
@@ -677,22 +818,22 @@
     <!-- AI Book Buddy -->
     <section class="module-section" id="section-ai">
       <h2>AI Book Buddy</h2>
-      <p class="section-sub">Recommendations, recalibration, book-club discussion. Always spoiler-free. <span id="aiModelBadge" class="ai-badge">awaiting first message</span></p>
-      <div class="chat-quick">
-        <button class="btn btn-small" data-prompt="What are my top 3 highest-probability 5-star reads right now?" type="button">Top 3 next reads</button>
-        <button class="btn btn-small" data-prompt="What in my TBR is most likely to disappoint me, and why?" type="button">Most likely flops</button>
-        <button class="btn btn-small" data-prompt="Find me 5 new books not in my TBR that should be high-confidence hits." type="button">5 new hits</button>
-      </div>
-      <div class="chat-window" id="chatWindow">
-        <div class="chat-empty">Start a conversation to refine your taste profile or get a recommendation.</div>
-      </div>
-      <form class="chat-form" id="chatForm">
-        <textarea id="chatInput" placeholder="Ask anything about your reading…" required></textarea>
-        <div class="chat-form-row">
-          <button class="btn btn-primary" type="submit">Send</button>
-          <button class="btn" type="button" id="chatClear">Clear</button>
+      <p class="section-sub">External, zero-API-fee handoff for spoiler-free book chat and deeper synthesis.</p>
+      <div class="bridge-card">
+        <span class="signal-label">Context Bridge</span>
+        <p class="signal-title">Book Buddy context is generated from the live Reading Log.</p>
+        <p class="signal-body" id="bridgeStatus">Open Book Buddy when you want a conversation; the app prepares the latest taste profile, TBR, recent ratings, appetite signals, and wildcard lane.</p>
+        <div class="bridge-actions">
+          <button class="btn btn-primary" id="openBookBuddyBtn" type="button">Open Book Buddy</button>
         </div>
-      </form>
+        <details class="bridge-fallback">
+          <summary>Manual handoff tools</summary>
+          <div class="bridge-actions">
+            <button class="btn" id="copyBuddyContextBtn" type="button">Copy context</button>
+            <button class="btn" id="copySynthesisPacketBtn" type="button">Copy synthesis packet</button>
+          </div>
+        </details>
+      </div>
     </section>
   </main>
 
@@ -737,6 +878,14 @@
       </select>
       <label for="addSource">Source <small style="color:var(--muted);font-weight:400">(where the rec came from)</small></label>
       <input type="text" id="addSource" placeholder="e.g. Friend, Reddit, podcast">
+      <label class="check-row" for="addWildcard">
+        <input type="checkbox" id="addWildcard">
+        Wildcard / stretch recommendation
+      </label>
+      <label for="addWhyFits">Why it might work</label>
+      <textarea id="addWhyFits" placeholder="Optional: the oddly promising fit signal."></textarea>
+      <label for="addWhyStretches">Why it stretches you</label>
+      <textarea id="addWhyStretches" placeholder="Optional: what makes this outside the usual lane."></textarea>
       <div class="modal-actions">
         <button class="btn" type="button" data-close-modal="addBookModal">Cancel</button>
         <button class="btn btn-primary" type="button" id="addBookSave">Add</button>
@@ -764,14 +913,16 @@
     // ---- Config: Notion IDs ----
     const BOOKS_DB_ID = "f75e04e67a7047408a6448f8879f0c29";
     const TASTE_PROFILE_PAGE_ID = "350627ee-81db-81aa-87fd-e222e96e3e03";
+    const AI_QUEUE_DB_ID = "42510040d9284f8387307edf056fae72";
+    const SENTIMENT_PIVOTS_DB_ID = "1fd96e6ba2cb4672bd17e4a0bf02887d";
+    const BOOK_BUDDY_URL = "https://chatgpt.com/";
 
     // ---- State ----
     const state = {
       books: [],
       profileMarkdown: "",
       profileBlocks: [],
-      chatHistory: [],
-      chatBusy: false,
+      lastSignal: null,
       currentYear: new Date().getFullYear()
     };
 
@@ -833,10 +984,20 @@
           dateFinished: p["Date Finished"]?.date?.start || "",
           genre: p.Genre?.select?.name || "",
           tags: (p.Tags?.multi_select || []).map(t => t.name),
+          vibe: (p.Vibe?.multi_select || []).map(t => t.name),
           liked: plain(p.Liked?.rich_text),
           disliked: plain(p.Disliked?.rich_text),
           reflection: plain(p.Reflection?.rich_text),
           whyItFits: plain(p["Why It Fits"]?.rich_text),
+          whyItStretches: plain(p["Why It Stretches"]?.rich_text),
+          whatChanged: plain(p["What Changed"]?.rich_text),
+          dealbreakers: plain(p.Dealbreakers?.rich_text),
+          currentAppetiteSignal: plain(p["Current Appetite Signal"]?.rich_text),
+          sentiment: p.Sentiment?.select?.name || "",
+          aiStatus: p["AI Status"]?.select?.name || "",
+          readyForAi: !!p["Ready for AI"]?.checkbox,
+          lastAiReview: p["Last AI Review"]?.date?.start || "",
+          wildcard: !!p.Wildcard?.checkbox,
           source: plain(p.Source?.rich_text),
           tbrRank: typeof p["TBR Rank"]?.number === "number" ? p["TBR Rank"].number : null
         };
@@ -1118,6 +1279,94 @@
       return `${month}/${day}/${year}`;
     }
 
+    function includesAny(text, words) {
+      const haystack = String(text || "").toLowerCase();
+      return words.some(word => haystack.includes(word));
+    }
+
+    function inferSentiment(rating) {
+      if (rating >= 5) return "Strong Positive";
+      if (rating >= 4) return "Positive";
+      if (rating >= 3) return "Mixed";
+      if (rating >= 2) return "Negative";
+      return "Avoid/DNF";
+    }
+
+    function inferVibes(text) {
+      const source = String(text || "").toLowerCase();
+      const vibes = new Set();
+      if (includesAny(source, ["atmosphere", "atmospheric", "mood", "vibe", "dread"])) vibes.add("Atmospheric");
+      if (includesAny(source, ["fast", "propulsive", "page turn", "quick", "pacey"])) vibes.add("Fast Paced");
+      if (includesAny(source, ["slow", "slow burn", "quiet", "gradual"])) vibes.add("Slow Burn");
+      if (includesAny(source, ["claustrophobic", "trapped", "contained", "isolated", "cabin", "house"])) vibes.add("Claustrophobic");
+      if (includesAny(source, ["grief", "sad", "emotional", "heart", "heavy"])) vibes.add("Emotional");
+      if (includesAny(source, ["weird", "strange", "surreal", "dream", "uncanny"])) vibes.add("Strange");
+      if (includesAny(source, ["light", "fun", "reset", "cleanser", "easy"])) vibes.add("Light Reset");
+      return [...vibes].slice(0, 4);
+    }
+
+    function inferAppetiteSignal(rating, liked, disliked, reflection) {
+      const text = `${liked} ${disliked} ${reflection}`;
+      if (rating <= 2 || includesAny(text, ["burnout", "too heavy", "too dark", "exhausting", "bleak", "draining"])) {
+        return "Cognitive Burnout: temporarily downweight bleak, heavy, emotionally punishing reads.";
+      }
+      if (includesAny(text, ["bored", "dragged", "slow", "too quiet", "nothing happened"])) {
+        return "Pacing Reset: temporarily boost propulsive, clearer-structured reads.";
+      }
+      if (includesAny(text, ["same", "tired of", "over it", "predictable", "trope"])) {
+        return "Trope Fatigue: temporarily lower similar setups until a fresher angle appears.";
+      }
+      if (rating >= 4.5 && includesAny(text, ["weird", "strange", "unexpected", "surprised", "different"])) {
+        return "Niche Curiosity: temporarily allow one stranger wildcard if it preserves core atmosphere.";
+      }
+      if (rating >= 4) {
+        return "Preference Strengthened: keep ranking books with similar atmosphere, structure, and emotional shape higher.";
+      }
+      return "";
+    }
+
+    function inferPivotLogic(rating, appetiteSignal, disliked) {
+      if (appetiteSignal.startsWith("Cognitive Burnout")) return "Cognitive Burnout";
+      if (appetiteSignal.startsWith("Trope Fatigue")) return "Trope Fatigue";
+      if (appetiteSignal.startsWith("Niche Curiosity")) return "Niche Curiosity";
+      if (rating <= 2 || disliked) return "Dealbreaker Confirmed";
+      if (rating >= 4.5) return "Preference Strengthened";
+      return "Fresh Appetite";
+    }
+
+    function buildReadingSignals(book, rating, liked, disliked, reflection) {
+      const combined = `${liked}\n${disliked}\n${reflection}`;
+      const sentiment = inferSentiment(rating);
+      const vibe = inferVibes(combined);
+      const appetite = inferAppetiteSignal(rating, liked, disliked, reflection);
+      const title = book?.title || "this book";
+      const dealbreakers = rating <= 3 || disliked ? disliked : "";
+      const changed = [
+        `${ratingLabel(rating)} signal from "${title}".`,
+        liked ? `Strengthens: ${liked.slice(0, 180)}` : "",
+        dealbreakers ? `Downweights: ${dealbreakers.slice(0, 180)}` : "",
+        appetite || "No temporary appetite pivot detected.",
+        "Queued for AI synthesis with trace back to this rating."
+      ].filter(Boolean).join(" ");
+      const vector = [
+        rating >= 4 ? "Core Fit +2" : rating <= 2 ? "Core Fit -3" : "Core Fit 0",
+        includesAny(combined, ["slow", "dragged", "boring"]) ? "Pacing +2" : "Pacing 0",
+        includesAny(combined, ["heavy", "bleak", "draining"]) ? "Emotional Weight -2" : "Emotional Weight 0",
+        includesAny(combined, ["atmosphere", "dread", "vibe"]) ? "Atmospheric Density +2" : "Atmospheric Density 0"
+      ].join(", ");
+
+      return {
+        sentiment,
+        vibe,
+        appetite,
+        dealbreakers,
+        whatChanged: changed,
+        pivotLogic: inferPivotLogic(rating, appetite, disliked),
+        temporalStatus: appetite && !appetite.startsWith("Preference Strengthened") ? "Transient" : "Structural",
+        vector
+      };
+    }
+
     // ---- Render ----
     function renderStats() {
       const ratings = state.books
@@ -1136,6 +1385,48 @@
       document.getElementById("statAvg").textContent = avg != null ? avg.toFixed(2) : "—";
       document.getElementById("statTBR").textContent = tbrCount;
       document.getElementById("statTag").textContent = topTag ? topTag[0] : "—";
+    }
+
+    function latestFinishedBook() {
+      return [...state.books]
+        .filter(b => b.rating != null && (b.status === "Finished" || b.status === "DNF"))
+        .sort((a, b) => String(b.dateFinished || "").localeCompare(String(a.dateFinished || "")) || b.title.localeCompare(a.title))[0];
+    }
+
+    function renderIntelligence() {
+      const latest = latestFinishedBook();
+      const queued = state.books.filter(b => b.readyForAi || b.aiStatus === "Ready for AI").length;
+      const latestTitle = document.getElementById("latestChangeTitle");
+      const latestBody = document.getElementById("latestChangeBody");
+      const appetiteTitle = document.getElementById("currentAppetiteTitle");
+      const appetiteBody = document.getElementById("currentAppetiteBody");
+      const bridgeStatus = document.getElementById("bridgeStatus");
+
+      if (latest) {
+        latestTitle.textContent = latest.title;
+        latestBody.textContent = latest.whatChanged || `${ratingLabel(latest.rating)} rating captured. This entry is ready to influence future TBR ranking.`;
+      } else {
+        latestTitle.textContent = "Awaiting a finished book";
+        latestBody.textContent = "Finish and rate a title to create a traceable taste signal.";
+      }
+
+      const recentSignals = [...state.books]
+        .filter(b => b.currentAppetiteSignal)
+        .sort((a, b) => String(b.dateFinished || "").localeCompare(String(a.dateFinished || "")))
+        .slice(0, 3);
+      if (recentSignals.length) {
+        appetiteTitle.textContent = recentSignals[0].currentAppetiteSignal.split(":")[0];
+        appetiteBody.textContent = recentSignals.map(b => b.currentAppetiteSignal).join(" ");
+      } else {
+        appetiteTitle.textContent = "Stable baseline";
+        appetiteBody.textContent = "Recent ratings have not created a temporary re-ranking signal yet.";
+      }
+
+      if (bridgeStatus) {
+        bridgeStatus.textContent = queued
+          ? `${queued} reading signal${queued === 1 ? "" : "s"} ready for AI synthesis. Opening Book Buddy prepares live context from the app.`
+          : "No pending synthesis. Opening Book Buddy prepares live context from the app.";
+      }
     }
 
     function bookCardHtml(book, opts = {}) {
@@ -1157,9 +1448,23 @@
       const dateHtml = opts.showDate && book.dateFinished
         ? `<div class="book-author">Finished and rated ${escapeHtml(formatDate(book.dateFinished))}</div>`
         : "";
+      const aiClass = book.aiStatus === "Ready for AI" ? "ready" : book.aiStatus === "Processing" ? "processing" : book.aiStatus === "Applied" ? "applied" : book.aiStatus === "Needs Attention" ? "attention" : "";
+      const aiHtml = book.aiStatus
+        ? `<span class="status-pill ${aiClass}">${escapeHtml(book.aiStatus)}</span>`
+        : "";
+      const whatChangedHtml = opts.showDate && book.whatChanged
+        ? `<p class="book-trace"><strong>What changed:</strong> ${escapeHtml(book.whatChanged)}</p>`
+        : "";
+      const wildcardHtml = book.wildcard
+        ? `<span class="wildcard-badge">Wildcard</span>`
+        : "";
+      const stretchHtml = book.wildcard && book.whyItStretches
+        ? `<p class="book-trace"><strong>Why it stretches:</strong> ${escapeHtml(book.whyItStretches)}</p>`
+        : "";
 
       return `
-        <article class="book-card" data-id="${escapeHtml(book.id)}">
+        <article class="book-card ${book.wildcard ? "is-wildcard" : ""}" data-id="${escapeHtml(book.id)}">
+          ${wildcardHtml}
           <div class="book-head">
             <div>
               <h3 class="book-title">${escapeHtml(book.title)}</h3>
@@ -1168,12 +1473,15 @@
             <div class="book-rating ${ratingClass}">${escapeHtml(ratingDisplay)}</div>
           </div>
           ${showWhy ? `<p class="book-why">${escapeHtml(book.whyItFits)}</p>` : ""}
+          ${stretchHtml}
           ${dateHtml}
+          ${whatChangedHtml}
           ${tagsHtml ? `<div class="book-meta">${tagsHtml}</div>` : ""}
+          ${aiHtml ? `<div class="book-meta">${aiHtml}</div>` : ""}
           <div class="book-actions">
             ${showFinish ? `<button class="btn btn-small btn-primary" data-action="finish">Finish & rate</button>` : ""}
             ${showEdit ? `<button class="btn btn-small" data-action="edit">Edit</button>` : ""}
-            <button class="btn btn-small" data-action="why">${book.status === "TBR" ? "Why this fits" : "Discuss"} <span class="ai-badge">AI</span></button>
+            <button class="btn btn-small" data-action="why">${book.status === "TBR" ? "Why this fits" : "Discuss"} <span class="ai-badge">Book Buddy</span></button>
           </div>
         </article>
       `;
@@ -1184,6 +1492,12 @@
       const tagFilter = document.getElementById("tbrTagFilter").value;
       const tbr = state.books
         .filter(b => b.status === "TBR")
+        .filter(b => !b.wildcard)
+        .filter(b => !search || b.title.toLowerCase().includes(search) || b.author.toLowerCase().includes(search))
+        .filter(b => !tagFilter || b.tags.includes(tagFilter))
+        .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999));
+      const wildcards = state.books
+        .filter(b => b.status === "TBR" && b.wildcard)
         .filter(b => !search || b.title.toLowerCase().includes(search) || b.author.toLowerCase().includes(search))
         .filter(b => !tagFilter || b.tags.includes(tagFilter))
         .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999));
@@ -1192,6 +1506,11 @@
         ? tbr.map(b => bookCardHtml(b)).join("")
         : `<div class="empty">Nothing matches.</div>`;
       el.classList.remove("loading");
+
+      const lane = document.getElementById("wildcardLane");
+      const wildcardList = document.getElementById("wildcardList");
+      lane.hidden = wildcards.length === 0;
+      wildcardList.innerHTML = wildcards.map(b => bookCardHtml(b)).join("");
     }
 
     function renderLibrary() {
@@ -1306,6 +1625,88 @@
       t._timer = setTimeout(() => t.classList.remove("show"), ms);
     }
 
+    async function createAiQueueTask({ taskType, title, bookId, context, outputSummary, trace }) {
+      return notion("/pages", "POST", {
+        parent: { database_id: AI_QUEUE_DB_ID },
+        properties: {
+          "Task": { title: rt(title || taskType) },
+          "Task Type": { select: { name: taskType } },
+          "Status": { select: { name: "Pending" } },
+          "Source": { select: { name: "App" } },
+          "Created": { date: { start: new Date().toISOString().slice(0, 10) } },
+          "Trigger Book": { relation: bookId ? [{ id: bookId }] : [] },
+          "Context Snapshot": { rich_text: richTextChunks(context || "") },
+          "Output Summary": { rich_text: richTextChunks(outputSummary || "") },
+          "Trace": { rich_text: richTextChunks(trace || "") }
+        }
+      });
+    }
+
+    async function createSentimentPivot(book, signals) {
+      if (!signals.appetite && signals.pivotLogic !== "Preference Strengthened" && signals.pivotLogic !== "Dealbreaker Confirmed") {
+        return null;
+      }
+      return notion("/pages", "POST", {
+        parent: { database_id: SENTIMENT_PIVOTS_DB_ID },
+        properties: {
+          "Pivot": { title: rt(`${signals.pivotLogic}: ${book.title}`) },
+          "Trigger Book": { relation: [{ id: book.id }] },
+          "Created": { date: { start: new Date().toISOString().slice(0, 10) } },
+          "Vector Shift": { rich_text: rt(signals.vector) },
+          "Contextual Logic": { select: { name: signals.pivotLogic } },
+          "Temporal Status": { select: { name: signals.temporalStatus } },
+          "Impact Summary": { rich_text: richTextChunks(signals.appetite || signals.whatChanged) }
+        }
+      });
+    }
+
+    function buildSynthesisContext(book, signals) {
+      const recent = [...state.books]
+        .filter(b => b.rating != null)
+        .sort((a, b) => String(b.dateFinished || "").localeCompare(String(a.dateFinished || "")))
+        .slice(0, 8)
+        .map(b => `- ${b.title} | ${b.rating} ${ratingLabel(b.rating)} | ${b.tags.join(", ")} | liked: ${b.liked || "n/a"} | disliked: ${b.disliked || "n/a"}`)
+        .join("\n");
+      const tbr = state.books
+        .filter(b => b.status === "TBR")
+        .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999))
+        .slice(0, 20)
+        .map(b => `- ${b.wildcard ? "[Wildcard] " : ""}${b.title} by ${b.author || "Unknown"} | rank ${b.tbrRank || "n/a"} | why: ${b.whyItFits || "n/a"}`)
+        .join("\n");
+
+      return `READING SYNTHESIS TASK
+Task: Review the new finished/rated entry, update current appetite, and recommend TBR rank implications. Be spoiler-free.
+
+Trigger book:
+- ${book.title} by ${book.author || "Unknown"}
+- Rating: ${book.rating} (${ratingLabel(book.rating)})
+- Liked: ${book.liked || "n/a"}
+- Disliked: ${book.disliked || "n/a"}
+- Reflection: ${book.reflection || "n/a"}
+
+App-generated trace:
+- Sentiment: ${signals.sentiment}
+- Vibe: ${signals.vibe.join(", ") || "none inferred"}
+- Appetite: ${signals.appetite || "none"}
+- Vector: ${signals.vector}
+- What changed: ${signals.whatChanged}
+
+Taste Profile:
+${state.profileMarkdown || "No taste profile captured yet."}
+
+Recent rated books:
+${recent || "None"}
+
+Current TBR:
+${tbr || "None"}
+
+Return:
+1. What changed, in 3 bullets max.
+2. TBR movements, if any.
+3. Whether this is transient or structural.
+4. Any wildcard candidate logic, without hard-dealbreaker violations.`;
+    }
+
     // ---- Finish-book ritual ----
     const finishRange = document.getElementById("finishRating");
     const finishVal = document.getElementById("finishRatingValue");
@@ -1332,12 +1733,14 @@
 
     document.getElementById("finishSave").addEventListener("click", async () => {
       const pageId = document.getElementById("finishPageId").value;
+      const bookBefore = state.books.find(b => b.id === pageId) || { id: pageId, title: "Untitled", author: "" };
       const rating = parseFloat(finishRange.value);
       const liked = document.getElementById("finishLiked").value.trim();
       const disliked = document.getElementById("finishDisliked").value.trim();
       const reflection = document.getElementById("finishReflection").value.trim();
       const today = new Date().toISOString().slice(0, 10);
       const newStatus = rating <= 1.5 ? "DNF" : "Finished";
+      const signals = buildReadingSignals(bookBefore, rating, liked, disliked, reflection);
 
       try {
         await notion(`/pages/${pageId}`, "PATCH", {
@@ -1347,30 +1750,46 @@
             "Date Finished": { date: { start: today } },
             "Liked": { rich_text: rt(liked) },
             "Disliked": { rich_text: rt(disliked) },
-            "Reflection": { rich_text: rt(reflection) }
+            "Reflection": { rich_text: rt(reflection) },
+            "Ready for AI": { checkbox: true },
+            "AI Status": { select: { name: "Ready for AI" } },
+            "What Changed": { rich_text: richTextChunks(signals.whatChanged) },
+            "Vibe": { multi_select: signals.vibe.map(name => ({ name })) },
+            "Dealbreakers": { rich_text: richTextChunks(signals.dealbreakers) },
+            "Sentiment": { select: { name: signals.sentiment } },
+            "Current Appetite Signal": { rich_text: richTextChunks(signals.appetite) }
           }
         });
-        closeModal("finishModal");
-        toast("Saved. Refreshing…");
-        await refresh();
 
-        const book = state.books.find(b => b.id === pageId);
-        if (book) {
-          const msg = `I just finished "${book.title}" by ${book.author || "?"} and rated it ${rating} (${ratingLabel(rating)}).\n\nLiked: ${liked || "—"}\nDisliked: ${disliked || "—"}\nReflection: ${reflection || "—"}\n\nUpdate my taste profile and tell me what this changes about my next reads.`;
-          appendChatUI("user", msg);
-          state.chatHistory.push({ role: "user", content: msg });
-
-          try {
-            const model = await updateTasteProfileFromFinish(book, rating, liked, disliked, reflection);
-            if (model) {
-              appendChatUI("assistant", `Taste profile updated and saved via ${model}.`);
-            }
-          } catch (err) {
-            appendChatUI("error", `Taste profile recalibration failed: ${err.message}`);
-          }
-
-          await sendChat();
+        const queuedBook = {
+          ...bookBefore,
+          rating,
+          status: newStatus,
+          liked,
+          disliked,
+          reflection,
+          dateFinished: today
+        };
+        const context = buildSynthesisContext(queuedBook, signals);
+        try {
+          await createAiQueueTask({
+            taskType: "Finished Book Synthesis",
+            title: `Synthesize ${queuedBook.title}`,
+            bookId: pageId,
+            context,
+            outputSummary: signals.whatChanged,
+            trace: signals.vector
+          });
+          await createSentimentPivot(queuedBook, signals);
+        } catch (queueErr) {
+          console.warn("AI queue write failed", queueErr);
+          toast("Saved; queue write needs attention", 3600);
         }
+
+        state.lastSignal = { book: queuedBook, signals };
+        closeModal("finishModal");
+        toast("Saved. Ready for AI synthesis.");
+        await refresh();
       } catch (err) {
         toast("Save failed: " + err.message, 4000);
       }
@@ -1384,25 +1803,140 @@
       const author = document.getElementById("addAuthor").value.trim();
       const status = document.getElementById("addStatus").value;
       const source = document.getElementById("addSource").value.trim();
+      const wildcard = document.getElementById("addWildcard").checked;
+      const whyFits = document.getElementById("addWhyFits").value.trim();
+      const whyStretches = document.getElementById("addWhyStretches").value.trim();
       try {
-        await notion("/pages", "POST", {
+        const created = await notion("/pages", "POST", {
           parent: { database_id: BOOKS_DB_ID },
           properties: {
             "Title": { title: rt(title) },
             "Author": { rich_text: rt(author) },
             "Status": { select: { name: status } },
-            "Source": { rich_text: rt(source) }
+            "Source": { rich_text: rt(source) },
+            "Ready for AI": { checkbox: status === "TBR" },
+            "AI Status": { select: { name: status === "TBR" ? "Ready for AI" : "Idle" } },
+            "Wildcard": { checkbox: wildcard },
+            "Why It Fits": { rich_text: richTextChunks(whyFits) },
+            "Why It Stretches": { rich_text: richTextChunks(whyStretches) }
           }
         });
+        if (status === "TBR") {
+          try {
+            await createAiQueueTask({
+              taskType: wildcard ? "Wildcard Review" : "TBR Cleanup",
+              title: `${wildcard ? "Review wildcard" : "Rank TBR"}: ${title}`,
+              bookId: created.id,
+              context: `New ${wildcard ? "wildcard" : "TBR"} book added.\nTitle: ${title}\nAuthor: ${author || "Unknown"}\nSource: ${source || "n/a"}\nWhy it might work: ${whyFits || "n/a"}\nWhy it stretches: ${whyStretches || "n/a"}\n\nTaste Profile:\n${state.profileMarkdown || "No taste profile captured yet."}`,
+              outputSummary: wildcard ? "New wildcard needs fit check without polluting ranked TBR." : "New TBR title needs ranking and fit explanation.",
+              trace: "Created by Add Book action."
+            });
+          } catch (queueErr) {
+            console.warn("AI queue write failed", queueErr);
+          }
+        }
         closeModal("addBookModal");
         document.getElementById("addTitle").value = "";
         document.getElementById("addAuthor").value = "";
         document.getElementById("addSource").value = "";
-        toast("Added. Refreshing…");
+        document.getElementById("addWildcard").checked = false;
+        document.getElementById("addWhyFits").value = "";
+        document.getElementById("addWhyStretches").value = "";
+        toast(status === "TBR" ? "Added. Ready for AI ranking." : "Added. Refreshing…");
         await refresh();
       } catch (err) {
         toast("Add failed: " + err.message, 4000);
       }
+    });
+
+    function buildBookBuddyContext(mode = "chat", extra = {}) {
+      const rated = [...state.books]
+        .filter(b => b.rating != null)
+        .sort((a, b) => String(b.dateFinished || "").localeCompare(String(a.dateFinished || "")))
+        .slice(0, 12)
+        .map(b => `- ${b.title} by ${b.author || "Unknown"} | ${b.rating} ${ratingLabel(b.rating)} | ${b.tags.join(", ") || "no tags"} | liked: ${b.liked || "n/a"} | disliked: ${b.disliked || "n/a"} | changed: ${b.whatChanged || "n/a"}`)
+        .join("\n");
+      const tbr = state.books
+        .filter(b => b.status === "TBR" && !b.wildcard)
+        .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999))
+        .slice(0, 25)
+        .map(b => `- ${b.title} by ${b.author || "Unknown"} | predicted ${b.predictedRating || "n/a"} | rank ${b.tbrRank || "n/a"} | why: ${b.whyItFits || "n/a"}`)
+        .join("\n");
+      const wildcards = state.books
+        .filter(b => b.status === "TBR" && b.wildcard)
+        .map(b => `- ${b.title} by ${b.author || "Unknown"} | why it might work: ${b.whyItFits || "n/a"} | why it stretches: ${b.whyItStretches || "n/a"}`)
+        .join("\n");
+      const appetite = state.books
+        .filter(b => b.currentAppetiteSignal)
+        .sort((a, b) => String(b.dateFinished || "").localeCompare(String(a.dateFinished || "")))
+        .slice(0, 5)
+        .map(b => `- ${b.title}: ${b.currentAppetiteSignal}`)
+        .join("\n");
+
+      const taskLine = mode === "synthesis"
+        ? "Review new Ready for AI entries and produce concise updates to What Changed, Current Appetite, TBR movement, and any Sentiment Pivots."
+        : mode === "vet-list"
+          ? `Vet this pasted list as ADD / MAYBE / SKIP, spoiler-free:\n${extra.list || ""}`
+          : extra.prompt || "Have a spoiler-free book conversation using this context.";
+
+      return `BOOK BUDDY CONTEXT
+Task: ${taskLine}
+Tone: direct, spoiler-free, no plot reveals. Respect hard dislikes and keep wildcards separate from normal TBR.
+
+Taste Profile:
+${state.profileMarkdown || "No taste profile captured yet."}
+
+Current Appetite:
+${appetite || "No active temporary appetite signals."}
+
+Recent Rated Books:
+${rated || "No rated books captured."}
+
+Ranked TBR:
+${tbr || "No TBR captured."}
+
+Wildcard Lane:
+${wildcards || "No active wildcards."}
+
+Today: ${new Date().toISOString().slice(0, 10)}`;
+    }
+
+    async function copyText(text) {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      return ok;
+    }
+
+    async function openBookBuddy(mode = "chat", extra = {}) {
+      const context = buildBookBuddyContext(mode, extra);
+      try {
+        await copyText(context);
+        toast("Book Buddy context prepared");
+      } catch (err) {
+        toast("Open Book Buddy, then use Copy context", 3600);
+      }
+      window.open(BOOK_BUDDY_URL, "_blank", "noopener");
+    }
+
+    document.getElementById("openBookBuddyBtn").addEventListener("click", () => openBookBuddy("chat"));
+    document.getElementById("copyBuddyContextBtn").addEventListener("click", async () => {
+      await copyText(buildBookBuddyContext("chat"));
+      toast("Context copied");
+    });
+    document.getElementById("copySynthesisPacketBtn").addEventListener("click", async () => {
+      await copyText(buildBookBuddyContext("synthesis"));
+      toast("Synthesis packet copied");
     });
 
     // ---- Vet a list ----
@@ -1414,162 +1948,13 @@
       const list = document.getElementById("vetInput").value.trim();
       if (!list) { toast("Paste a list first"); return; }
       const resEl = document.getElementById("vetResults");
-      resEl.innerHTML = `<div class="loading">Analyzing…</div>`;
+      resEl.innerHTML = `<div class="loading">Preparing Book Buddy handoff…</div>`;
       try {
-        const reply = await callChat([{
-          role: "user",
-          content: `Vet this list against my taste profile. For each book, classify as ADD / MAYBE / SKIP with a one-sentence spoiler-free reason. If a book is already in my library or TBR, say so.\n\nList:\n${list}`
-        }]);
-        resEl.innerHTML = `<div class="profile-content">${formatChatHtml(reply.response)}</div><div class="ai-badge" style="margin-top:8px;">via ${escapeHtml(reply.model)}</div>`;
+        await openBookBuddy("vet-list", { list });
+        resEl.innerHTML = `<div class="profile-content">Book Buddy context is ready. Paste it into the chat to classify the list as ADD / MAYBE / SKIP.</div>`;
       } catch (err) {
         resEl.innerHTML = `<div class="chat-msg error">${escapeHtml(err.message)}</div>`;
       }
-    });
-
-    // ---- Chat ----
-    function buildChatContext() {
-      const pf = state.profileMarkdown;
-      const compact = state.books.map(b => {
-        const tags = b.tags.length ? ` [${b.tags.join(", ")}]` : "";
-        const r = b.rating != null ? ` ${b.rating}★` : (b.predictedRating != null ? ` predicted ${b.predictedRating}★` : "");
-        const note = b.disliked ? ` — disliked: ${b.disliked.slice(0, 80)}` : (b.liked ? ` — liked: ${b.liked.slice(0, 80)}` : "");
-        const why = b.whyItFits ? ` — why fits: ${b.whyItFits}` : "";
-        return `- ${b.status}${r} | ${b.title} — ${b.author}${tags}${why}${note}`;
-      }).join("\n");
-      return `TASTE PROFILE:\n${pf}\n\nBOOK LOG (compact):\n${compact}\n\nToday: ${new Date().toISOString().slice(0,10)}`;
-    }
-
-    async function callChat(messages, options = {}) {
-      const controller = new AbortController();
-      const timeoutMs = options.timeoutMs || 45000;
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      const r = await fetch("/api/reading-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, context: buildChatContext(), mode: options.mode || "chat" }),
-        signal: controller.signal
-      }).catch(err => {
-        if (err.name === "AbortError") {
-          throw new Error("Reading AI timed out. Your rating was saved, but recalibration did not finish.");
-        }
-        throw err;
-      }).finally(() => clearTimeout(timer));
-
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({}));
-        const details = Array.isArray(j.details) && j.details.length ? ` (${j.details.join("; ")})` : "";
-        throw new Error((j.error || `Chat ${r.status}`) + details);
-      }
-      return r.json();
-    }
-
-    function stripMarkdownFence(text) {
-      return String(text || "")
-        .replace(/^```(?:markdown|md)?\s*/i, "")
-        .replace(/```$/i, "")
-        .trim();
-    }
-
-    async function updateTasteProfileFromFinish(book, rating, liked, disliked, reflection) {
-      if (!state.profileMarkdown.trim()) return false;
-
-      const prompt = `Update my Taste Profile markdown after this finished book. Return ONLY the complete updated Taste Profile markdown, no preface and no code fence.
-
-Keep the existing structure as much as possible. Preserve what is still true. Add or tighten signals from the new rating. Use concise, direct language.
-
-Finished book:
-- Title: ${book.title}
-- Author: ${book.author || "Unknown"}
-- Rating: ${rating} (${ratingLabel(rating)})
-- Liked: ${liked || "none captured"}
-- Disliked: ${disliked || "none captured"}
-- Reflection: ${reflection || "none captured"}
-
-Current Taste Profile markdown:
-${state.profileMarkdown}`;
-
-      const reply = await callChat([{ role: "user", content: prompt }], {
-        mode: "taste-profile-update",
-        timeoutMs: 60000
-      });
-      const nextMarkdown = stripMarkdownFence(reply.response);
-      if (nextMarkdown.length < 40) {
-        throw new Error("Reading AI returned an empty taste profile update.");
-      }
-      await saveTasteProfileMarkdown(nextMarkdown);
-      return reply.model || "Reading AI";
-    }
-
-    function formatChatHtml(text) {
-      const escaped = escapeHtml(text);
-      return escaped
-        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-        .replace(/\n/g, "<br>");
-    }
-
-    function appendChatUI(role, content) {
-      const win = document.getElementById("chatWindow");
-      const empty = win.querySelector(".chat-empty");
-      if (empty) empty.remove();
-      const div = document.createElement("div");
-      div.className = `chat-msg ${role}`;
-      div.innerHTML = formatChatHtml(content);
-      win.appendChild(div);
-      win.scrollTop = win.scrollHeight;
-    }
-
-    async function sendChat() {
-      if (state.chatBusy) return null;
-      state.chatBusy = true;
-      const win = document.getElementById("chatWindow");
-      const thinking = document.createElement("div");
-      thinking.className = "chat-msg assistant";
-      thinking.textContent = "Thinking…";
-      win.appendChild(thinking);
-      win.scrollTop = win.scrollHeight;
-
-      try {
-        const reply = await callChat(state.chatHistory);
-        thinking.remove();
-        appendChatUI("assistant", reply.response);
-        state.chatHistory.push({ role: "assistant", content: reply.response });
-        document.getElementById("aiModelBadge").textContent = `via ${reply.model}`;
-        return reply;
-      } catch (err) {
-        thinking.remove();
-        appendChatUI("error", `Chat failed: ${err.message}`);
-        document.getElementById("aiModelBadge").textContent = "chat unavailable";
-        return null;
-      } finally {
-        state.chatBusy = false;
-      }
-    }
-
-    document.getElementById("chatForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const input = document.getElementById("chatInput");
-      const text = input.value.trim();
-      if (!text) return;
-      appendChatUI("user", text);
-      state.chatHistory.push({ role: "user", content: text });
-      input.value = "";
-      await sendChat();
-    });
-
-    document.getElementById("chatClear").addEventListener("click", () => {
-      state.chatHistory = [];
-      document.getElementById("chatWindow").innerHTML = `<div class="chat-empty">Cleared. Start a new conversation.</div>`;
-      document.getElementById("aiModelBadge").textContent = "awaiting first message";
-    });
-
-    document.querySelectorAll(".chat-quick button").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const prompt = btn.dataset.prompt;
-        appendChatUI("user", prompt);
-        state.chatHistory.push({ role: "user", content: prompt });
-        sendChat();
-      });
     });
 
     // ---- Book card delegated click handler ----
@@ -1586,12 +1971,9 @@ ${state.profileMarkdown}`;
         openFinishModal(book);
       } else if (action === "why") {
         const msg = book.status === "TBR"
-          ? `Tell me, spoiler-free, why "${book.title}" by ${book.author} fits my taste — atmosphere, structure, what to expect emotionally. Keep it under 5 sentences.`
-          : `Let's discuss "${book.title}" by ${book.author}. I rated it ${book.rating ?? "?"} (${ratingLabel(book.rating)}). What does this rating signal about my taste, and what should I read next?`;
-        appendChatUI("user", msg);
-        state.chatHistory.push({ role: "user", content: msg });
-        sendChat();
-        document.getElementById("chatWindow").scrollIntoView({ behavior: "smooth", block: "start" });
+          ? `Tell me, spoiler-free, why "${book.title}" by ${book.author || "Unknown"} fits my taste. Include why it might work, any risk, and whether it belongs in the normal TBR or wildcard lane.`
+          : `Let's discuss "${book.title}" by ${book.author || "Unknown"}. I rated it ${book.rating ?? "?"} (${ratingLabel(book.rating)}). What does this rating signal about my taste, current appetite, and next reads?`;
+        openBookBuddy("chat", { prompt: msg });
       }
     });
 
@@ -1611,6 +1993,7 @@ ${state.profileMarkdown}`;
         state.profileMarkdown = blocksToMarkdown(profileBlocks);
         populateTagFilters();
         renderStats();
+        renderIntelligence();
         renderTBR();
         renderLibrary();
         renderTasteProfile();
