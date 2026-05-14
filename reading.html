@@ -688,6 +688,22 @@
       cursor: pointer;
       color: var(--muted);
     }
+    .import-preview {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.52);
+      color: var(--ink);
+      font-size: 0.88rem;
+      line-height: 1.45;
+    }
+    .import-preview ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+    .import-preview li { margin: 4px 0; }
+    .import-preview .warning { color: #794327; }
     .check-row {
       display: flex !important;
       align-items: center;
@@ -825,6 +841,7 @@
         <p class="signal-body" id="bridgeStatus">Open Book Buddy when you want a conversation; the app prepares the latest taste profile, TBR, recent ratings, appetite signals, and wildcard lane.</p>
         <div class="bridge-actions">
           <button class="btn btn-primary" id="openBookBuddyBtn" type="button">Open Book Buddy</button>
+          <button class="btn" id="importSynthesisBtn" type="button">Import synthesis</button>
         </div>
         <details class="bridge-fallback">
           <summary>Manual handoff tools</summary>
@@ -907,6 +924,21 @@
     </div>
   </div>
 
+  <!-- Import synthesis modal -->
+  <div class="modal-backdrop" id="importSynthesisModal">
+    <div class="modal" role="dialog" aria-labelledby="importSynthesisTitle">
+      <h3 id="importSynthesisTitle">Import Book Buddy synthesis</h3>
+      <p class="modal-sub">Paste the Book Buddy result. A structured apply packet works best; prose can be previewed when possible.</p>
+      <textarea id="synthesisInput" placeholder="Paste Book Buddy synthesis or APPLY_PACKET JSON..." style="min-height: 190px;"></textarea>
+      <div id="synthesisPreview" class="import-preview" hidden></div>
+      <div class="modal-actions">
+        <button class="btn" type="button" data-close-modal="importSynthesisModal">Cancel</button>
+        <button class="btn" type="button" id="previewSynthesisBtn">Preview</button>
+        <button class="btn btn-primary" type="button" id="applySynthesisBtn" disabled>Apply updates</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
@@ -923,6 +955,7 @@
       profileMarkdown: "",
       profileBlocks: [],
       lastSignal: null,
+      pendingSynthesisPacket: null,
       currentYear: new Date().getFullYear()
     };
 
@@ -958,6 +991,22 @@
       return String(s == null ? "" : s).replace(/[&<>"']/g, m => ({
         "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
       }[m]));
+    }
+
+    function titleKey(title) {
+      return String(title || "")
+        .normalize("NFKD")
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/^the\s+/i, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
+    }
+
+    function findBookByTitle(title) {
+      const key = titleKey(title);
+      if (!key) return null;
+      return state.books.find(b => titleKey(b.title) === key)
+        || state.books.find(b => titleKey(b.title).includes(key) || key.includes(titleKey(b.title)));
     }
 
     // ---- Fetch all books ----
@@ -1660,6 +1709,286 @@
       });
     }
 
+    async function createSentimentPivotFromPacket(book, pivot, fallbackSummary = "") {
+      if (!book || !pivot) return null;
+      const logic = validOption(
+        pivot.logic || pivot.contextualLogic,
+        ["Trope Fatigue", "Cognitive Burnout", "Niche Curiosity", "Fresh Appetite", "Dealbreaker Confirmed", "Preference Strengthened"],
+        "Preference Strengthened"
+      );
+      const status = validOption(pivot.status || pivot.temporalStatus, ["Transient", "Structural"], "Structural");
+      return notion("/pages", "POST", {
+        parent: { database_id: SENTIMENT_PIVOTS_DB_ID },
+        properties: {
+          "Pivot": { title: rt(`${logic}: ${book.title}`) },
+          "Trigger Book": { relation: [{ id: book.id }] },
+          "Created": { date: { start: new Date().toISOString().slice(0, 10) } },
+          "Vector Shift": { rich_text: richTextChunks(pivot.vectorShift || "") },
+          "Contextual Logic": { select: { name: logic } },
+          "Temporal Status": { select: { name: status } },
+          "Impact Summary": { rich_text: richTextChunks(pivot.impactSummary || fallbackSummary || "") }
+        }
+      });
+    }
+
+    function findBalancedJson(text, startIndex) {
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+      for (let i = startIndex; i < text.length; i++) {
+        const char = text[i];
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (char === '"') {
+          inString = !inString;
+          continue;
+        }
+        if (inString) continue;
+        if (char === "{") depth += 1;
+        if (char === "}") {
+          depth -= 1;
+          if (depth === 0) return text.slice(startIndex, i + 1);
+        }
+      }
+      return "";
+    }
+
+    function extractJsonPacket(text) {
+      const raw = String(text || "");
+      const fences = [...raw.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)].map(m => m[1].trim());
+      for (const fence of fences) {
+        try {
+          const parsed = JSON.parse(fence);
+          if (parsed && typeof parsed === "object") return parsed;
+        } catch {}
+      }
+
+      const markerIndex = raw.search(/APPLY_PACKET|apply packet/i);
+      const searchStart = markerIndex >= 0 ? markerIndex : 0;
+      const open = raw.indexOf("{", searchStart);
+      if (open >= 0) {
+        const candidate = findBalancedJson(raw, open);
+        if (candidate) {
+          try { return JSON.parse(candidate); } catch {}
+        }
+      }
+      return null;
+    }
+
+    function stripMarkdownMarkup(value) {
+      return String(value || "")
+        .replace(/\*\*/g, "")
+        .replace(/(^|\s)\*([^*\n]+)\*/g, "$1$2")
+        .replace(/[“”]/g, '"')
+        .replace(/[‘’]/g, "'")
+        .trim();
+    }
+
+    function proseToApplyPacket(text) {
+      const raw = String(text || "");
+      const clean = stripMarkdownMarkup(raw);
+      const packet = {
+        tasteProfileUpdate: "",
+        triggerBookUpdate: null,
+        tbrUpdates: [],
+        notes: "Parsed from prose. Review preview before applying."
+      };
+
+      const section = (heading, nextHeadingPattern) => {
+        const pattern = new RegExp(`${heading}\\s*([\\s\\S]*?)(?:\\n\\s*##\\s*(?:${nextHeadingPattern})|$)`, "i");
+        const match = raw.match(pattern);
+        return match ? stripMarkdownMarkup(match[1]).trim() : "";
+      };
+      const sourceHeading = raw.match(/Clean Source-of-Truth Version\s*([\s\S]*)$/i);
+      const profilePieces = [];
+      const corePattern = section("Core 5[★*]? Pattern", "Biggest New Calibration Signal");
+      const calibrationSignal = section("Biggest New Calibration Signal:[^\\n]*", "What Usually Fails for You");
+      const fails = section("What Usually Fails for You", "Recommendation Rule Going Forward");
+      const rules = section("Recommendation Rule Going Forward", "Current TBR Interpretation");
+      if (corePattern) profilePieces.push(`## 6-Part Loved Formula\n${corePattern}`);
+      if (calibrationSignal) profilePieces.push(`## Current Anchor\n${calibrationSignal}`);
+      if (fails) profilePieces.push(`## Downrank / Avoid Patterns\n${fails}`);
+      if (rules) profilePieces.push(`## Recommendation Rule\n${rules}`);
+      if (sourceHeading) {
+        const source = stripMarkdownMarkup(sourceHeading[1]).split(/\n#{1,4}\s+/)[0].trim();
+        if (source) profilePieces.unshift(`## Source of Truth\n${source.replace(/^[:\s]+/, "")}`);
+      }
+      packet.tasteProfileUpdate = profilePieces.join("\n\n");
+
+      const anchor = raw.match(/Biggest New Calibration Signal:\s*(.+)/i);
+      if (anchor) {
+        const title = stripMarkdownMarkup(anchor[1]).replace(/^[:\s]+/, "");
+        const keyUpdate = clean.match(/The key update:\s*([\s\S]*?)(?:\n\s*##|\n\s*###|$)/i);
+        packet.triggerBookUpdate = {
+          title,
+          whatChanged: keyUpdate
+            ? stripMarkdownMarkup(keyUpdate[1])
+            : `${title} became a major taste anchor and should influence future recommendations.`,
+          currentAppetiteSignal: "Preference Strengthened: rank books higher when they combine active haunting pressure, emotional attachment, escalation, and spiritual or existential stakes.",
+          aiStatus: "Applied",
+          pivot: {
+            status: "Structural",
+            logic: "Preference Strengthened",
+            vectorShift: "Paranormal Intensity +3, Spiritual Stakes +3, Ensemble Attachment +2, Pacing +2",
+            impactSummary: `${title} strengthened the core loved pattern.`
+          }
+        };
+      }
+
+      const rankMatches = [...raw.matchAll(/\*\*\s*(\d+)\.\s*\*?([^*\n]+?)\*?\s*\*\*([\s\S]*?)(?=\n\s*\*\*\s*\d+\.|\n\s*###|\n\s*##|$)/g)];
+      rankMatches.forEach(match => {
+        const rank = Number(match[1]);
+        const title = stripMarkdownMarkup(match[2]);
+        const blurb = stripMarkdownMarkup(match[3]).replace(/\s+/g, " ").trim();
+        if (title) {
+          packet.tbrUpdates.push({
+            title,
+            rank,
+            wildcard: /wildcard|experimental|riskier/i.test(blurb) && /house of leaves/i.test(title),
+            whyItFits: blurb.slice(0, 240)
+          });
+        }
+      });
+
+      if (/House of Leaves/i.test(raw) && !packet.tbrUpdates.some(b => /house of leaves/i.test(b.title))) {
+        packet.tbrUpdates.push({
+          title: "House of Leaves",
+          wildcard: true,
+          whyItFits: "House and reality-break appeal.",
+          whyItStretches: "Experimental form is a serious taste risk."
+        });
+      }
+
+      return packet;
+    }
+
+    function normalizeSynthesisPacket(input) {
+      const packet = input && typeof input === "object" ? { ...input } : {};
+      if (!packet.tbrUpdates && Array.isArray(packet.tbr)) packet.tbrUpdates = packet.tbr;
+      if (!packet.tbrUpdates && Array.isArray(packet.recommendations)) packet.tbrUpdates = packet.recommendations;
+      if (!Array.isArray(packet.tbrUpdates)) packet.tbrUpdates = [];
+      if (packet.triggerBook && !packet.triggerBookUpdate) packet.triggerBookUpdate = packet.triggerBook;
+      packet.tbrUpdates = packet.tbrUpdates.map(update => ({
+        ...update,
+        rank: update.rank == null ? undefined : Number(update.rank),
+        predictedRating: update.predictedRating == null ? undefined : Number(update.predictedRating)
+      }));
+      return packet;
+    }
+
+    function parseSynthesisInput(text) {
+      const parsedJson = extractJsonPacket(text);
+      return normalizeSynthesisPacket(parsedJson || proseToApplyPacket(text));
+    }
+
+    function summarizeSynthesisPacket(packet) {
+      const warnings = [];
+      const matchedTrigger = packet.triggerBookUpdate?.title ? findBookByTitle(packet.triggerBookUpdate.title) : null;
+      if (packet.triggerBookUpdate?.title && !matchedTrigger) {
+        warnings.push(`Could not match trigger book "${packet.triggerBookUpdate.title}".`);
+      }
+      const tbrMatches = packet.tbrUpdates.map(update => ({
+        update,
+        book: findBookByTitle(update.title)
+      }));
+      tbrMatches.filter(item => !item.book).forEach(item => warnings.push(`Could not match TBR title "${item.update.title}".`));
+
+      const bits = [];
+      if (packet.tasteProfileUpdate) bits.push("<li>Taste Profile replacement detected.</li>");
+      if (packet.triggerBookUpdate) bits.push(`<li>Trigger book update: ${escapeHtml(packet.triggerBookUpdate.title || "untitled")}</li>`);
+      if (packet.tbrUpdates.length) bits.push(`<li>${packet.tbrUpdates.length} TBR update${packet.tbrUpdates.length === 1 ? "" : "s"} detected.</li>`);
+      if (packet.triggerBookUpdate?.pivot) bits.push("<li>Sentiment Pivot detected.</li>");
+      if (!bits.length) bits.push("<li>No apply-ready updates detected yet.</li>");
+
+      return `
+        <strong>Preview</strong>
+        <ul>${bits.join("")}</ul>
+        ${warnings.length ? `<p class="warning">${warnings.map(escapeHtml).join("<br>")}</p>` : ""}
+      `;
+    }
+
+    function addRichProperty(properties, name, value) {
+      if (value == null) return;
+      properties[name] = { rich_text: richTextChunks(value) };
+    }
+
+    function validOption(value, allowed, fallback = "") {
+      const found = allowed.find(option => option.toLowerCase() === String(value || "").toLowerCase());
+      return found || fallback;
+    }
+
+    async function applyTriggerBookUpdate(update) {
+      if (!update?.title) return { applied: false, reason: "No trigger title" };
+      const book = findBookByTitle(update.title);
+      if (!book) return { applied: false, reason: `No match for ${update.title}` };
+
+      const properties = {
+        "Ready for AI": { checkbox: false },
+        "AI Status": { select: { name: update.aiStatus || "Applied" } },
+        "Last AI Review": { date: { start: new Date().toISOString().slice(0, 10) } }
+      };
+      addRichProperty(properties, "What Changed", update.whatChanged);
+      addRichProperty(properties, "Current Appetite Signal", update.currentAppetiteSignal);
+      addRichProperty(properties, "Dealbreakers", update.dealbreakers);
+      const sentiment = validOption(update.sentiment, ["Strong Positive", "Positive", "Mixed", "Negative", "Avoid/DNF"]);
+      if (sentiment) properties.Sentiment = { select: { name: sentiment } };
+      if (Array.isArray(update.vibe)) {
+        const vibes = update.vibe
+          .map(name => validOption(name, ["Atmospheric", "Fast Paced", "Slow Burn", "Claustrophobic", "Emotional", "Strange", "Light Reset"]))
+          .filter(Boolean);
+        if (vibes.length) properties.Vibe = { multi_select: vibes.map(name => ({ name })) };
+      }
+
+      await notion(`/pages/${book.id}`, "PATCH", { properties });
+      if (update.pivot) {
+        await createSentimentPivotFromPacket(book, update.pivot, update.whatChanged || update.currentAppetiteSignal);
+      }
+      return { applied: true, title: book.title };
+    }
+
+    async function applyTbrUpdate(update) {
+      if (!update?.title) return { applied: false, reason: "No TBR title" };
+      const book = findBookByTitle(update.title);
+      if (!book) return { applied: false, reason: `No match for ${update.title}` };
+
+      const properties = {
+        "Ready for AI": { checkbox: false },
+        "AI Status": { select: { name: "Applied" } },
+        "Last AI Review": { date: { start: new Date().toISOString().slice(0, 10) } }
+      };
+      if (Number.isFinite(update.rank)) properties["TBR Rank"] = { number: update.rank };
+      if (Number.isFinite(update.predictedRating)) properties["Predicted Rating"] = { number: update.predictedRating };
+      if (typeof update.wildcard === "boolean") properties.Wildcard = { checkbox: update.wildcard };
+      addRichProperty(properties, "Why It Fits", update.whyItFits);
+      addRichProperty(properties, "Why It Stretches", update.whyItStretches);
+
+      await notion(`/pages/${book.id}`, "PATCH", { properties });
+      return { applied: true, title: book.title };
+    }
+
+    async function applySynthesisPacket(packet) {
+      const results = [];
+      if (packet.tasteProfileUpdate) {
+        await saveTasteProfileMarkdown(packet.tasteProfileUpdate);
+        results.push("Taste Profile");
+      }
+      if (packet.triggerBookUpdate) {
+        const result = await applyTriggerBookUpdate(packet.triggerBookUpdate);
+        if (result.applied) results.push(result.title);
+      }
+      for (const update of packet.tbrUpdates) {
+        const result = await applyTbrUpdate(update);
+        if (result.applied) results.push(result.title);
+      }
+      return results;
+    }
+
     function buildSynthesisContext(book, signals) {
       const recent = [...state.books]
         .filter(b => b.rating != null)
@@ -1849,6 +2178,40 @@ Return:
       }
     });
 
+    function applyPacketInstructions() {
+      return `If you synthesize changes, end with this exact marker and valid JSON. Keep prose above it if helpful, but the JSON must be parseable.
+
+APPLY_PACKET
+{
+  "tasteProfileUpdate": "Complete updated Taste Profile text. Use concise headings and bullets if helpful.",
+  "triggerBookUpdate": {
+    "title": "Exact finished book title",
+    "whatChanged": "Short traceable summary of what changed after this book.",
+    "currentAppetiteSignal": "Temporary or structural appetite signal.",
+    "sentiment": "Strong Positive",
+    "vibe": ["Atmospheric"],
+    "dealbreakers": "",
+    "aiStatus": "Applied",
+    "pivot": {
+      "status": "Structural",
+      "logic": "Preference Strengthened",
+      "vectorShift": "Possession +3, Spiritual Stakes +3, Ensemble +2, Pacing +2",
+      "impactSummary": "Why this pivot matters."
+    }
+  },
+  "tbrUpdates": [
+    {
+      "title": "Exact TBR title",
+      "rank": 1,
+      "predictedRating": 5,
+      "wildcard": false,
+      "whyItFits": "One spoiler-free fit line.",
+      "whyItStretches": ""
+    }
+  ]
+}`;
+    }
+
     function buildBookBuddyContext(mode = "chat", extra = {}) {
       const rated = [...state.books]
         .filter(b => b.rating != null)
@@ -1898,7 +2261,9 @@ ${tbr || "No TBR captured."}
 Wildcard Lane:
 ${wildcards || "No active wildcards."}
 
-Today: ${new Date().toISOString().slice(0, 10)}`;
+Today: ${new Date().toISOString().slice(0, 10)}
+
+${applyPacketInstructions()}`;
     }
 
     async function copyText(text) {
@@ -1928,6 +2293,52 @@ Today: ${new Date().toISOString().slice(0, 10)}`;
       }
       window.open(BOOK_BUDDY_URL, "_blank", "noopener");
     }
+
+    document.getElementById("importSynthesisBtn").addEventListener("click", () => {
+      document.getElementById("synthesisInput").value = "";
+      const preview = document.getElementById("synthesisPreview");
+      preview.hidden = true;
+      preview.innerHTML = "";
+      state.pendingSynthesisPacket = null;
+      document.getElementById("applySynthesisBtn").disabled = true;
+      openModal("importSynthesisModal");
+    });
+
+    document.getElementById("previewSynthesisBtn").addEventListener("click", () => {
+      const text = document.getElementById("synthesisInput").value.trim();
+      if (!text) {
+        toast("Paste the synthesis first");
+        return;
+      }
+      const packet = parseSynthesisInput(text);
+      state.pendingSynthesisPacket = packet;
+      const preview = document.getElementById("synthesisPreview");
+      preview.innerHTML = summarizeSynthesisPacket(packet);
+      preview.hidden = false;
+      document.getElementById("applySynthesisBtn").disabled = false;
+    });
+
+    document.getElementById("applySynthesisBtn").addEventListener("click", async () => {
+      const button = document.getElementById("applySynthesisBtn");
+      const packet = state.pendingSynthesisPacket || parseSynthesisInput(document.getElementById("synthesisInput").value);
+      if (!packet) {
+        toast("No apply-ready synthesis found");
+        return;
+      }
+      try {
+        button.disabled = true;
+        button.textContent = "Applying";
+        const results = await applySynthesisPacket(packet);
+        closeModal("importSynthesisModal");
+        toast(results.length ? `Applied ${results.length} update${results.length === 1 ? "" : "s"}` : "Nothing matched to apply", 3200);
+        await refresh();
+      } catch (err) {
+        toast("Import failed: " + err.message, 5000);
+      } finally {
+        button.textContent = "Apply updates";
+        button.disabled = false;
+      }
+    });
 
     document.getElementById("openBookBuddyBtn").addEventListener("click", () => openBookBuddy("chat"));
     document.getElementById("copyBuddyContextBtn").addEventListener("click", async () => {
