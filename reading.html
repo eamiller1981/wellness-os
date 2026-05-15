@@ -666,6 +666,123 @@
       font-size: 0.84rem;
       line-height: 1.4;
     }
+    .movement-panel {
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.46);
+    }
+    .movement-panel[hidden] { display: none !important; }
+    .movement-heading {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .movement-list {
+      display: grid;
+      gap: 8px;
+    }
+    .movement-card {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.56);
+    }
+    .movement-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .movement-title {
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 0.98rem;
+      line-height: 1.25;
+    }
+    .movement-rank {
+      flex-shrink: 0;
+      color: #5f514a;
+      font-size: 0.8rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .movement-reason {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+    .movement-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .movement-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(128, 111, 100, 0.12);
+      color: var(--ink);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .movement-badge.up,
+    .movement-badge.anchor { background: rgba(95, 140, 95, 0.18); color: #3f6238; }
+    .movement-badge.down,
+    .movement-badge.pacing { background: rgba(180, 110, 80, 0.16); color: #794327; }
+    .movement-badge.current { background: rgba(120, 130, 170, 0.18); color: #3f4878; }
+    .movement-badge.payoff { background: rgba(180, 150, 90, 0.18); color: #715a26; }
+    .movement-badge.wildcard { background: rgba(170, 95, 180, 0.16); color: #6e3a78; }
+    .book-movement {
+      margin: 0;
+      color: #5f514a;
+      font-size: 0.82rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+    .automation-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 12px 0 14px;
+    }
+    @media (max-width: 720px) { .automation-grid { grid-template-columns: repeat(2, 1fr); } }
+    .automation-stat {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.48);
+    }
+    .automation-value {
+      display: block;
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.15rem;
+      line-height: 1.2;
+    }
+    .automation-label {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
     .bridge-card {
       padding: 16px;
       border: 1px solid var(--line);
@@ -771,6 +888,13 @@
         <h2>To Be Read</h2>
         <button class="btn btn-primary" id="addBookBtn" type="button">+ Add book</button>
       </div>
+      <div class="movement-panel" id="tbrMovementPanel" hidden>
+        <div class="movement-heading">
+          <span>TBR Movement</span>
+          <span id="movementUpdatedLabel">after synthesis</span>
+        </div>
+        <div class="movement-list" id="tbrMovementList"></div>
+      </div>
       <div class="filter-bar">
         <input type="search" id="tbrSearch" placeholder="Search TBR…" aria-label="Search TBR">
         <select id="tbrTagFilter" aria-label="Filter by tag">
@@ -833,18 +957,25 @@
 
     <!-- AI Book Buddy -->
     <section class="module-section" id="section-ai">
-      <h2>AI Book Buddy</h2>
-      <p class="section-sub">External, zero-API-fee handoff for spoiler-free book chat and deeper synthesis.</p>
+      <h2>Automation Status</h2>
+      <p class="section-sub">Claude is the reasoning layer. The app queues reading signals, the worker triggers synthesis, and the Reading page shows the trace.</p>
       <div class="bridge-card">
-        <span class="signal-label">Context Bridge</span>
-        <p class="signal-title">Book Buddy context is generated from the live Reading Log.</p>
-        <p class="signal-body" id="bridgeStatus">Open Book Buddy when you want a conversation; the app prepares the latest taste profile, TBR, recent ratings, appetite signals, and wildcard lane.</p>
+        <span class="signal-label">Claude Routine</span>
+        <p class="signal-title" id="automationTitle">Checking reading intelligence queue</p>
+        <p class="signal-body" id="bridgeStatus">The app is loading the latest AI status from Notion.</p>
+        <div class="automation-grid" aria-label="Reading automation status">
+          <div class="automation-stat"><span class="automation-value" id="aiPendingCount">0</span><span class="automation-label">Pending</span></div>
+          <div class="automation-stat"><span class="automation-value" id="aiProcessingCount">0</span><span class="automation-label">Processing</span></div>
+          <div class="automation-stat"><span class="automation-value" id="aiLastApplied">None</span><span class="automation-label">Last applied</span></div>
+          <div class="automation-stat"><span class="automation-value" id="aiAttentionCount">0</span><span class="automation-label">Needs attention</span></div>
+        </div>
         <div class="bridge-actions">
-          <button class="btn btn-primary" id="openBookBuddyBtn" type="button">Open Book Buddy</button>
+          <button class="btn btn-primary" id="runSynthesisBtn" type="button">Run synthesis</button>
+          <button class="btn" id="openBookBuddyBtn" type="button">Open Claude Book Buddy</button>
           <button class="btn" id="importSynthesisBtn" type="button">Import synthesis</button>
         </div>
         <details class="bridge-fallback">
-          <summary>Manual handoff tools</summary>
+          <summary>Fallback context bridge</summary>
           <div class="bridge-actions">
             <button class="btn" id="copyBuddyContextBtn" type="button">Copy context</button>
             <button class="btn" id="copySynthesisPacketBtn" type="button">Copy synthesis packet</button>
@@ -947,13 +1078,14 @@
     const TASTE_PROFILE_PAGE_ID = "350627ee-81db-81aa-87fd-e222e96e3e03";
     const AI_QUEUE_DB_ID = "42510040d9284f8387307edf056fae72";
     const SENTIMENT_PIVOTS_DB_ID = "1fd96e6ba2cb4672bd17e4a0bf02887d";
-    const BOOK_BUDDY_URL = "https://chatgpt.com/";
+    const BOOK_BUDDY_URL = "https://claude.ai/new";
 
     // ---- State ----
     const state = {
       books: [],
       profileMarkdown: "",
       profileBlocks: [],
+      aiQueue: [],
       lastSignal: null,
       pendingSynthesisPacket: null,
       currentYear: new Date().getFullYear()
@@ -961,6 +1093,7 @@
 
     // ---- Notion API helpers (call Cloudflare worker directly) ----
     const NOTION_WORKER = "https://notion-budget-manager.eamiller1981.workers.dev";
+    const READING_AUTOMATION_ENDPOINT = `${NOTION_WORKER}/reading/synthesis-trigger`;
     async function notion(path, method = "GET", body = null) {
       const init = {
         method,
@@ -1048,7 +1181,34 @@
           lastAiReview: p["Last AI Review"]?.date?.start || "",
           wildcard: !!p.Wildcard?.checkbox,
           source: plain(p.Source?.rich_text),
-          tbrRank: typeof p["TBR Rank"]?.number === "number" ? p["TBR Rank"].number : null
+          tbrRank: typeof p["TBR Rank"]?.number === "number" ? p["TBR Rank"].number : null,
+          previousTbrRank: typeof p["Previous TBR Rank"]?.number === "number" ? p["Previous TBR Rank"].number : null,
+          tbrMovement: p["TBR Movement"]?.select?.name || "",
+          movementReason: plain(p["Movement Reason"]?.rich_text),
+          movementBadge: p["Movement Badge"]?.select?.name || "",
+          lastMovementAt: p["Last Movement At"]?.date?.start || ""
+        };
+      });
+    }
+
+    async function fetchAiQueue() {
+      const body = {
+        page_size: 25,
+        sorts: [{ property: "Created", direction: "descending" }]
+      };
+      const data = await notion(`/databases/${AI_QUEUE_DB_ID}/query`, "POST", body);
+      return (data.results || []).map(page => {
+        const p = page.properties || {};
+        return {
+          id: page.id,
+          task: plain(p.Task?.title) || "(untitled)",
+          taskType: p["Task Type"]?.select?.name || "",
+          status: p.Status?.select?.name || "",
+          source: p.Source?.select?.name || "",
+          created: p.Created?.date?.start || "",
+          outputSummary: plain(p["Output Summary"]?.rich_text),
+          trace: plain(p.Trace?.rich_text),
+          triggerBookIds: (p["Trigger Book"]?.relation || []).map(r => r.id)
         };
       });
     }
@@ -1472,10 +1632,116 @@
       }
 
       if (bridgeStatus) {
-        bridgeStatus.textContent = queued
-          ? `${queued} reading signal${queued === 1 ? "" : "s"} ready for AI synthesis. Opening Book Buddy prepares live context from the app.`
-          : "No pending synthesis. Opening Book Buddy prepares live context from the app.";
+        renderAutomationStatus(queued);
       }
+    }
+
+    function queueCount(status) {
+      return state.aiQueue.filter(q => q.status === status).length;
+    }
+
+    function latestAppliedDate() {
+      const queueDates = state.aiQueue
+        .filter(q => q.status === "Applied" && q.created)
+        .map(q => q.created);
+      const bookDates = state.books
+        .filter(b => b.lastAiReview)
+        .map(b => b.lastAiReview);
+      const dates = [...queueDates, ...bookDates].sort((a, b) => String(b).localeCompare(String(a)));
+      return dates[0] || "";
+    }
+
+    function renderAutomationStatus(queuedBookCount = 0) {
+      const pending = Math.max(queueCount("Pending"), queuedBookCount);
+      const processing = queueCount("Processing") + state.books.filter(b => b.aiStatus === "Processing").length;
+      const attention = queueCount("Needs Attention") + state.books.filter(b => b.aiStatus === "Needs Attention").length;
+      const appliedDate = latestAppliedDate();
+      const title = document.getElementById("automationTitle");
+      const bridgeStatus = document.getElementById("bridgeStatus");
+
+      document.getElementById("aiPendingCount").textContent = pending;
+      document.getElementById("aiProcessingCount").textContent = processing;
+      document.getElementById("aiAttentionCount").textContent = attention;
+      document.getElementById("aiLastApplied").textContent = appliedDate ? formatDate(appliedDate) : "None";
+
+      if (attention) {
+        title.textContent = "Claude routine needs attention";
+        bridgeStatus.textContent = `${attention} item${attention === 1 ? "" : "s"} need review. Use Run synthesis after checking the queue trace.`;
+      } else if (processing) {
+        title.textContent = "Claude routine is processing";
+        bridgeStatus.textContent = `${processing} item${processing === 1 ? " is" : "s are"} in progress. The page will show movement after Notion updates.`;
+      } else if (pending) {
+        title.textContent = "Claude routine is ready";
+        bridgeStatus.textContent = `${pending} reading signal${pending === 1 ? "" : "s"} ready for synthesis. Run synthesis sends the queue to Claude.`;
+      } else {
+        title.textContent = "Claude routine is clear";
+        bridgeStatus.textContent = "No pending synthesis. New ratings and TBR additions will queue automatically.";
+      }
+    }
+
+    function movementBadgeClass(value) {
+      const key = String(value || "").toLowerCase();
+      if (key.includes("anchor")) return "anchor";
+      if (key.includes("current")) return "current";
+      if (key.includes("payoff")) return "payoff";
+      if (key.includes("pacing")) return "pacing";
+      if (key.includes("wildcard")) return "wildcard";
+      if (key.includes("up")) return "up";
+      if (key.includes("down")) return "down";
+      return "";
+    }
+
+    function movementLabel(book) {
+      if (book.tbrMovement === "Wildcard") return "Wildcard";
+      if (book.tbrMovement === "Removed") return "Removed";
+      if (book.previousTbrRank != null && book.tbrRank != null) return `#${book.previousTbrRank} -> #${book.tbrRank}`;
+      if (book.tbrMovement === "New" && book.tbrRank != null) return `New #${book.tbrRank}`;
+      if (book.tbrRank != null) return `#${book.tbrRank}`;
+      return book.tbrMovement || "Updated";
+    }
+
+    function recentMovementBooks() {
+      return [...state.books]
+        .filter(b => b.status === "TBR" && (b.tbrMovement || b.movementReason || b.lastMovementAt))
+        .sort((a, b) =>
+          String(b.lastMovementAt || b.lastAiReview || "").localeCompare(String(a.lastMovementAt || a.lastAiReview || "")) ||
+          (a.tbrRank ?? 999) - (b.tbrRank ?? 999)
+        )
+        .slice(0, 4);
+    }
+
+    function movementCardHtml(book) {
+      const badges = [
+        book.tbrMovement ? `<span class="movement-badge ${movementBadgeClass(book.tbrMovement)}">${escapeHtml(book.tbrMovement)}</span>` : "",
+        book.movementBadge ? `<span class="movement-badge ${movementBadgeClass(book.movementBadge)}">${escapeHtml(book.movementBadge)}</span>` : ""
+      ].filter(Boolean).join("");
+      const reason = book.movementReason || book.whyItFits || "Claude has not written a movement reason yet.";
+      return `
+        <article class="movement-card">
+          <div class="movement-card-head">
+            <span class="movement-title">${escapeHtml(book.title)}</span>
+            <span class="movement-rank">${escapeHtml(movementLabel(book))}</span>
+          </div>
+          <p class="movement-reason">${escapeHtml(reason)}</p>
+          ${badges ? `<div class="movement-meta">${badges}</div>` : ""}
+        </article>
+      `;
+    }
+
+    function renderTbrMovement() {
+      const panel = document.getElementById("tbrMovementPanel");
+      const list = document.getElementById("tbrMovementList");
+      const label = document.getElementById("movementUpdatedLabel");
+      const books = recentMovementBooks();
+      if (!books.length) {
+        panel.hidden = true;
+        list.innerHTML = "";
+        return;
+      }
+      const latestDate = books.map(b => b.lastMovementAt).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0];
+      label.textContent = latestDate ? `updated ${formatDate(latestDate)}` : "after synthesis";
+      list.innerHTML = books.map(movementCardHtml).join("");
+      panel.hidden = false;
     }
 
     function bookCardHtml(book, opts = {}) {
@@ -1510,6 +1776,9 @@
       const stretchHtml = book.wildcard && book.whyItStretches
         ? `<p class="book-trace"><strong>Why it stretches:</strong> ${escapeHtml(book.whyItStretches)}</p>`
         : "";
+      const movementHtml = book.status === "TBR" && (book.tbrMovement || book.movementReason)
+        ? `<p class="book-movement">${escapeHtml(movementLabel(book))}${book.movementReason ? `: ${escapeHtml(book.movementReason)}` : ""}</p>`
+        : "";
 
       return `
         <article class="book-card ${book.wildcard ? "is-wildcard" : ""}" data-id="${escapeHtml(book.id)}">
@@ -1522,6 +1791,7 @@
             <div class="book-rating ${ratingClass}">${escapeHtml(ratingDisplay)}</div>
           </div>
           ${showWhy ? `<p class="book-why">${escapeHtml(book.whyItFits)}</p>` : ""}
+          ${movementHtml}
           ${stretchHtml}
           ${dateHtml}
           ${whatChangedHtml}
@@ -1537,6 +1807,7 @@
     }
 
     function renderTBR() {
+      renderTbrMovement();
       const search = document.getElementById("tbrSearch").value.toLowerCase().trim();
       const tagFilter = document.getElementById("tbrTagFilter").value;
       const tbr = state.books
@@ -1689,6 +1960,23 @@
           "Trace": { rich_text: richTextChunks(trace || "") }
         }
       });
+    }
+
+    async function triggerReadingSynthesis(reason, extra = {}) {
+      const response = await fetch(READING_AUTOMATION_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason,
+          source: "reading-app",
+          ...extra
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Synthesis trigger failed (${response.status})`);
+      }
+      return payload;
     }
 
     async function createSentimentPivot(book, signals) {
@@ -1851,7 +2139,9 @@
             title,
             rank,
             wildcard: /wildcard|experimental|riskier/i.test(blurb) && /house of leaves/i.test(title),
-            whyItFits: blurb.slice(0, 240)
+            whyItFits: blurb.slice(0, 240),
+            movementReason: blurb.slice(0, 180),
+            movementBadge: /risk|slow|literary|ambiguous/i.test(blurb) ? "Payoff Risk" : "Anchor Match"
           });
         }
       });
@@ -1861,7 +2151,10 @@
           title: "House of Leaves",
           wildcard: true,
           whyItFits: "House and reality-break appeal.",
-          whyItStretches: "Experimental form is a serious taste risk."
+          whyItStretches: "Experimental form is a serious taste risk.",
+          movementType: "Wildcard",
+          movementReason: "Strong house/reality-break appeal, but the experimental form belongs outside normal ranking.",
+          movementBadge: "Wildcard"
         });
       }
 
@@ -1876,7 +2169,7 @@
       if (packet.triggerBook && !packet.triggerBookUpdate) packet.triggerBookUpdate = packet.triggerBook;
       packet.tbrUpdates = packet.tbrUpdates.map(update => ({
         ...update,
-        rank: update.rank == null ? undefined : Number(update.rank),
+        rank: update.rank == null && update.newRank != null ? Number(update.newRank) : update.rank == null ? undefined : Number(update.rank),
         predictedRating: update.predictedRating == null ? undefined : Number(update.predictedRating)
       }));
       return packet;
@@ -1962,11 +2255,31 @@
         "AI Status": { select: { name: "Applied" } },
         "Last AI Review": { date: { start: new Date().toISOString().slice(0, 10) } }
       };
+      const previousRank = book.tbrRank;
+      const nextRank = Number.isFinite(update.rank) ? update.rank : previousRank;
+      const movement = validOption(
+        update.movementType || update.tbrMovement || (
+          update.wildcard === true ? "Wildcard" :
+          previousRank == null && Number.isFinite(nextRank) ? "New" :
+          Number.isFinite(previousRank) && Number.isFinite(nextRank) && nextRank < previousRank ? "Up" :
+          Number.isFinite(previousRank) && Number.isFinite(nextRank) && nextRank > previousRank ? "Down" :
+          Number.isFinite(nextRank) ? "No Change" : ""
+        ),
+        ["Up", "Down", "New", "No Change", "Wildcard", "Removed"]
+      );
       if (Number.isFinite(update.rank)) properties["TBR Rank"] = { number: update.rank };
+      if (Number.isFinite(previousRank)) properties["Previous TBR Rank"] = { number: previousRank };
+      if (movement) properties["TBR Movement"] = { select: { name: movement } };
+      if (movement || update.movementReason || update.whyItFits) {
+        properties["Last Movement At"] = { date: { start: new Date().toISOString().slice(0, 10) } };
+      }
       if (Number.isFinite(update.predictedRating)) properties["Predicted Rating"] = { number: update.predictedRating };
       if (typeof update.wildcard === "boolean") properties.Wildcard = { checkbox: update.wildcard };
       addRichProperty(properties, "Why It Fits", update.whyItFits);
-      addRichProperty(properties, "Why It Stretches", update.whyItStretches);
+      addRichProperty(properties, "Why It Stretches", update.whyItStretches || update.wildcardReason);
+      addRichProperty(properties, "Movement Reason", update.movementReason || update.wildcardReason || update.whyItFits);
+      const movementBadge = validOption(update.movementBadge || update.badge, ["Anchor Match", "Current Appetite", "Payoff Risk", "Pacing Risk", "Wildcard"]);
+      if (movementBadge) properties["Movement Badge"] = { select: { name: movementBadge } };
 
       await notion(`/pages/${book.id}`, "PATCH", { properties });
       return { applied: true, title: book.title };
@@ -2100,8 +2413,9 @@ Return:
           dateFinished: today
         };
         const context = buildSynthesisContext(queuedBook, signals);
+        let saveMessage = "Saved. Ready for AI synthesis.";
         try {
-          await createAiQueueTask({
+          const queueTask = await createAiQueueTask({
             taskType: "Finished Book Synthesis",
             title: `Synthesize ${queuedBook.title}`,
             bookId: pageId,
@@ -2110,6 +2424,15 @@ Return:
             trace: signals.vector
           });
           await createSentimentPivot(queuedBook, signals);
+          try {
+            const trigger = await triggerReadingSynthesis("finish-and-rate", { queuePageId: queueTask.id, bookId: pageId });
+            saveMessage = trigger.configured === false
+              ? "Saved. Claude routine not connected yet."
+              : "Saved. Claude synthesis triggered.";
+          } catch (triggerErr) {
+            console.warn("AI trigger failed", triggerErr);
+            saveMessage = "Saved. Queue ready; trigger needs attention.";
+          }
         } catch (queueErr) {
           console.warn("AI queue write failed", queueErr);
           toast("Saved; queue write needs attention", 3600);
@@ -2117,7 +2440,7 @@ Return:
 
         state.lastSignal = { book: queuedBook, signals };
         closeModal("finishModal");
-        toast("Saved. Ready for AI synthesis.");
+        toast(saveMessage);
         await refresh();
       } catch (err) {
         toast("Save failed: " + err.message, 4000);
@@ -2150,9 +2473,11 @@ Return:
             "Why It Stretches": { rich_text: richTextChunks(whyStretches) }
           }
         });
+        let addMessage = "Added. Refreshing...";
         if (status === "TBR") {
+          addMessage = "Added. Ready for AI ranking.";
           try {
-            await createAiQueueTask({
+            const queueTask = await createAiQueueTask({
               taskType: wildcard ? "Wildcard Review" : "TBR Cleanup",
               title: `${wildcard ? "Review wildcard" : "Rank TBR"}: ${title}`,
               bookId: created.id,
@@ -2160,8 +2485,18 @@ Return:
               outputSummary: wildcard ? "New wildcard needs fit check without polluting ranked TBR." : "New TBR title needs ranking and fit explanation.",
               trace: "Created by Add Book action."
             });
+            try {
+              const trigger = await triggerReadingSynthesis(wildcard ? "add-wildcard" : "add-tbr", { queuePageId: queueTask.id, bookId: created.id });
+              addMessage = trigger.configured === false
+                ? "Added. Claude routine not connected yet."
+                : "Added. Claude ranking triggered.";
+            } catch (triggerErr) {
+              console.warn("AI trigger failed", triggerErr);
+              addMessage = "Added. Queue ready; trigger needs attention.";
+            }
           } catch (queueErr) {
             console.warn("AI queue write failed", queueErr);
+            addMessage = "Added. Queue write needs attention.";
           }
         }
         closeModal("addBookModal");
@@ -2171,7 +2506,7 @@ Return:
         document.getElementById("addWildcard").checked = false;
         document.getElementById("addWhyFits").value = "";
         document.getElementById("addWhyStretches").value = "";
-        toast(status === "TBR" ? "Added. Ready for AI ranking." : "Added. Refreshing…");
+        toast(addMessage);
         await refresh();
       } catch (err) {
         toast("Add failed: " + err.message, 4000);
@@ -2206,7 +2541,10 @@ APPLY_PACKET
       "predictedRating": 5,
       "wildcard": false,
       "whyItFits": "One spoiler-free fit line.",
-      "whyItStretches": ""
+      "whyItStretches": "",
+      "movementReason": "One spoiler-free line explaining why this book moved.",
+      "movementBadge": "Anchor Match",
+      "wildcardReason": ""
     }
   ]
 }`;
@@ -2223,7 +2561,7 @@ APPLY_PACKET
         .filter(b => b.status === "TBR" && !b.wildcard)
         .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999))
         .slice(0, 25)
-        .map(b => `- ${b.title} by ${b.author || "Unknown"} | predicted ${b.predictedRating || "n/a"} | rank ${b.tbrRank || "n/a"} | why: ${b.whyItFits || "n/a"}`)
+        .map(b => `- ${b.title} by ${b.author || "Unknown"} | predicted ${b.predictedRating || "n/a"} | rank ${b.tbrRank || "n/a"} | movement ${movementLabel(b)} | why: ${b.whyItFits || "n/a"} | movement reason: ${b.movementReason || "n/a"}`)
         .join("\n");
       const wildcards = state.books
         .filter(b => b.status === "TBR" && b.wildcard)
@@ -2302,6 +2640,27 @@ ${applyPacketInstructions()}`;
       state.pendingSynthesisPacket = null;
       document.getElementById("applySynthesisBtn").disabled = true;
       openModal("importSynthesisModal");
+    });
+
+    document.getElementById("runSynthesisBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("runSynthesisBtn");
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = "Triggering...";
+      try {
+        const result = await triggerReadingSynthesis("manual-run");
+        if (result.configured === false) {
+          toast("Claude routine is not connected yet");
+        } else {
+          toast(`Synthesis triggered for ${result.pendingCount || 0} item${result.pendingCount === 1 ? "" : "s"}`);
+        }
+        await refresh();
+      } catch (err) {
+        toast(err.message || "Synthesis trigger failed", 4200);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
     });
 
     document.getElementById("previewSynthesisBtn").addEventListener("click", () => {
@@ -2398,9 +2757,17 @@ ${applyPacketInstructions()}`;
     // ---- Init ----
     async function refresh() {
       try {
-        const [books, profileBlocks] = await Promise.all([fetchBooks(), fetchTasteProfile()]);
+        const [books, profileBlocks, aiQueue] = await Promise.all([
+          fetchBooks(),
+          fetchTasteProfile(),
+          fetchAiQueue().catch(err => {
+            console.warn("AI queue fetch failed", err);
+            return [];
+          })
+        ]);
         state.books = books;
         state.profileBlocks = profileBlocks;
+        state.aiQueue = aiQueue;
         state.profileMarkdown = blocksToMarkdown(profileBlocks);
         populateTagFilters();
         renderStats();
