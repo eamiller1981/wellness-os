@@ -13,6 +13,7 @@ npx wrangler secret put NOTION_WEBHOOK_VERIFICATION_TOKEN -c cloudflare/wrangler
 ```
 
 `NOTION_WEBHOOK_VERIFICATION_TOKEN` is the one-time token Notion sends to `/reading/notion-webhook` during webhook setup. The Worker echoes it back so you can copy it into the secret.
+Run `npx wrangler tail notion-budget-manager` while creating the webhook; the Worker logs `reading_notion_webhook_verification` with the token to store.
 
 ## Routine Trigger URL
 

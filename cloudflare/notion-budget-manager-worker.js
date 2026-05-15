@@ -291,6 +291,10 @@ async function handleNotionWebhook(request, env, ctx) {
     rawBody.match(/["']?verification_token["']?\s*:\s*["']?([^"',}\s]+)/)?.[1];
 
   if (verificationToken) {
+    console.log(JSON.stringify({
+      event: "reading_notion_webhook_verification",
+      verificationToken
+    }));
     return jsonResponse({ verification_token: verificationToken }, 200);
   }
 
