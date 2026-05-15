@@ -119,23 +119,35 @@ function mapBookPage(page) {
   };
 }
 
-async function queryPendingQueue(env) {
+async function queryQueueWorkItems(env, includeProcessing = false) {
+  const statusFilter = includeProcessing
+    ? {
+        or: [
+          { property: "Status", select: { equals: "Pending" } },
+          { property: "Status", select: { equals: "Processing" } }
+        ]
+      }
+    : { property: "Status", select: { equals: "Pending" } };
   const data = await notionFetch(env, `/databases/${AI_QUEUE_DB_ID}/query`, "POST", {
     page_size: 10,
-    filter: { property: "Status", select: { equals: "Pending" } },
+    filter: statusFilter,
     sorts: [{ property: "Created", direction: "ascending" }]
   });
   return (data.results || []).map(mapQueuePage);
 }
 
-async function queryReadyBooks(env) {
+async function queryReadyBooks(env, includeProcessing = false) {
+  const statusFilters = [
+    { property: "Ready for AI", checkbox: { equals: true } },
+    { property: "AI Status", select: { equals: "Ready for AI" } }
+  ];
+  if (includeProcessing) {
+    statusFilters.push({ property: "AI Status", select: { equals: "Processing" } });
+  }
   const data = await notionFetch(env, `/databases/${BOOKS_DB_ID}/query`, "POST", {
     page_size: 10,
     filter: {
-      or: [
-        { property: "Ready for AI", checkbox: { equals: true } },
-        { property: "AI Status", select: { equals: "Ready for AI" } }
-      ]
+      or: statusFilters
     },
     sorts: [
       { property: "Date Finished", direction: "descending" },
@@ -188,17 +200,28 @@ async function triggerClaudeRoutine(env, payload) {
     throw new Error(`Claude routine ${response.status}: ${text.slice(0, 220)}`);
   }
 
-  return { configured: true, triggered: true, status: response.status };
+  const data = parseJsonSafe(text);
+  return {
+    configured: true,
+    triggered: true,
+    status: response.status,
+    claudeSessionId: data.claude_code_session_id || "",
+    claudeSessionUrl: data.claude_code_session_url || "",
+    responseType: data.type || ""
+  };
 }
 
-async function markTriggered(env, pendingQueue, readyBooks) {
+async function markTriggered(env, pendingQueue, readyBooks, result) {
   const today = new Date().toISOString().slice(0, 10);
+  const sessionLine = result.claudeSessionUrl ? ` Session: ${result.claudeSessionUrl}` : "";
+  const traceLine = result.claudeSessionUrl ? `\nClaude session: ${result.claudeSessionUrl}` : "";
   const queueUpdates = pendingQueue.map(item =>
     notionFetch(env, `/pages/${item.id}`, "PATCH", {
       properties: {
         "Status": { select: { name: "Processing" } },
         "Source": { select: { name: "Claude" } },
-        "Output Summary": { rich_text: richTextChunks(`Claude routine triggered ${today}.`) }
+        "Output Summary": { rich_text: richTextChunks(`Claude routine triggered ${today}.${sessionLine}`) },
+        "Trace": { rich_text: richTextChunks(`${item.trace || ""}${traceLine}`.trim()) }
       }
     })
   );
@@ -213,9 +236,13 @@ async function markTriggered(env, pendingQueue, readyBooks) {
 }
 
 async function runReadingSynthesis(env, input = {}) {
+  const includeProcessing =
+    input.reason === "manual-run" ||
+    input.reason === "cron-fallback" ||
+    input.source === "codex-setup";
   const [pendingQueue, readyBooks] = await Promise.all([
-    queryPendingQueue(env),
-    queryReadyBooks(env)
+    queryQueueWorkItems(env, includeProcessing),
+    queryReadyBooks(env, includeProcessing)
   ]);
   const pendingCount = pendingQueue.length + readyBooks.length;
   const payload = buildClaudePayload(input, pendingQueue, readyBooks);
@@ -231,7 +258,7 @@ async function runReadingSynthesis(env, input = {}) {
 
   const result = await triggerClaudeRoutine(env, payload);
   if (result.configured) {
-    await markTriggered(env, pendingQueue, readyBooks);
+    await markTriggered(env, pendingQueue, readyBooks, result);
   }
 
   return {
