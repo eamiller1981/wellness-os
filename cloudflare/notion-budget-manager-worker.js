@@ -158,13 +158,16 @@ async function queryReadyBooks(env, includeProcessing = false) {
 }
 
 function buildClaudePayload({ reason, source = "cloudflare-worker", event = null }, pendingQueue, readyBooks) {
+  const isBookChat = reason === "book-chat" || reason === "vet-list" || reason === "discuss-book";
   return {
     module: "Reading",
     reason,
     source,
     createdAt: new Date().toISOString(),
     instruction:
-      "Process the provided Reading AI Queue worklist and Ready for AI books. The Worker may mark rows Processing after this trigger, so treat pendingQueue as the current worklist. Use Claude reasoning and Notion connector/writeback. Keep wildcards separate from ranked TBR.",
+      isBookChat
+        ? "Open as the user's ongoing Claude Book Buddy. Use the Reading payload and Notion connector as shared memory. Be conversational, spoiler-free, and useful. Do not mutate Notion unless the user explicitly asks you to record or synthesize something."
+        : "Process the provided Reading AI Queue worklist and Ready for AI books. The Worker may mark rows Processing after this trigger, so treat pendingQueue as the current worklist. Use Claude reasoning and Notion connector/writeback. Keep wildcards separate from ranked TBR.",
     pendingQueue,
     readyBooks,
     applyPacketContract: {
@@ -236,6 +239,10 @@ async function markTriggered(env, pendingQueue, readyBooks, result) {
 }
 
 async function runReadingSynthesis(env, input = {}) {
+  const conversationalRun =
+    input.reason === "book-chat" ||
+    input.reason === "vet-list" ||
+    input.reason === "discuss-book";
   const includeProcessing =
     input.reason === "manual-run" ||
     input.reason === "cron-fallback" ||
@@ -247,7 +254,7 @@ async function runReadingSynthesis(env, input = {}) {
   const pendingCount = pendingQueue.length + readyBooks.length;
   const payload = buildClaudePayload(input, pendingQueue, readyBooks);
 
-  if (!pendingCount) {
+  if (!pendingCount && !conversationalRun) {
     return {
       configured: Boolean(env.CLAUDE_READING_ROUTINE_URL),
       triggered: false,
@@ -257,13 +264,14 @@ async function runReadingSynthesis(env, input = {}) {
   }
 
   const result = await triggerClaudeRoutine(env, payload);
-  if (result.configured) {
+  if (result.configured && !conversationalRun) {
     await markTriggered(env, pendingQueue, readyBooks, result);
   }
 
   return {
     ...result,
     pendingCount,
+    conversationalRun,
     queueCount: pendingQueue.length,
     readyBookCount: readyBooks.length
   };
@@ -347,14 +355,20 @@ async function handleNotionWebhook(request, env, ctx) {
 
 async function handleSynthesisTrigger(request, env, origin) {
   const body = await request.json().catch(() => ({}));
+  const event = {
+    queuePageId: body.queuePageId || "",
+    bookId: body.bookId || "",
+    mode: body.mode || "",
+    prompt: body.prompt || "",
+    list: body.list || "",
+    context: body.context || "",
+    forceNew: Boolean(body.forceNew)
+  };
   try {
     const result = await runReadingSynthesis(env, {
       reason: body.reason || "manual-trigger",
       source: body.source || "reading-app",
-      event: {
-        queuePageId: body.queuePageId || "",
-        bookId: body.bookId || ""
-      }
+      event
     });
     return jsonResponse(result, 202, origin);
   } catch (error) {

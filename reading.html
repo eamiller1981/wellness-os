@@ -958,7 +958,7 @@
     <!-- AI Book Buddy -->
     <section class="module-section" id="section-ai">
       <h2>Automation Status</h2>
-      <p class="section-sub">Claude is the reasoning layer. The app queues reading signals, the worker triggers synthesis, and the Reading page shows the trace.</p>
+      <p class="section-sub">Claude is the reasoning layer for both Book Buddy conversation and background reading synthesis.</p>
       <div class="bridge-card">
         <span class="signal-label">Claude Routine</span>
         <p class="signal-title" id="automationTitle">Checking reading intelligence queue</p>
@@ -971,7 +971,7 @@
         </div>
         <div class="bridge-actions">
           <button class="btn btn-primary" id="runSynthesisBtn" type="button">Run synthesis</button>
-          <button class="btn" id="openBookBuddyBtn" type="button">Open Claude Book Buddy</button>
+          <button class="btn" id="openBookBuddyBtn" type="button">Open Book Buddy</button>
           <button class="btn" id="importSynthesisBtn" type="button">Import synthesis</button>
         </div>
         <details class="bridge-fallback">
@@ -979,6 +979,7 @@
           <div class="bridge-actions">
             <button class="btn" id="copyBuddyContextBtn" type="button">Copy context</button>
             <button class="btn" id="copySynthesisPacketBtn" type="button">Copy synthesis packet</button>
+            <button class="btn" id="resetBookBuddySessionBtn" type="button">Start new Claude session</button>
           </div>
         </details>
       </div>
@@ -1079,6 +1080,7 @@
     const AI_QUEUE_DB_ID = "42510040d9284f8387307edf056fae72";
     const SENTIMENT_PIVOTS_DB_ID = "1fd96e6ba2cb4672bd17e4a0bf02887d";
     const BOOK_BUDDY_URL = "https://claude.ai/new";
+    const BOOK_BUDDY_SESSION_KEY = "wellnessReadingBookBuddySessionUrl";
 
     // ---- State ----
     const state = {
@@ -1965,6 +1967,7 @@
     async function triggerReadingSynthesis(reason, extra = {}) {
       const response = await fetch(READING_AUTOMATION_ENDPOINT, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reason,
@@ -2621,15 +2624,117 @@ ${applyPacketInstructions()}`;
       return ok;
     }
 
+    function bookBuddyReason(mode) {
+      if (mode === "vet-list") return "vet-list";
+      if (mode === "discuss-book") return "discuss-book";
+      return "book-chat";
+    }
+
+    function getBookBuddySessionUrl() {
+      try {
+        return localStorage.getItem(BOOK_BUDDY_SESSION_KEY) || "";
+      } catch (err) {
+        return "";
+      }
+    }
+
+    function setBookBuddySessionUrl(url) {
+      if (!url) return;
+      try {
+        localStorage.setItem(BOOK_BUDDY_SESSION_KEY, url);
+      } catch (err) {
+        // Local storage can fail in private browsing; the session still opens.
+      }
+    }
+
+    function clearBookBuddySessionUrl() {
+      try {
+        localStorage.removeItem(BOOK_BUDDY_SESSION_KEY);
+      } catch (err) {
+        // Ignore storage failures; this is only a convenience cache.
+      }
+    }
+
+    function openHoldingTab() {
+      const tab = window.open("", "_blank");
+      if (!tab) return null;
+      try {
+        tab.document.title = "Opening Book Buddy";
+        tab.document.body.style.cssText = "margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fbf7f0;color:#32251d;display:grid;min-height:100vh;place-items:center;";
+        tab.document.body.innerHTML = "<main style=\"max-width:320px;padding:24px;text-align:center;\"><h1 style=\"font-size:20px;margin:0 0 8px;\">Opening Book Buddy</h1><p style=\"margin:0;color:#6c5a4d;line-height:1.45;\">Claude is getting your Reading context.</p></main>";
+      } catch (err) {
+        // Some browsers restrict writing to the opened tab. Navigation still works.
+      }
+      return tab;
+    }
+
+    function openClaudeUrl(url, tab = null) {
+      if (tab && !tab.closed) {
+        try {
+          tab.location.href = url;
+          return;
+        } catch (err) {
+          // Fall through to a direct open.
+        }
+      }
+      window.open(url, "_blank", "noopener");
+    }
+
     async function openBookBuddy(mode = "chat", extra = {}) {
       const context = buildBookBuddyContext(mode, extra);
+      const existingSessionUrl = getBookBuddySessionUrl();
+      const shouldReuseSession = mode === "chat" && !extra.forceNew && !extra.prompt && existingSessionUrl;
+
+      if (shouldReuseSession) {
+        window.open(existingSessionUrl, "_blank", "noopener");
+        try {
+          await copyText(context);
+          toast("Opening ongoing Book Buddy");
+        } catch (err) {
+          toast("Opening ongoing Book Buddy");
+        }
+        return { reused: true, claudeSessionUrl: existingSessionUrl };
+      }
+
+      const tab = openHoldingTab();
+      let copied = false;
       try {
         await copyText(context);
-        toast("Book Buddy context prepared");
+        copied = true;
       } catch (err) {
-        toast("Open Book Buddy, then use Copy context", 3600);
+        copied = false;
       }
-      window.open(BOOK_BUDDY_URL, "_blank", "noopener");
+
+      try {
+        toast("Opening Claude Book Buddy");
+        const result = await triggerReadingSynthesis(bookBuddyReason(mode), {
+          mode,
+          context,
+          prompt: extra.prompt || "",
+          list: extra.list || "",
+          forceNew: !!extra.forceNew
+        });
+
+        if (result.claudeSessionUrl) {
+          setBookBuddySessionUrl(result.claudeSessionUrl);
+          openClaudeUrl(result.claudeSessionUrl, tab);
+          toast(mode === "vet-list" ? "Claude Book Buddy is vetting the list" : "Claude Book Buddy opened");
+          return result;
+        }
+
+        if (result.configured === false) {
+          throw new Error("Claude routine is not connected yet");
+        }
+        throw new Error("Claude routine did not return a session URL");
+      } catch (err) {
+        if (copied) {
+          toast("Claude routine unavailable; context copied for fallback", 4200);
+        } else {
+          toast(err.message || "Open Claude, then use Copy context", 4200);
+        }
+        openClaudeUrl(BOOK_BUDDY_URL, tab);
+        return { fallback: true, error: err.message || "" };
+      }
     }
 
     document.getElementById("importSynthesisBtn").addEventListener("click", () => {
@@ -2708,6 +2813,10 @@ ${applyPacketInstructions()}`;
       await copyText(buildBookBuddyContext("synthesis"));
       toast("Synthesis packet copied");
     });
+    document.getElementById("resetBookBuddySessionBtn").addEventListener("click", async () => {
+      clearBookBuddySessionUrl();
+      await openBookBuddy("chat", { forceNew: true });
+    });
 
     // ---- Vet a list ----
     document.getElementById("vetListBtn").addEventListener("click", () => {
@@ -2721,7 +2830,7 @@ ${applyPacketInstructions()}`;
       resEl.innerHTML = `<div class="loading">Preparing Book Buddy handoff…</div>`;
       try {
         await openBookBuddy("vet-list", { list });
-        resEl.innerHTML = `<div class="profile-content">Book Buddy context is ready. Paste it into the chat to classify the list as ADD / MAYBE / SKIP.</div>`;
+        resEl.innerHTML = `<div class="profile-content">Claude Book Buddy opened with this list. Continue there for ADD / MAYBE / SKIP.</div>`;
       } catch (err) {
         resEl.innerHTML = `<div class="chat-msg error">${escapeHtml(err.message)}</div>`;
       }
@@ -2743,7 +2852,7 @@ ${applyPacketInstructions()}`;
         const msg = book.status === "TBR"
           ? `Tell me, spoiler-free, why "${book.title}" by ${book.author || "Unknown"} fits my taste. Include why it might work, any risk, and whether it belongs in the normal TBR or wildcard lane.`
           : `Let's discuss "${book.title}" by ${book.author || "Unknown"}. I rated it ${book.rating ?? "?"} (${ratingLabel(book.rating)}). What does this rating signal about my taste, current appetite, and next reads?`;
-        openBookBuddy("chat", { prompt: msg });
+        openBookBuddy("discuss-book", { prompt: msg });
       }
     });
 

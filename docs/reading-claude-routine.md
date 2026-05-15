@@ -28,7 +28,8 @@ The Worker sends Claude a payload with:
 - `pendingQueue`: Notion Reading AI Queue rows in `Pending`
 - `readyBooks`: Books marked `Ready for AI`
 - `applyPacketContract`: the fields Claude should write back
-- `reason`: `finish-and-rate`, `add-tbr`, `add-wildcard`, `manual-run`, `notion-webhook`, or `cron-fallback`
+- `reason`: `book-chat`, `discuss-book`, `vet-list`, `finish-and-rate`, `add-tbr`, `add-wildcard`, `manual-run`, `notion-webhook`, or `cron-fallback`
+- `event.context`: the current Book Buddy context for conversational runs
 
 The Worker wraps that payload as `{ "text": "..." }` and sends Claude's required routine API headers: `anthropic-beta: experimental-cc-routine-2026-04-01` and `anthropic-version: 2023-06-01`.
 
@@ -45,6 +46,10 @@ Mission:
 - Use the Notion connector as the source of truth and write directly back to Notion.
 - Preserve zero incremental API fees: do not call external paid APIs.
 - Stay spoiler-free. Never reveal plot specifics, twists, endings, character fates, or specific events.
+
+Modes:
+- If payload.reason is book-chat, discuss-book, or vet-list, act as the user's ongoing Claude Book Buddy. Use event.context plus the Notion connector as shared memory. Be conversational, direct, spoiler-free, and practical. Do not run the synthesis workflow and do not mutate Notion unless the user explicitly asks you to record a reflection, update a book, synthesize a finished rating, or change the TBR.
+- If payload.reason is finish-and-rate, add-tbr, add-wildcard, manual-run, notion-webhook, or cron-fallback, run the synthesis workflow below.
 
 Core outputs:
 - Update the trigger Book with What Changed, Current Appetite Signal, Sentiment, Vibe, Dealbreakers, Last AI Review, Ready for AI=false, and AI Status=Applied.
