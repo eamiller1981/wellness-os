@@ -29,6 +29,8 @@ The Worker sends Claude a payload with:
 - `applyPacketContract`: the fields Claude should write back
 - `reason`: `finish-and-rate`, `add-tbr`, `add-wildcard`, `manual-run`, `notion-webhook`, or `cron-fallback`
 
+The Worker wraps that payload as `{ "text": "..." }` and sends Claude's required routine API headers: `anthropic-beta: experimental-cc-routine-2026-04-01` and `anthropic-version: 2023-06-01`.
+
 ## Claude Instructions
 
 Use these instructions in the Claude routine:

@@ -170,6 +170,8 @@ async function triggerClaudeRoutine(env, payload) {
   }
 
   const headers = new Headers({ "Content-Type": "application/json" });
+  headers.set("anthropic-beta", "experimental-cc-routine-2026-04-01");
+  headers.set("anthropic-version", "2023-06-01");
   if (env.CLAUDE_READING_ROUTINE_TOKEN) {
     headers.set("Authorization", `Bearer ${env.CLAUDE_READING_ROUTINE_TOKEN}`);
   }
@@ -177,7 +179,7 @@ async function triggerClaudeRoutine(env, payload) {
   const response = await fetch(env.CLAUDE_READING_ROUTINE_URL, {
     method: "POST",
     headers,
-    body: JSON.stringify(payload)
+    body: JSON.stringify({ text: JSON.stringify(payload, null, 2) })
   });
 
   const text = await response.text();
