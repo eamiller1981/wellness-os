@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5eae3">
+  <title>Audio Pilot | Wellness OS</title>
+  <link rel="stylesheet" href="space.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/2.png">
+  <script src="app-auth.js"></script>
+  <style>
+    .page { gap: 24px; }
+    .module-section {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .module-section h2 {
+      margin: 0 0 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.5rem;
+      font-weight: 400;
+      color: var(--ink);
+    }
+    .section-sub {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .form-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .form-row label {
+      font-size: 0.82rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .form-row input[type="text"],
+    .form-row select,
+    .form-row textarea {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.6);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+    .form-row textarea {
+      min-height: 220px;
+      line-height: 1.55;
+      resize: vertical;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 680px) { .form-grid { grid-template-columns: 1fr; } }
+    .slider-row { display: flex; align-items: center; gap: 12px; }
+    .slider-row input[type="range"] { flex: 1; }
+    .slider-row .slider-value {
+      min-width: 60px;
+      text-align: right;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .btn {
+      min-height: 40px;
+      padding: 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.6);
+      color: var(--ink);
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn:hover:not(:disabled), .btn:focus-visible {
+      border-color: #5f514a;
+      color: #5f514a;
+      outline: none;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary {
+      background: #806f64;
+      color: #f5eae3;
+      border-color: #806f64;
+    }
+    .btn-primary:hover:not(:disabled), .btn-primary:focus-visible {
+      background: #5f514a;
+      border-color: #5f514a;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+    .status.info    { background: rgba(128, 111, 100, 0.10); color: var(--ink); }
+    .status.success { background: rgba(95, 140, 95, 0.18); color: #3f6238; }
+    .status.error   { background: rgba(180, 70, 70, 0.14); color: #7a2828; }
+    .status:empty { display: none; }
+    audio { width: 100%; margin-top: 12px; }
+    .meta-line {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+    /* Library table */
+    .library-list { display: flex; flex-direction: column; gap: 10px; }
+    .library-item {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.55);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .library-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .library-title {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.05rem;
+      color: var(--ink);
+    }
+    .library-meta {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .library-tag {
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(128, 111, 100, 0.12);
+      color: var(--ink);
+      font-size: 0.74rem;
+    }
+    .library-tag.status-ready { background: rgba(95, 140, 95, 0.20); color: #3f6238; }
+    .library-tag.status-pending { background: rgba(180, 150, 90, 0.20); color: #715a26; }
+    .library-tag.status-error { background: rgba(180, 70, 70, 0.18); color: #7a2828; }
+    .library-empty { color: var(--muted); font-size: 0.9rem; padding: 12px; text-align: center; }
+    .char-count {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: right;
+      margin-top: -10px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="dashboard.html">Wellness OS</a>
+    <nav class="topnav">
+      <a href="reading.html">Reading</a>
+      <a href="dashboard.html">Dashboard</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="module-section">
+      <h2>Audio Pilot</h2>
+      <p class="section-sub">Convert book text to MP3 via Microsoft Edge TTS (Thomas, en-GB). Free, unlimited, runs server-side on Cloudflare.</p>
+
+      <div class="form-row">
+        <label for="text-input">Text</label>
+        <textarea id="text-input" placeholder="Paste chapter text here..."></textarea>
+        <div class="char-count" id="char-count">0 chars</div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label for="voice-select">Voice</label>
+          <select id="voice-select">
+            <option value="en-GB-ThomasNeural" selected>Thomas (en-GB, male)</option>
+            <option value="en-GB-RyanNeural">Ryan (en-GB, male)</option>
+            <option value="en-GB-SoniaNeural">Sonia (en-GB, female)</option>
+            <option value="en-GB-LibbyNeural">Libby (en-GB, female)</option>
+            <option value="en-US-GuyNeural">Guy (en-US, male)</option>
+            <option value="en-US-JennyNeural">Jenny (en-US, female)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="speed-slider">Speed</label>
+          <div class="slider-row">
+            <input id="speed-slider" type="range" min="-50" max="50" step="5" value="0">
+            <span class="slider-value" id="speed-value">+0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="preview-btn" class="btn btn-primary" type="button">Generate preview</button>
+        <button id="reset-btn" class="btn" type="button">Clear</button>
+      </div>
+
+      <div id="preview-status" class="status"></div>
+      <audio id="preview-audio" controls hidden></audio>
+      <div id="preview-meta" class="meta-line"></div>
+    </section>
+
+    <section class="module-section">
+      <h2>Save to library</h2>
+      <p class="section-sub">After generating, save the audio with metadata so it's catalogued in Notion and stored in R2 for replay.</p>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label for="lib-title">Title</label>
+          <input id="lib-title" type="text" placeholder="Chapter 1 — Opening">
+        </div>
+        <div class="form-row">
+          <label for="lib-book">Book</label>
+          <input id="lib-book" type="text" placeholder="Naomi's Room">
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="lib-section">Section</label>
+        <input id="lib-section" type="text" placeholder="Chapter 1">
+      </div>
+
+      <div class="actions">
+        <button id="save-btn" class="btn btn-primary" type="button">Synthesize &amp; save to library</button>
+      </div>
+      <div id="save-status" class="status"></div>
+    </section>
+
+    <section class="module-section">
+      <h2>Audio library</h2>
+      <p class="section-sub">Past saved audio. Click to play.</p>
+      <div class="actions" style="margin-bottom: 12px;">
+        <button id="refresh-library-btn" class="btn" type="button">Refresh</button>
+      </div>
+      <div id="library-list" class="library-list">
+        <div class="library-empty">Loading…</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const TTS_BASE = "https://tts.eamiller1981.workers.dev";
+
+    const els = {
+      text: document.getElementById("text-input"),
+      charCount: document.getElementById("char-count"),
+      voice: document.getElementById("voice-select"),
+      speed: document.getElementById("speed-slider"),
+      speedVal: document.getElementById("speed-value"),
+      previewBtn: document.getElementById("preview-btn"),
+      resetBtn: document.getElementById("reset-btn"),
+      previewStatus: document.getElementById("preview-status"),
+      previewAudio: document.getElementById("preview-audio"),
+      previewMeta: document.getElementById("preview-meta"),
+      libTitle: document.getElementById("lib-title"),
+      libBook: document.getElementById("lib-book"),
+      libSection: document.getElementById("lib-section"),
+      saveBtn: document.getElementById("save-btn"),
+      saveStatus: document.getElementById("save-status"),
+      refreshBtn: document.getElementById("refresh-library-btn"),
+      libraryList: document.getElementById("library-list"),
+    };
+
+    function setStatus(el, msg, kind) {
+      el.textContent = msg || "";
+      el.className = "status" + (kind ? " " + kind : "");
+    }
+    function updateCharCount() {
+      const n = els.text.value.length;
+      els.charCount.textContent = `${n.toLocaleString()} chars`;
+    }
+    function updateSpeed() {
+      const v = Number(els.speed.value);
+      els.speedVal.textContent = (v >= 0 ? "+" : "") + v + "%";
+    }
+    els.text.addEventListener("input", updateCharCount);
+    els.speed.addEventListener("input", updateSpeed);
+    updateCharCount();
+    updateSpeed();
+
+    els.resetBtn.addEventListener("click", () => {
+      els.text.value = "";
+      updateCharCount();
+      setStatus(els.previewStatus, "");
+      els.previewAudio.hidden = true;
+      els.previewAudio.removeAttribute("src");
+      els.previewMeta.textContent = "";
+    });
+
+    els.previewBtn.addEventListener("click", async () => {
+      const text = els.text.value.trim();
+      if (!text) {
+        setStatus(els.previewStatus, "Paste some text first.", "error");
+        return;
+      }
+      els.previewBtn.disabled = true;
+      setStatus(els.previewStatus, "Synthesizing… (large chapters take 30–60s)", "info");
+      els.previewAudio.hidden = true;
+      const t0 = Date.now();
+      try {
+        const resp = await fetch(`${TTS_BASE}/api/tts/synthesize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            voice: els.voice.value,
+            rate: Number(els.speed.value),
+          }),
+        });
+        if (!resp.ok) {
+          const errTxt = await resp.text();
+          throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        els.previewAudio.src = url;
+        els.previewAudio.hidden = false;
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        const kb = (blob.size / 1024).toFixed(1);
+        setStatus(els.previewStatus, `Done in ${elapsed}s.`, "success");
+        els.previewMeta.textContent = `${kb} KB · ${text.length.toLocaleString()} chars · ${els.voice.value} @ ${els.speedVal.textContent}`;
+      } catch (err) {
+        setStatus(els.previewStatus, `Error: ${err.message}`, "error");
+      } finally {
+        els.previewBtn.disabled = false;
+      }
+    });
+
+    els.saveBtn.addEventListener("click", async () => {
+      const text = els.text.value.trim();
+      const title = els.libTitle.value.trim();
+      const book = els.libBook.value.trim();
+      const section = els.libSection.value.trim();
+      if (!text) { setStatus(els.saveStatus, "Paste some text first.", "error"); return; }
+      if (!title) { setStatus(els.saveStatus, "Title is required.", "error"); return; }
+
+      els.saveBtn.disabled = true;
+      setStatus(els.saveStatus, "Synthesizing & uploading to R2… (large chapters take 60–120s)", "info");
+      const t0 = Date.now();
+      try {
+        const resp = await fetch(`${TTS_BASE}/api/tts/library`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text,
+            voice: els.voice.value,
+            rate: Number(els.speed.value),
+            title, book, section,
+          }),
+        });
+        if (!resp.ok) {
+          const errTxt = await resp.text();
+          throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
+        }
+        const data = await resp.json();
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        setStatus(els.saveStatus, `Saved in ${elapsed}s. Page: ${data.pageId}`, "success");
+        await loadLibrary();
+      } catch (err) {
+        setStatus(els.saveStatus, `Error: ${err.message}`, "error");
+      } finally {
+        els.saveBtn.disabled = false;
+      }
+    });
+
+    async function loadLibrary() {
+      els.libraryList.innerHTML = '<div class="library-empty">Loading…</div>';
+      try {
+        const resp = await fetch(`${TTS_BASE}/api/tts/library`);
+        if (!resp.ok) throw new Error(`${resp.status}`);
+        const data = await resp.json();
+        if (!data.entries || !data.entries.length) {
+          els.libraryList.innerHTML = '<div class="library-empty">No saved audio yet.</div>';
+          return;
+        }
+        els.libraryList.innerHTML = "";
+        for (const e of data.entries) {
+          const item = document.createElement("div");
+          item.className = "library-item";
+          const head = document.createElement("div");
+          head.className = "library-head";
+          const titleEl = document.createElement("h3");
+          titleEl.className = "library-title";
+          titleEl.textContent = e.title || "(untitled)";
+          const tag = document.createElement("span");
+          tag.className = "library-tag status-" + (e.status || "pending");
+          tag.textContent = e.status || "pending";
+          head.appendChild(titleEl);
+          head.appendChild(tag);
+          item.appendChild(head);
+
+          const meta = document.createElement("div");
+          meta.className = "library-meta";
+          const bits = [e.book, e.section, e.voice].filter(Boolean);
+          if (e.charCount) bits.push(`${e.charCount.toLocaleString()} chars`);
+          meta.textContent = bits.join(" · ");
+          item.appendChild(meta);
+
+          if (e.status === "ready" && e.audioUrl) {
+            const audio = document.createElement("audio");
+            audio.controls = true;
+            audio.preload = "none";
+            audio.src = e.audioUrl;
+            item.appendChild(audio);
+          }
+          els.libraryList.appendChild(item);
+        }
+      } catch (err) {
+        els.libraryList.innerHTML = `<div class="library-empty">Failed to load: ${err.message}</div>`;
+      }
+    }
+
+    els.refreshBtn.addEventListener("click", loadLibrary);
+    window.addEventListener("wellness-auth-ready", loadLibrary);
+  </script>
+</body>
+</html>

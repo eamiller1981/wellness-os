@@ -1,0 +1,26 @@
+{
+  "name": "tts",
+  "main": "./tts-worker.js",
+  "compatibility_date": "2026-04-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "r2_buckets": [
+    {
+      "binding": "AUDIO_BUCKET",
+      "bucket_name": "wellness-audio"
+    }
+  ],
+  "services": [
+    {
+      "binding": "NOTION_PROXY",
+      "service": "notion-budget-manager"
+    }
+  ],
+  "vars": {
+    "AUDIO_LIBRARY_DB_ID": "1a3a051608e8457d82042e05eb44fc84",
+    "AUDIO_PUBLIC_BASE_URL": "https://tts.eamiller1981.workers.dev/audio"
+  }
+}
