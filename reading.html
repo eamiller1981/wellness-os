@@ -37,21 +37,53 @@
       line-height: 1.5;
     }
 
-    /* Hero override for reading page: stacked, centered, 16:9 art */
+    /* Hero override for reading page: wide, shallow reading banner */
     .space {
-      grid-template-columns: 1fr;
-      gap: 18px;
-      align-items: center;
-      justify-items: center;
-      text-align: center;
+      position: relative;
+      display: block;
+      min-height: clamp(150px, 24vw, 220px);
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: #2f2a26;
+      text-align: left;
+    }
+    .space::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, rgba(34, 28, 24, 0.62), rgba(34, 28, 24, 0.18) 58%, rgba(34, 28, 24, 0));
+      pointer-events: none;
     }
     .space-art {
-      aspect-ratio: auto;
       width: 100%;
-      max-width: 720px;
+      max-width: none;
+      height: clamp(150px, 24vw, 220px);
+      object-fit: cover;
+      object-position: center 46%;
+      border-radius: 0;
+      box-shadow: none;
     }
-    .space h1 { font-size: 3rem; }
-    @media (max-width: 720px) { .space h1 { font-size: 2.4rem; } }
+    .space > div {
+      position: absolute;
+      z-index: 1;
+      left: clamp(16px, 4vw, 34px);
+      bottom: clamp(14px, 3vw, 26px);
+    }
+    .space .eyebrow { color: rgba(245, 234, 227, 0.78); }
+    .space h1 {
+      max-width: 620px;
+      color: #fff8f0;
+      font-size: clamp(2.05rem, 7vw, 3.45rem);
+      text-shadow: 0 2px 18px rgba(34, 28, 24, 0.32);
+    }
+    @media (max-width: 720px) {
+      .space {
+        min-height: 142px;
+      }
+      .space-art {
+        height: 142px;
+      }
+    }
 
     /* Stats */
     .stats-grid {
@@ -159,6 +191,7 @@
 
     /* Book card */
     .book-card {
+      position: relative;
       padding: 14px 16px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -168,6 +201,14 @@
       gap: 8px;
     }
     .book-card + .book-card { margin-top: 10px; }
+    .book-card.is-reading-now {
+      border-color: rgba(95, 140, 95, 0.34);
+      background: rgba(255, 255, 255, 0.68);
+    }
+    .book-card.is-dragging {
+      opacity: 0.62;
+      border-style: dashed;
+    }
     .book-head {
       display: flex;
       justify-content: space-between;
@@ -202,6 +243,33 @@
     .book-rating.tier-notgood { background: rgba(180, 110, 80, 0.18); color: #794327; }
     .book-rating.tier-dnf     { background: rgba(180, 70, 70, 0.18); color: #7a2828; }
     .book-rating.tier-tbr     { background: rgba(120, 130, 170, 0.18); color: #3f4878; }
+
+    .book-card-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .drag-handle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      min-width: 32px;
+      height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--muted);
+      cursor: grab;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 800;
+      touch-action: none;
+    }
+    .drag-handle:active {
+      cursor: grabbing;
+    }
 
     .book-why {
       margin: 0;
@@ -632,6 +700,14 @@
       padding-top: 14px;
       border-top: 1px solid var(--line);
     }
+    .reading-now-panel {
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid rgba(95, 140, 95, 0.24);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.46);
+    }
+    .reading-now-panel[hidden] { display: none !important; }
     .lane-heading {
       display: flex;
       justify-content: space-between;
@@ -665,94 +741,6 @@
       color: var(--muted);
       font-size: 0.84rem;
       line-height: 1.4;
-    }
-    .movement-panel {
-      margin-bottom: 14px;
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.46);
-    }
-    .movement-panel[hidden] { display: none !important; }
-    .movement-heading {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 10px;
-      color: var(--muted);
-      font-size: 0.76rem;
-      font-weight: 700;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
-    }
-    .movement-list {
-      display: grid;
-      gap: 8px;
-    }
-    .movement-card {
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.56);
-    }
-    .movement-card-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 4px;
-    }
-    .movement-title {
-      color: var(--ink);
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 0.98rem;
-      line-height: 1.25;
-    }
-    .movement-rank {
-      flex-shrink: 0;
-      color: #5f514a;
-      font-size: 0.8rem;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-    .movement-reason {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.84rem;
-      line-height: 1.4;
-    }
-    .movement-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 8px;
-    }
-    .movement-badge {
-      display: inline-flex;
-      align-items: center;
-      min-height: 22px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: rgba(128, 111, 100, 0.12);
-      color: var(--ink);
-      font-size: 0.7rem;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .movement-badge.up,
-    .movement-badge.anchor { background: rgba(95, 140, 95, 0.18); color: #3f6238; }
-    .movement-badge.down,
-    .movement-badge.pacing { background: rgba(180, 110, 80, 0.16); color: #794327; }
-    .movement-badge.current { background: rgba(120, 130, 170, 0.18); color: #3f4878; }
-    .movement-badge.payoff { background: rgba(180, 150, 90, 0.18); color: #715a26; }
-    .movement-badge.wildcard { background: rgba(170, 95, 180, 0.16); color: #6e3a78; }
-    .book-movement {
-      margin: 0;
-      color: #5f514a;
-      font-size: 0.82rem;
-      font-weight: 700;
-      line-height: 1.35;
     }
     .automation-grid {
       display: grid;
@@ -804,6 +792,14 @@
       width: fit-content;
       cursor: pointer;
       color: var(--muted);
+    }
+    .app-links {
+      padding-block: 14px;
+      background: transparent;
+    }
+    .app-links .book-actions {
+      justify-content: center;
+      margin: 0;
     }
     .import-preview {
       margin-top: 14px;
@@ -866,7 +862,7 @@
         <div class="stat"><span class="stat-value" id="statRated">—</span><span class="stat-label">Books Rated</span></div>
         <div class="stat"><span class="stat-value" id="statAvg">—</span><span class="stat-label">Avg rating</span></div>
         <div class="stat"><span class="stat-value" id="statTBR">—</span><span class="stat-label">TBR titles</span></div>
-        <div class="stat"><span class="stat-value" id="statTag">—</span><span class="stat-label">Top rated tag</span></div>
+        <div class="stat"><span class="stat-value" id="statTag">—</span><span class="stat-label">Top 4+ tag</span></div>
       </div>
       <div class="intelligence-panel" aria-label="Reading intelligence">
         <div class="signal-card">
@@ -888,12 +884,12 @@
         <h2>To Be Read</h2>
         <button class="btn btn-primary" id="addBookBtn" type="button">+ Add book</button>
       </div>
-      <div class="movement-panel" id="tbrMovementPanel" hidden>
-        <div class="movement-heading">
-          <span>TBR Movement</span>
-          <span id="movementUpdatedLabel">after synthesis</span>
+      <div class="reading-now-panel" id="readingNowPanel" hidden>
+        <div class="lane-heading">
+          <span>Reading Now</span>
+          <span>pinned for finishing</span>
         </div>
-        <div class="movement-list" id="tbrMovementList"></div>
+        <div id="readingNowList"></div>
       </div>
       <div class="filter-bar">
         <input type="search" id="tbrSearch" placeholder="Search TBR…" aria-label="Search TBR">
@@ -951,7 +947,6 @@
         <button class="btn btn-primary" id="editTasteBtn" type="button">Edit profile</button>
         <button class="btn btn-primary" id="saveTasteBtn" type="button" hidden>Save profile</button>
         <button class="btn" id="cancelTasteBtn" type="button" hidden>Cancel</button>
-        <a class="btn btn-notion" target="_blank" rel="noopener" href="https://www.notion.so/350627ee81db81aa87fde222e96e3e03">Open Notion ↗</a>
       </div>
     </section>
 
@@ -983,6 +978,12 @@
             <button class="btn" id="resetBookBuddySessionBtn" type="button">Start new Claude session</button>
           </div>
         </details>
+      </div>
+    </section>
+
+    <section class="module-section app-links" aria-label="Reading links">
+      <div class="book-actions">
+        <a class="btn btn-notion" target="_blank" rel="noopener" href="https://www.notion.so/350627ee81db8179852bd119d2d71a48">Open Reading in Notion</a>
       </div>
     </section>
   </main>
@@ -1587,17 +1588,23 @@
         .filter(b => b.rating != null);
       const avg = ratings.length ? (ratings.reduce((sum, b) => sum + b.rating, 0) / ratings.length) : null;
       const tbrCount = state.books.filter(b => b.status === "TBR").length;
+      const lovedRatings = ratings.filter(b => b.rating >= 4);
       const tags = {};
-      ratings.forEach(b => {
+      lovedRatings.forEach(b => {
         b.tags.forEach(tag => {
-          tags[tag] = (tags[tag] || 0) + 1;
+          if (!tags[tag]) tags[tag] = { count: 0, ratingTotal: 0 };
+          tags[tag].count += 1;
+          tags[tag].ratingTotal += b.rating;
         });
       });
-      const topTag = Object.entries(tags).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+      const topTag = Object.entries(tags)
+        .map(([tag, data]) => ({ 0: tag, tag, count: data.count, avg: data.ratingTotal / data.count }))
+        .sort((a, b) => b.count - a.count || b.avg - a.avg || a.tag.localeCompare(b.tag))[0];
 
       document.getElementById("statRated").textContent = ratings.length;
       document.getElementById("statAvg").textContent = avg != null ? avg.toFixed(2) : "—";
       document.getElementById("statTBR").textContent = tbrCount;
+      if (topTag) document.getElementById("statTag").textContent = topTag.tag;
       document.getElementById("statTag").textContent = topTag ? topTag[0] : "—";
     }
 
@@ -1684,18 +1691,6 @@
       }
     }
 
-    function movementBadgeClass(value) {
-      const key = String(value || "").toLowerCase();
-      if (key.includes("anchor")) return "anchor";
-      if (key.includes("current")) return "current";
-      if (key.includes("payoff")) return "payoff";
-      if (key.includes("pacing")) return "pacing";
-      if (key.includes("wildcard")) return "wildcard";
-      if (key.includes("up")) return "up";
-      if (key.includes("down")) return "down";
-      return "";
-    }
-
     function movementLabel(book) {
       if (book.tbrMovement === "Wildcard") return "Wildcard";
       if (book.tbrMovement === "Removed") return "Removed";
@@ -1705,54 +1700,12 @@
       return book.tbrMovement || "Updated";
     }
 
-    function recentMovementBooks() {
-      return [...state.books]
-        .filter(b => b.status === "TBR" && (b.tbrMovement || b.movementReason || b.lastMovementAt))
-        .sort((a, b) =>
-          String(b.lastMovementAt || b.lastAiReview || "").localeCompare(String(a.lastMovementAt || a.lastAiReview || "")) ||
-          (a.tbrRank ?? 999) - (b.tbrRank ?? 999)
-        )
-        .slice(0, 4);
-    }
-
-    function movementCardHtml(book) {
-      const badges = [
-        book.tbrMovement ? `<span class="movement-badge ${movementBadgeClass(book.tbrMovement)}">${escapeHtml(book.tbrMovement)}</span>` : "",
-        book.movementBadge ? `<span class="movement-badge ${movementBadgeClass(book.movementBadge)}">${escapeHtml(book.movementBadge)}</span>` : ""
-      ].filter(Boolean).join("");
-      const reason = book.movementReason || book.whyItFits || "Claude has not written a movement reason yet.";
-      return `
-        <article class="movement-card">
-          <div class="movement-card-head">
-            <span class="movement-title">${escapeHtml(book.title)}</span>
-            <span class="movement-rank">${escapeHtml(movementLabel(book))}</span>
-          </div>
-          <p class="movement-reason">${escapeHtml(reason)}</p>
-          ${badges ? `<div class="movement-meta">${badges}</div>` : ""}
-        </article>
-      `;
-    }
-
-    function renderTbrMovement() {
-      const panel = document.getElementById("tbrMovementPanel");
-      const list = document.getElementById("tbrMovementList");
-      const label = document.getElementById("movementUpdatedLabel");
-      const books = recentMovementBooks();
-      if (!books.length) {
-        panel.hidden = true;
-        list.innerHTML = "";
-        return;
-      }
-      const latestDate = books.map(b => b.lastMovementAt).filter(Boolean).sort((a, b) => String(b).localeCompare(String(a)))[0];
-      label.textContent = latestDate ? `updated ${formatDate(latestDate)}` : "after synthesis";
-      list.innerHTML = books.map(movementCardHtml).join("");
-      panel.hidden = false;
-    }
-
     function bookCardHtml(book, opts = {}) {
       const showWhy = opts.showWhy !== false && book.whyItFits;
       const showFinish = book.status === "TBR" || book.status === "Reading";
       const showEdit = book.status === "Finished" || book.status === "DNF";
+      const isReadingNow = book.status === "Reading";
+      const isReorderable = opts.reorderable && book.status === "TBR" && !book.wildcard;
       const ratingDisplay =
         book.status === "TBR" && book.predictedRating != null
           ? `Predicted ${book.predictedRating}`
@@ -1763,17 +1716,14 @@
 
       const tagsHtml = [
         book.genre ? `<span class="tag tag-genre">${escapeHtml(book.genre)}</span>` : "",
-        ...book.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`)
+        ...book.tags.slice(0, 3).map(t => `<span class="tag">${escapeHtml(t)}</span>`)
       ].filter(Boolean).join("");
       const dateHtml = opts.showDate && book.dateFinished
         ? `<div class="book-author">Finished and rated ${escapeHtml(formatDate(book.dateFinished))}</div>`
         : "";
       const aiClass = book.aiStatus === "Ready for AI" ? "ready" : book.aiStatus === "Processing" ? "processing" : book.aiStatus === "Applied" ? "applied" : book.aiStatus === "Needs Attention" ? "attention" : "";
-      const aiHtml = book.aiStatus
+      const aiHtml = ["Ready for AI", "Processing", "Needs Attention"].includes(book.aiStatus)
         ? `<span class="status-pill ${aiClass}">${escapeHtml(book.aiStatus)}</span>`
-        : "";
-      const whatChangedHtml = opts.showDate && book.whatChanged
-        ? `<p class="book-trace"><strong>What changed:</strong> ${escapeHtml(book.whatChanged)}</p>`
         : "";
       const wildcardHtml = book.wildcard
         ? `<span class="wildcard-badge">Wildcard</span>`
@@ -1781,28 +1731,30 @@
       const stretchHtml = book.wildcard && book.whyItStretches
         ? `<p class="book-trace"><strong>Why it stretches:</strong> ${escapeHtml(book.whyItStretches)}</p>`
         : "";
-      const movementHtml = book.status === "TBR" && (book.tbrMovement || book.movementReason)
-        ? `<p class="book-movement">${escapeHtml(movementLabel(book))}${book.movementReason ? `: ${escapeHtml(book.movementReason)}` : ""}</p>`
+      const dragHandle = isReorderable
+        ? `<button class="drag-handle" type="button" data-action="drag" aria-label="Drag to reorder">::</button>`
         : "";
 
       return `
-        <article class="book-card ${book.wildcard ? "is-wildcard" : ""}" data-id="${escapeHtml(book.id)}">
+        <article class="book-card ${book.wildcard ? "is-wildcard" : ""} ${isReadingNow ? "is-reading-now" : ""}" data-id="${escapeHtml(book.id)}" ${isReorderable ? 'data-reorderable="true"' : ""}>
           ${wildcardHtml}
           <div class="book-head">
             <div>
               <h3 class="book-title">${escapeHtml(book.title)}</h3>
               ${book.author ? `<div class="book-author">${escapeHtml(book.author)}</div>` : ""}
             </div>
-            <div class="book-rating ${ratingClass}">${escapeHtml(ratingDisplay)}</div>
+            <div class="book-card-tools">
+              ${dragHandle}
+              <div class="book-rating ${ratingClass}">${escapeHtml(ratingDisplay)}</div>
+            </div>
           </div>
           ${showWhy ? `<p class="book-why">${escapeHtml(book.whyItFits)}</p>` : ""}
-          ${movementHtml}
           ${stretchHtml}
           ${dateHtml}
-          ${whatChangedHtml}
           ${tagsHtml ? `<div class="book-meta">${tagsHtml}</div>` : ""}
           ${aiHtml ? `<div class="book-meta">${aiHtml}</div>` : ""}
           <div class="book-actions">
+            ${book.status === "TBR" ? `<button class="btn btn-small" data-action="start">Reading now</button>` : ""}
             ${showFinish ? `<button class="btn btn-small btn-primary" data-action="finish">Finish & rate</button>` : ""}
             ${showEdit ? `<button class="btn btn-small" data-action="edit">Edit</button>` : ""}
             <button class="btn btn-small" data-action="why">${book.status === "TBR" ? "Why this fits" : "Discuss"} <span class="ai-badge">Book Buddy</span></button>
@@ -1811,24 +1763,42 @@
       `;
     }
 
+    function sortTbrBooks(a, b) {
+      const aRank = Number.isFinite(a.tbrRank) ? a.tbrRank : null;
+      const bRank = Number.isFinite(b.tbrRank) ? b.tbrRank : null;
+      if (aRank != null || bRank != null) return (aRank ?? 999) - (bRank ?? 999) || a.title.localeCompare(b.title);
+      return (b.predictedRating ?? -1) - (a.predictedRating ?? -1) || a.title.localeCompare(b.title);
+    }
+
     function renderTBR() {
-      renderTbrMovement();
       const search = document.getElementById("tbrSearch").value.toLowerCase().trim();
       const tagFilter = document.getElementById("tbrTagFilter").value;
+      const readingNow = state.books
+        .filter(b => b.status === "Reading")
+        .filter(b => !search || b.title.toLowerCase().includes(search) || b.author.toLowerCase().includes(search))
+        .filter(b => !tagFilter || b.tags.includes(tagFilter))
+        .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999) || a.title.localeCompare(b.title));
       const tbr = state.books
         .filter(b => b.status === "TBR")
         .filter(b => !b.wildcard)
         .filter(b => !search || b.title.toLowerCase().includes(search) || b.author.toLowerCase().includes(search))
         .filter(b => !tagFilter || b.tags.includes(tagFilter))
-        .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999));
+        .sort(sortTbrBooks);
       const wildcards = state.books
         .filter(b => b.status === "TBR" && b.wildcard)
         .filter(b => !search || b.title.toLowerCase().includes(search) || b.author.toLowerCase().includes(search))
         .filter(b => !tagFilter || b.tags.includes(tagFilter))
-        .sort((a, b) => (a.tbrRank ?? 999) - (b.tbrRank ?? 999));
+        .sort(sortTbrBooks);
+      const canReorder = !search && !tagFilter;
+
+      const readingPanel = document.getElementById("readingNowPanel");
+      const readingList = document.getElementById("readingNowList");
+      readingPanel.hidden = readingNow.length === 0;
+      readingList.innerHTML = readingNow.map(b => bookCardHtml(b)).join("");
+
       const el = document.getElementById("tbrList");
       el.innerHTML = tbr.length
-        ? tbr.map(b => bookCardHtml(b)).join("")
+        ? tbr.map(b => bookCardHtml(b, { reorderable: canReorder })).join("")
         : `<div class="empty">Nothing matches.</div>`;
       el.classList.remove("loading");
 
@@ -1836,6 +1806,83 @@
       const wildcardList = document.getElementById("wildcardList");
       lane.hidden = wildcards.length === 0;
       wildcardList.innerHTML = wildcards.map(b => bookCardHtml(b)).join("");
+    }
+
+    function dragAfterElement(container, y) {
+      const cards = [...container.querySelectorAll(".book-card[data-reorderable='true']:not(.is-dragging)")];
+      return cards.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+          return { offset, element: child };
+        }
+        return closest;
+      }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+    }
+
+    function currentTbrDomOrder() {
+      return [...document.querySelectorAll("#tbrList .book-card[data-reorderable='true']")]
+        .map(card => card.dataset.id)
+        .filter(Boolean);
+    }
+
+    async function saveTbrOrderFromDom(initialOrder = []) {
+      const ids = currentTbrDomOrder();
+      if (!ids.length || ids.join("|") === initialOrder.join("|")) return;
+      ids.forEach((id, index) => {
+        const book = state.books.find(b => b.id === id);
+        if (book) book.tbrRank = index + 1;
+      });
+      renderTBR();
+      try {
+        await Promise.all(ids.map((id, index) =>
+          notion(`/pages/${id}`, "PATCH", {
+            properties: {
+              "TBR Rank": { number: index + 1 }
+            }
+          })
+        ));
+        toast("TBR order saved");
+      } catch (err) {
+        toast("Could not save TBR order", 3600);
+        await refresh();
+      }
+    }
+
+    function startTbrPointerDrag(event) {
+      const handle = event.target.closest(".drag-handle");
+      if (!handle) return;
+      const card = handle.closest(".book-card[data-reorderable='true']");
+      const container = document.getElementById("tbrList");
+      if (!card || !container || !container.contains(card)) return;
+      event.preventDefault();
+      const initialOrder = currentTbrDomOrder();
+      card.classList.add("is-dragging");
+      handle.setPointerCapture?.(event.pointerId);
+
+      function onMove(moveEvent) {
+        moveEvent.preventDefault();
+        const after = dragAfterElement(container, moveEvent.clientY);
+        if (after == null) {
+          container.appendChild(card);
+        } else {
+          container.insertBefore(card, after);
+        }
+      }
+
+      async function onEnd(endEvent) {
+        endEvent.preventDefault();
+        handle.releasePointerCapture?.(event.pointerId);
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onEnd);
+        document.removeEventListener("pointercancel", onEnd);
+        card.classList.remove("is-dragging");
+        await saveTbrOrderFromDom(initialOrder);
+      }
+
+      document.addEventListener("pointermove", onMove, { passive: false });
+      document.addEventListener("pointerup", onEnd, { passive: false });
+      document.addEventListener("pointercancel", onEnd, { passive: false });
     }
 
     function renderLibrary() {
@@ -2905,6 +2952,17 @@ ${applyPacketInstructions()}`;
       const action = btn.dataset.action;
       if (action === "finish" || action === "edit") {
         openFinishModal(book);
+      } else if (action === "start") {
+        notion(`/pages/${book.id}`, "PATCH", {
+          properties: {
+            "Status": { select: { name: "Reading" } }
+          }
+        }).then(async () => {
+          toast("Pinned to Reading Now");
+          await refresh();
+        }).catch(err => {
+          toast("Could not update status: " + err.message, 4200);
+        });
       } else if (action === "why") {
         const msg = book.status === "TBR"
           ? `Tell me, spoiler-free, why "${book.title}" by ${book.author || "Unknown"} fits my taste. Include why it might work, any risk, and whether it belongs in the normal TBR or wildcard lane.`
@@ -2914,6 +2972,7 @@ ${applyPacketInstructions()}`;
     });
 
     // ---- Filter listeners ----
+    document.getElementById("tbrList").addEventListener("pointerdown", startTbrPointerDrag);
     document.getElementById("tbrSearch").addEventListener("input", renderTBR);
     document.getElementById("tbrTagFilter").addEventListener("change", renderTBR);
     document.getElementById("libSearch").addEventListener("input", renderLibrary);
