@@ -185,6 +185,7 @@
     #section-tbr,
     #section-library,
     #section-taste,
+    #section-book-buddy,
     #section-ai {
       scroll-margin-top: 104px;
     }
@@ -301,6 +302,9 @@
       margin-top: 4px;
     }
     .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       min-height: 36px;
       padding: 0 14px;
       border: 1px solid var(--line);
@@ -311,6 +315,9 @@
       font-weight: 600;
       cursor: pointer;
       font-family: inherit;
+      line-height: 1.1;
+      text-align: center;
+      text-decoration: none;
     }
     .btn:hover, .btn:focus-visible {
       border-color: #5f514a;
@@ -416,6 +423,16 @@
       border-radius: 4px;
       background: rgba(128, 111, 100, 0.12);
       font-size: 0.85em;
+    }
+    .recommendation-summary {
+      margin-bottom: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(95, 140, 95, 0.24);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.48);
+    }
+    .recommendation-summary .signal-body {
+      max-width: 62ch;
     }
     .profile-editor-shell {
       border: 1px solid var(--line);
@@ -777,6 +794,21 @@
       border-radius: var(--radius);
       background: rgba(255, 255, 255, 0.5);
     }
+    .book-buddy-card {
+      padding: 16px;
+      border: 1px solid rgba(128, 111, 100, 0.28);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.56);
+    }
+    .book-buddy-card .signal-title {
+      margin-bottom: 6px;
+    }
+    .book-buddy-primary {
+      width: 100%;
+      min-height: 46px;
+      margin-top: 14px;
+      font-size: 0.95rem;
+    }
     .bridge-actions {
       display: flex;
       flex-wrap: wrap;
@@ -851,7 +883,7 @@
         <a class="jump-link" href="#section-tbr">To Be Read</a>
         <a class="jump-link" href="#section-library">Reading Log</a>
         <a class="jump-link" href="#section-taste">Taste Profile</a>
-        <a class="jump-link" href="#section-ai">AI Book Buddy</a>
+        <a class="jump-link" href="#section-book-buddy">Book Buddy</a>
       </div>
     </section>
 
@@ -931,6 +963,10 @@
     <!-- Taste profile -->
     <section class="module-section" id="section-taste">
       <h2>Taste Profile</h2>
+      <div class="recommendation-summary" id="recommendationSummary">
+        <span class="signal-label">What this means for recommendations</span>
+        <p class="signal-body">Prioritize active haunting pressure, emotional attachment, escalation, and a decisive payoff.</p>
+      </div>
       <div class="profile-content" id="tasteProfileContent">Loading…</div>
       <div class="profile-editor-shell" id="tasteProfileEditorShell" hidden>
         <div class="profile-toolbar" aria-label="Taste profile formatting">
@@ -951,9 +987,20 @@
     </section>
 
     <!-- AI Book Buddy -->
+    <section class="module-section" id="section-book-buddy">
+      <h2>AI Book Buddy</h2>
+      <div class="book-buddy-card">
+        <span class="signal-label">Claude conversation</span>
+        <p class="signal-title">Talk through the book with your reading brain.</p>
+        <p class="signal-body">Opens your ongoing Claude Book Buddy session with the latest Reading context.</p>
+        <button class="btn btn-primary book-buddy-primary" id="openBookBuddyBtn" type="button">Open Claude Book Buddy</button>
+      </div>
+    </section>
+
+    <!-- Automation -->
     <section class="module-section" id="section-ai">
       <h2>Automation Status</h2>
-      <p class="section-sub">Claude is the reasoning layer for both Book Buddy conversation and background reading synthesis.</p>
+      <p class="section-sub">Claude handles background reading synthesis and Notion writeback.</p>
       <div class="bridge-card">
         <span class="signal-label">Claude Routine</span>
         <p class="signal-title" id="automationTitle">Checking reading intelligence queue</p>
@@ -966,7 +1013,6 @@
         </div>
         <div class="bridge-actions">
           <button class="btn btn-primary" id="runSynthesisBtn" type="button">Run synthesis</button>
-          <button class="btn" id="openBookBuddyBtn" type="button">Open Book Buddy</button>
           <button class="btn" id="importSynthesisBtn" type="button">Import synthesis</button>
         </div>
         <details class="bridge-fallback">
@@ -1598,20 +1644,50 @@
         });
       });
       const topTag = Object.entries(tags)
-        .map(([tag, data]) => ({ 0: tag, tag, count: data.count, avg: data.ratingTotal / data.count }))
+        .map(([tag, data]) => ({ tag, count: data.count, avg: data.ratingTotal / data.count }))
         .sort((a, b) => b.count - a.count || b.avg - a.avg || a.tag.localeCompare(b.tag))[0];
 
       document.getElementById("statRated").textContent = ratings.length;
       document.getElementById("statAvg").textContent = avg != null ? avg.toFixed(2) : "—";
       document.getElementById("statTBR").textContent = tbrCount;
-      if (topTag) document.getElementById("statTag").textContent = topTag.tag;
-      document.getElementById("statTag").textContent = topTag ? topTag[0] : "—";
+      document.getElementById("statTag").textContent = topTag ? topTag.tag : "—";
     }
 
     function latestFinishedBook() {
       return [...state.books]
         .filter(b => b.rating != null && (b.status === "Finished" || b.status === "DNF"))
         .sort((a, b) => String(b.dateFinished || "").localeCompare(String(a.dateFinished || "")) || b.title.localeCompare(a.title))[0];
+    }
+
+    function recentAppetiteSignals(limit = 3) {
+      return [...state.books]
+        .filter(b => b.currentAppetiteSignal)
+        .sort((a, b) => String(b.dateFinished || "").localeCompare(String(a.dateFinished || "")))
+        .slice(0, limit);
+    }
+
+    function splitAppetiteSignal(signal) {
+      const value = String(signal || "").trim();
+      if (!value) return { title: "Stable baseline", body: "Recent ratings have not created a temporary re-ranking signal yet." };
+      const parts = value.split(":");
+      if (parts.length < 2) return { title: value, body: "Use this as a temporary tiebreaker for the next few recommendations." };
+      const title = parts.shift().trim();
+      const body = parts.join(":").trim();
+      return {
+        title: title || "Current appetite",
+        body: body || "Use this as a temporary tiebreaker for the next few recommendations."
+      };
+    }
+
+    function renderRecommendationSummary() {
+      const el = document.getElementById("recommendationSummary");
+      if (!el) return;
+      const latestSignal = recentAppetiteSignals(1)[0];
+      const signal = latestSignal ? splitAppetiteSignal(latestSignal.currentAppetiteSignal) : null;
+      const body = signal
+        ? `Use ${signal.title.toLowerCase()} as the temporary tiebreaker: ${signal.body}`
+        : "Prioritize active haunting pressure, emotional attachment, escalation, and a decisive payoff. Down-rank vibe-only slow burns unless there is clear payoff.";
+      el.querySelector(".signal-body").textContent = body;
     }
 
     function renderIntelligence() {
@@ -1631,17 +1707,16 @@
         latestBody.textContent = "Finish and rate a title to create a traceable taste signal.";
       }
 
-      const recentSignals = [...state.books]
-        .filter(b => b.currentAppetiteSignal)
-        .sort((a, b) => String(b.dateFinished || "").localeCompare(String(a.dateFinished || "")))
-        .slice(0, 3);
+      const recentSignals = recentAppetiteSignals(3);
       if (recentSignals.length) {
-        appetiteTitle.textContent = recentSignals[0].currentAppetiteSignal.split(":")[0];
-        appetiteBody.textContent = recentSignals.map(b => b.currentAppetiteSignal).join(" ");
+        const primary = splitAppetiteSignal(recentSignals[0].currentAppetiteSignal);
+        appetiteTitle.textContent = primary.title;
+        appetiteBody.textContent = primary.body;
       } else {
         appetiteTitle.textContent = "Stable baseline";
         appetiteBody.textContent = "Recent ratings have not created a temporary re-ranking signal yet.";
       }
+      renderRecommendationSummary();
 
       if (bridgeStatus) {
         renderAutomationStatus(queued);
@@ -1678,16 +1753,16 @@
 
       if (attention) {
         title.textContent = "Claude routine needs attention";
-        bridgeStatus.textContent = `${attention} item${attention === 1 ? "" : "s"} need review. Use Run synthesis after checking the queue trace.`;
+        bridgeStatus.textContent = `${attention} item${attention === 1 ? "" : "s"} need review. Run synthesis retries the queue after you check the trace.`;
       } else if (processing) {
         title.textContent = "Claude routine is processing";
-        bridgeStatus.textContent = `${processing} item${processing === 1 ? " is" : "s are"} in progress. The page will show movement after Notion updates.`;
+        bridgeStatus.textContent = `${processing} item${processing === 1 ? " is" : "s are"} in progress. The page updates after Claude writes back to Notion.`;
       } else if (pending) {
         title.textContent = "Claude routine is ready";
-        bridgeStatus.textContent = `${pending} reading signal${pending === 1 ? "" : "s"} ready for synthesis. Run synthesis sends the queue to Claude.`;
+        bridgeStatus.textContent = `${pending} reading signal${pending === 1 ? "" : "s"} waiting. Automatic trigger should run first; Run synthesis is the manual retry.`;
       } else {
         title.textContent = "Claude routine is clear";
-        bridgeStatus.textContent = "No pending synthesis. New ratings and TBR additions will queue automatically.";
+        bridgeStatus.textContent = "No pending synthesis. Finish & rate triggers Claude automatically, with an hourly backup sweep.";
       }
     }
 
@@ -1754,8 +1829,8 @@
           ${tagsHtml ? `<div class="book-meta">${tagsHtml}</div>` : ""}
           ${aiHtml ? `<div class="book-meta">${aiHtml}</div>` : ""}
           <div class="book-actions">
-            ${book.status === "TBR" ? `<button class="btn btn-small" data-action="start">Reading now</button>` : ""}
             ${showFinish ? `<button class="btn btn-small btn-primary" data-action="finish">Finish & rate</button>` : ""}
+            ${book.status === "TBR" ? `<button class="btn btn-small" data-action="start">Reading now</button>` : ""}
             ${showEdit ? `<button class="btn btn-small" data-action="edit">Edit</button>` : ""}
             <button class="btn btn-small" data-action="why">${book.status === "TBR" ? "Why this fits" : "Discuss"} <span class="ai-badge">Book Buddy</span></button>
           </div>
