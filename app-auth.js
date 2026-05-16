@@ -60,7 +60,8 @@
     return [
       "skincare.eamiller1981.workers.dev",
       "notion-budget-manager.eamiller1981.workers.dev",
-      "wellness-auth.eamiller1981.workers.dev"
+      "wellness-auth.eamiller1981.workers.dev",
+      "tts.eamiller1981.workers.dev"
     ].includes(url.hostname);
   }
 
