@@ -979,6 +979,7 @@
           <div class="bridge-actions">
             <button class="btn" id="copyBuddyContextBtn" type="button">Copy context</button>
             <button class="btn" id="copySynthesisPacketBtn" type="button">Copy synthesis packet</button>
+            <button class="btn" id="saveBookBuddySessionBtn" type="button">Save Claude session URL</button>
             <button class="btn" id="resetBookBuddySessionBtn" type="button">Start new Claude session</button>
           </div>
         </details>
@@ -1081,6 +1082,8 @@
     const SENTIMENT_PIVOTS_DB_ID = "1fd96e6ba2cb4672bd17e4a0bf02887d";
     const BOOK_BUDDY_URL = "https://claude.ai/new";
     const BOOK_BUDDY_SESSION_KEY = "wellnessReadingBookBuddySessionUrl";
+    const BOOK_BUDDY_FALLBACK_DELAY_MS = 8000;
+    const BOOK_BUDDY_TRIGGER_TIMEOUT_MS = 30000;
 
     // ---- State ----
     const state = {
@@ -1964,16 +1967,23 @@
       });
     }
 
-    async function triggerReadingSynthesis(reason, extra = {}) {
+    async function triggerReadingSynthesis(reason, extra = {}, options = {}) {
+      const controller = options.timeoutMs ? new AbortController() : null;
+      const timeoutId = controller
+        ? window.setTimeout(() => controller.abort(), options.timeoutMs)
+        : null;
       const response = await fetch(READING_AUTOMATION_ENDPOINT, {
         method: "POST",
         credentials: "include",
+        signal: controller ? controller.signal : undefined,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           reason,
           source: "reading-app",
           ...extra
         })
+      }).finally(() => {
+        if (timeoutId) window.clearTimeout(timeoutId);
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -2655,13 +2665,40 @@ ${applyPacketInstructions()}`;
       }
     }
 
+    function isClaudeSessionUrl(value) {
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:"
+          && (
+            url.hostname === "claude.ai"
+            || url.hostname.endsWith(".claude.ai")
+            || url.hostname === "claude.com"
+            || url.hostname.endsWith(".claude.com")
+          );
+      } catch (err) {
+        return false;
+      }
+    }
+
+    function saveManualBookBuddySessionUrl() {
+      const current = getBookBuddySessionUrl();
+      const url = window.prompt("Paste the Claude Book Buddy session URL to reuse.", current || "https://claude.ai/");
+      if (!url) return;
+      if (!isClaudeSessionUrl(url)) {
+        toast("That does not look like a Claude session URL", 3600);
+        return;
+      }
+      setBookBuddySessionUrl(url.trim());
+      toast("Book Buddy session saved");
+    }
+
     function openHoldingTab() {
       const tab = window.open("", "_blank");
       if (!tab) return null;
       try {
         tab.document.title = "Opening Book Buddy";
         tab.document.body.style.cssText = "margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fbf7f0;color:#32251d;display:grid;min-height:100vh;place-items:center;";
-        tab.document.body.innerHTML = "<main style=\"max-width:320px;padding:24px;text-align:center;\"><h1 style=\"font-size:20px;margin:0 0 8px;\">Opening Book Buddy</h1><p style=\"margin:0;color:#6c5a4d;line-height:1.45;\">Claude is getting your Reading context.</p></main>";
+        tab.document.body.innerHTML = `<main style="max-width:320px;padding:24px;text-align:center;"><h1 style="font-size:20px;margin:0 0 8px;">Opening Book Buddy</h1><p style="margin:0 0 14px;color:#6c5a4d;line-height:1.45;">Claude is getting your Reading context.</p><a href="${BOOK_BUDDY_URL}" style="color:#5f514a;font-weight:700;">Open Claude now</a></main>`;
       } catch (err) {
         // Some browsers restrict writing to the opened tab. Navigation still works.
       }
@@ -2683,7 +2720,7 @@ ${applyPacketInstructions()}`;
     async function openBookBuddy(mode = "chat", extra = {}) {
       const context = buildBookBuddyContext(mode, extra);
       const existingSessionUrl = getBookBuddySessionUrl();
-      const shouldReuseSession = mode === "chat" && !extra.forceNew && !extra.prompt && existingSessionUrl;
+      const shouldReuseSession = !extra.forceNew && existingSessionUrl;
 
       if (shouldReuseSession) {
         window.open(existingSessionUrl, "_blank", "noopener");
@@ -2698,12 +2735,21 @@ ${applyPacketInstructions()}`;
 
       const tab = openHoldingTab();
       let copied = false;
+      let fallbackOpened = false;
+      let triggerSettled = false;
       try {
         await copyText(context);
         copied = true;
       } catch (err) {
         copied = false;
       }
+
+      const fallbackTimer = window.setTimeout(() => {
+        if (triggerSettled) return;
+        fallbackOpened = true;
+        openClaudeUrl(BOOK_BUDDY_URL, tab);
+        toast(copied ? "Claude is slow; context copied for Book Buddy" : "Claude is slow; opening fallback", 4200);
+      }, BOOK_BUDDY_FALLBACK_DELAY_MS);
 
       try {
         toast("Opening Claude Book Buddy");
@@ -2713,12 +2759,18 @@ ${applyPacketInstructions()}`;
           prompt: extra.prompt || "",
           list: extra.list || "",
           forceNew: !!extra.forceNew
-        });
+        }, { timeoutMs: BOOK_BUDDY_TRIGGER_TIMEOUT_MS });
+        triggerSettled = true;
+        window.clearTimeout(fallbackTimer);
 
         if (result.claudeSessionUrl) {
           setBookBuddySessionUrl(result.claudeSessionUrl);
-          openClaudeUrl(result.claudeSessionUrl, tab);
-          toast(mode === "vet-list" ? "Claude Book Buddy is vetting the list" : "Claude Book Buddy opened");
+          if (!fallbackOpened) {
+            openClaudeUrl(result.claudeSessionUrl, tab);
+            toast(mode === "vet-list" ? "Claude Book Buddy is vetting the list" : "Claude Book Buddy opened");
+          } else {
+            toast("Book Buddy session saved for next time");
+          }
           return result;
         }
 
@@ -2727,12 +2779,16 @@ ${applyPacketInstructions()}`;
         }
         throw new Error("Claude routine did not return a session URL");
       } catch (err) {
-        if (copied) {
-          toast("Claude routine unavailable; context copied for fallback", 4200);
-        } else {
-          toast(err.message || "Open Claude, then use Copy context", 4200);
+        triggerSettled = true;
+        window.clearTimeout(fallbackTimer);
+        if (!fallbackOpened) {
+          if (copied) {
+            toast("Claude routine unavailable; context copied for fallback", 4200);
+          } else {
+            toast(err.name === "AbortError" ? "Claude routine timed out" : err.message || "Open Claude, then use Copy context", 4200);
+          }
+          openClaudeUrl(BOOK_BUDDY_URL, tab);
         }
-        openClaudeUrl(BOOK_BUDDY_URL, tab);
         return { fallback: true, error: err.message || "" };
       }
     }
@@ -2813,6 +2869,7 @@ ${applyPacketInstructions()}`;
       await copyText(buildBookBuddyContext("synthesis"));
       toast("Synthesis packet copied");
     });
+    document.getElementById("saveBookBuddySessionBtn").addEventListener("click", saveManualBookBuddySessionUrl);
     document.getElementById("resetBookBuddySessionBtn").addEventListener("click", async () => {
       clearBookBuddySessionUrl();
       await openBookBuddy("chat", { forceNew: true });
