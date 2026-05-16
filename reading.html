@@ -301,6 +301,32 @@
       flex-wrap: wrap;
       margin-top: 4px;
     }
+    .book-footer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .book-footer .book-actions {
+      margin-top: 0;
+    }
+    .book-date {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.25;
+      text-align: right;
+      white-space: nowrap;
+    }
+    @media (max-width: 480px) {
+      .book-footer {
+        align-items: center;
+      }
+      .book-date {
+        white-space: normal;
+      }
+    }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -697,6 +723,9 @@
       font-size: 0.88rem;
       line-height: 1.45;
     }
+    #currentAppetiteBody {
+      font-family: Arial, sans-serif;
+    }
     .status-pill {
       display: inline-flex;
       align-items: center;
@@ -735,6 +764,50 @@
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
+    }
+    .rating-accordion {
+      border-top: 1px solid var(--line);
+    }
+    .rating-accordion:last-child {
+      border-bottom: 1px solid var(--line);
+    }
+    .rating-accordion summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 44px;
+      padding: 10px 2px;
+      color: var(--ink);
+      cursor: pointer;
+      list-style: none;
+    }
+    .rating-accordion summary::-webkit-details-marker {
+      display: none;
+    }
+    .rating-accordion summary::after {
+      content: "+";
+      color: var(--muted);
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .rating-accordion[open] summary::after {
+      content: "-";
+    }
+    .rating-group-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1rem;
+    }
+    .rating-group-count {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .rating-group-list {
+      padding: 0 0 12px;
     }
     .book-card.is-wildcard {
       border-color: rgba(110, 58, 120, 0.34);
@@ -919,7 +992,6 @@
       <div class="reading-now-panel" id="readingNowPanel" hidden>
         <div class="lane-heading">
           <span>Reading Now</span>
-          <span>pinned for finishing</span>
         </div>
         <div id="readingNowList"></div>
       </div>
@@ -933,7 +1005,6 @@
       <div class="wildcard-lane" id="wildcardLane" hidden>
         <div class="lane-heading">
           <span>Wildcard Slot</span>
-          <span>separate from ranked TBR</span>
         </div>
         <div id="wildcardList"></div>
       </div>
@@ -951,7 +1022,6 @@
           <option value="">All</option>
           <option value="Finished">Finished</option>
           <option value="DNF">DNF</option>
-          <option value="Excluded">Excluded</option>
         </select>
         <select id="libTagFilter" aria-label="Filter by tag">
           <option value="">All tags</option>
@@ -1532,6 +1602,20 @@
       if (r >= 2) return "tier-notgood";
       return "tier-dnf";
     }
+    function ratingGroupKey(book) {
+      return Number.isFinite(book.rating) ? String(book.rating) : "unrated";
+    }
+    function ratingGroupLabel(key) {
+      if (key === "unrated") return "Unrated";
+      const rating = Number(key);
+      const label = Number.isInteger(rating) ? String(rating) : rating.toFixed(1);
+      return `${label} star${rating === 1 ? "" : "s"}`;
+    }
+    function sortRatingGroups(a, b) {
+      if (a === "unrated") return 1;
+      if (b === "unrated") return -1;
+      return Number(b) - Number(a);
+    }
 
     function formatDate(date) {
       if (!date) return "";
@@ -1670,12 +1754,12 @@
       const value = String(signal || "").trim();
       if (!value) return { title: "Stable baseline", body: "Recent ratings have not created a temporary re-ranking signal yet." };
       const parts = value.split(":");
-      if (parts.length < 2) return { title: value, body: "Use this as a temporary tiebreaker for the next few recommendations." };
+      if (parts.length < 2) return { title: value, body: "" };
       const title = parts.shift().trim();
       const body = parts.join(":").trim();
       return {
         title: title || "Current appetite",
-        body: body || "Use this as a temporary tiebreaker for the next few recommendations."
+        body
       };
     }
 
@@ -1685,7 +1769,7 @@
       const latestSignal = recentAppetiteSignals(1)[0];
       const signal = latestSignal ? splitAppetiteSignal(latestSignal.currentAppetiteSignal) : null;
       const body = signal
-        ? `Use ${signal.title.toLowerCase()} as the temporary tiebreaker: ${signal.body}`
+        ? (signal.body ? `${signal.title}: ${signal.body}` : `Recommendation tilt: ${signal.title}.`)
         : "Prioritize active haunting pressure, emotional attachment, escalation, and a decisive payoff. Down-rank vibe-only slow burns unless there is clear payoff.";
       el.querySelector(".signal-body").textContent = body;
     }
@@ -1712,9 +1796,11 @@
         const primary = splitAppetiteSignal(recentSignals[0].currentAppetiteSignal);
         appetiteTitle.textContent = primary.title;
         appetiteBody.textContent = primary.body;
+        appetiteBody.hidden = !primary.body;
       } else {
         appetiteTitle.textContent = "Stable baseline";
         appetiteBody.textContent = "Recent ratings have not created a temporary re-ranking signal yet.";
+        appetiteBody.hidden = false;
       }
       renderRecommendationSummary();
 
@@ -1794,7 +1880,7 @@
         ...book.tags.slice(0, 3).map(t => `<span class="tag">${escapeHtml(t)}</span>`)
       ].filter(Boolean).join("");
       const dateHtml = opts.showDate && book.dateFinished
-        ? `<div class="book-author">Finished and rated ${escapeHtml(formatDate(book.dateFinished))}</div>`
+        ? `<div class="book-date">Finished and rated ${escapeHtml(formatDate(book.dateFinished))}</div>`
         : "";
       const aiClass = book.aiStatus === "Ready for AI" ? "ready" : book.aiStatus === "Processing" ? "processing" : book.aiStatus === "Applied" ? "applied" : book.aiStatus === "Needs Attention" ? "attention" : "";
       const aiHtml = ["Ready for AI", "Processing", "Needs Attention"].includes(book.aiStatus)
@@ -1825,14 +1911,16 @@
           </div>
           ${showWhy ? `<p class="book-why">${escapeHtml(book.whyItFits)}</p>` : ""}
           ${stretchHtml}
-          ${dateHtml}
           ${tagsHtml ? `<div class="book-meta">${tagsHtml}</div>` : ""}
           ${aiHtml ? `<div class="book-meta">${aiHtml}</div>` : ""}
-          <div class="book-actions">
-            ${showFinish ? `<button class="btn btn-small btn-primary" data-action="finish">Finish & rate</button>` : ""}
-            ${book.status === "TBR" ? `<button class="btn btn-small" data-action="start">Reading now</button>` : ""}
-            ${showEdit ? `<button class="btn btn-small" data-action="edit">Edit</button>` : ""}
-            <button class="btn btn-small" data-action="why">${book.status === "TBR" ? "Why this fits" : "Discuss"} <span class="ai-badge">Book Buddy</span></button>
+          <div class="book-footer">
+            <div class="book-actions">
+              ${showFinish ? `<button class="btn btn-small btn-primary" data-action="finish">Finish & rate</button>` : ""}
+              ${book.status === "TBR" ? `<button class="btn btn-small" data-action="start">Reading now</button>` : ""}
+              ${showEdit ? `<button class="btn btn-small" data-action="edit">Edit</button>` : ""}
+              <button class="btn btn-small" data-action="why">${book.status === "TBR" ? "Why this fits" : "Discuss"} <span class="ai-badge">Book Buddy</span></button>
+            </div>
+            ${dateHtml}
           </div>
         </article>
       `;
@@ -1964,7 +2052,7 @@
       const search = document.getElementById("libSearch").value.toLowerCase().trim();
       const statusFilter = document.getElementById("libStatusFilter").value;
       const tagFilter = document.getElementById("libTagFilter").value;
-      const finishedStatuses = new Set(["Finished", "DNF", "Excluded"]);
+      const finishedStatuses = new Set(["Finished", "DNF"]);
       const lib = state.books
         .filter(b => finishedStatuses.has(b.status))
         .filter(b => !statusFilter || b.status === statusFilter)
@@ -1972,9 +2060,33 @@
         .filter(b => !tagFilter || b.tags.includes(tagFilter))
         .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.title.localeCompare(b.title));
       const el = document.getElementById("libList");
-      el.innerHTML = lib.length
-        ? lib.map(b => bookCardHtml(b, { showWhy: false, showDate: true })).join("")
-        : `<div class="empty">Nothing matches.</div>`;
+      if (!lib.length) {
+        el.innerHTML = `<div class="empty">Nothing matches.</div>`;
+        el.classList.remove("loading");
+        return;
+      }
+
+      const groups = new Map();
+      lib.forEach(book => {
+        const key = ratingGroupKey(book);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(book);
+      });
+      el.innerHTML = [...groups.keys()].sort(sortRatingGroups).map((key, index) => {
+        const books = groups.get(key);
+        const countLabel = `${books.length} title${books.length === 1 ? "" : "s"}`;
+        return `
+          <details class="rating-accordion" ${index === 0 ? "open" : ""}>
+            <summary>
+              <span class="rating-group-title">${escapeHtml(ratingGroupLabel(key))}</span>
+              <span class="rating-group-count">${escapeHtml(countLabel)}</span>
+            </summary>
+            <div class="rating-group-list">
+              ${books.map(b => bookCardHtml(b, { showWhy: false, showDate: true })).join("")}
+            </div>
+          </details>
+        `;
+      }).join("");
       el.classList.remove("loading");
     }
 
