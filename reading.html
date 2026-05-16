@@ -723,9 +723,6 @@
       font-size: 0.88rem;
       line-height: 1.45;
     }
-    #currentAppetiteBody {
-      font-family: Arial, sans-serif;
-    }
     .status-pill {
       display: inline-flex;
       align-items: center;
@@ -2076,7 +2073,7 @@
         const books = groups.get(key);
         const countLabel = `${books.length} title${books.length === 1 ? "" : "s"}`;
         return `
-          <details class="rating-accordion" ${index === 0 ? "open" : ""}>
+          <details class="rating-accordion">
             <summary>
               <span class="rating-group-title">${escapeHtml(ratingGroupLabel(key))}</span>
               <span class="rating-group-count">${escapeHtml(countLabel)}</span>
