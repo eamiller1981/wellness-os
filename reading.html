@@ -1760,13 +1760,12 @@
     function splitAppetiteSignal(signal) {
       const value = String(signal || "").trim();
       if (!value) return { title: "Stable baseline", body: "Recent ratings have not created a temporary re-ranking signal yet." };
-      const parts = value.split(":");
-      if (parts.length < 2) return { title: "", body: value };
-      const title = parts.shift().trim();
-      const body = parts.join(":").trim();
+      const body = value
+        .replace(/^(Confirmed|Preference Strengthened|Downweight|Current appetite):\s*/i, "")
+        .trim();
       return {
-        title: title || "Current appetite",
-        body
+        title: "",
+        body: body ? body.charAt(0).toUpperCase() + body.slice(1) : ""
       };
     }
 
