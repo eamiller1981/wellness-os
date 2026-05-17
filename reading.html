@@ -1112,7 +1112,7 @@
       <label for="finishRating">Rating</label>
       <div class="rating-row">
         <input type="range" id="finishRating" min="1" max="5" step="0.5" value="4">
-        <div class="rating-display"><span id="finishRatingValue">4</span><small id="finishRatingLabel">VERY GOOD</small></div>
+        <div class="rating-display"><span id="finishRatingValue">4</span><small id="finishRatingLabel">Good</small></div>
       </div>
       <label for="finishLiked">What you liked</label>
       <textarea id="finishLiked" placeholder="What worked? Pacing, character, atmosphere, ending…"></textarea>
@@ -1587,11 +1587,18 @@
     // ---- Rating helpers ----
     function ratingLabel(r) {
       if (r == null) return "";
-      if (r >= 5) return "LOVED";
-      if (r >= 4) return "VERY GOOD";
-      if (r >= 3) return "OKAY";
-      if (r >= 2) return "NOT GOOD";
-      return "DNF";
+      const labels = {
+        1: "DNF",
+        1.5: "Hated",
+        2: "Very Bad",
+        2.5: "Bad",
+        3: "Okay",
+        3.5: "Good Enough",
+        4: "Good",
+        4.5: "Very Good",
+        5: "Loved"
+      };
+      return labels[Number(r)] || "";
     }
     function ratingTier(r) {
       if (r == null) return "";
@@ -2629,7 +2636,7 @@ Return:
       const disliked = document.getElementById("finishDisliked").value.trim();
       const reflection = document.getElementById("finishReflection").value.trim();
       const today = new Date().toISOString().slice(0, 10);
-      const newStatus = rating <= 1.5 ? "DNF" : "Finished";
+      const newStatus = rating <= 1 ? "DNF" : "Finished";
       const signals = buildReadingSignals(bookBefore, rating, liked, disliked, reflection);
 
       try {
