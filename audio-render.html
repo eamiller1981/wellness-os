@@ -215,6 +215,11 @@
       margin-top: 8px;
     }
     .summary-stats strong { color: var(--ink); }
+    .audition-source {
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -246,46 +251,58 @@
         <div class="book-meta-author" id="book-author">—</div>
       </div>
 
-      <div class="form-grid">
-        <div class="form-row">
-          <label for="book-name">Book name (for library)</label>
-          <input id="book-name" type="text">
-        </div>
-        <div class="form-row">
-          <label for="voice-select">Voice</label>
-          <select id="voice-select">
-            <optgroup label="en-US — Novel-tagged">
-              <option value="en-US-ChristopherNeural">Christopher (Authoritative)</option>
-              <option value="en-US-SteffanNeural" selected>Steffan (Rational)</option>
-              <option value="en-US-EricNeural">Eric (Rational)</option>
-              <option value="en-US-RogerNeural">Roger (Lively)</option>
-              <option value="en-US-GuyNeural">Guy (Passion)</option>
-              <option value="en-US-MichelleNeural">Michelle (Pleasant)</option>
-              <option value="en-US-AriaNeural">Aria (Confident)</option>
-            </optgroup>
-            <optgroup label="en-US Multilingual">
-              <option value="en-US-AndrewMultilingualNeural">Andrew (Warm)</option>
-              <option value="en-US-BrianMultilingualNeural">Brian</option>
-              <option value="en-US-AvaMultilingualNeural">Ava</option>
-              <option value="en-US-EmmaMultilingualNeural">Emma</option>
-            </optgroup>
-            <optgroup label="en-GB">
-              <option value="en-GB-SoniaNeural">Sonia</option>
-              <option value="en-GB-RyanNeural">Ryan</option>
-              <option value="en-GB-ThomasNeural">Thomas</option>
-              <option value="en-GB-LibbyNeural">Libby</option>
-            </optgroup>
-          </select>
-        </div>
+      <div class="form-row">
+        <label for="book-name">Book name (for library)</label>
+        <input id="book-name" type="text">
+      </div>
+    </section>
+
+    <section class="module-section" id="audition-section" hidden>
+      <h2>Voice Audition</h2>
+      <p class="section-sub">Pick a voice, then play the first 500 characters of the first chapter to audition it. Your choice will be used to render the whole book and is remembered per book.</p>
+
+      <div class="form-row">
+        <label for="voice-select">Voice</label>
+        <select id="voice-select">
+          <optgroup label="en-US — Novel-tagged">
+            <option value="en-US-ChristopherNeural">Christopher (Authoritative)</option>
+            <option value="en-US-SteffanNeural" selected>Steffan (Rational)</option>
+            <option value="en-US-EricNeural">Eric (Rational)</option>
+            <option value="en-US-RogerNeural">Roger (Lively)</option>
+            <option value="en-US-GuyNeural">Guy (Passion)</option>
+            <option value="en-US-MichelleNeural">Michelle (Pleasant)</option>
+            <option value="en-US-AriaNeural">Aria (Confident)</option>
+          </optgroup>
+          <optgroup label="en-US Multilingual">
+            <option value="en-US-AndrewMultilingualNeural">Andrew (Warm)</option>
+            <option value="en-US-BrianMultilingualNeural">Brian</option>
+            <option value="en-US-AvaMultilingualNeural">Ava</option>
+            <option value="en-US-EmmaMultilingualNeural">Emma</option>
+          </optgroup>
+          <optgroup label="en-GB">
+            <option value="en-GB-SoniaNeural">Sonia</option>
+            <option value="en-GB-RyanNeural">Ryan</option>
+            <option value="en-GB-ThomasNeural">Thomas</option>
+            <option value="en-GB-LibbyNeural">Libby</option>
+          </optgroup>
+        </select>
       </div>
 
-      <h3 style="margin: 14px 0 8px; font-family: Georgia, 'Times New Roman', serif; font-weight: 400;">Chapters</h3>
-      <p class="section-sub" style="margin-bottom: 8px;">Uncheck chapters you want to skip (e.g. title pages, copyright, TOC). Short sections under 500 chars are auto-skipped by default.</p>
+      <div class="toolbar">
+        <button id="audition-btn" class="btn btn-primary" type="button">Play sample</button>
+        <span id="audition-source" class="audition-source"></span>
+      </div>
+      <div id="audition-status" class="status"></div>
+      <audio id="audition-audio" controls hidden style="width:100%; margin-top:10px;"></audio>
+    </section>
+
+    <section class="module-section" id="chapters-section" hidden>
+      <h2>Chapters</h2>
+      <p class="section-sub">Uncheck chapters you want to skip. Title, Copyright, Acknowledgements and short sections under 500 chars are auto-skipped on import.</p>
 
       <div class="toolbar">
         <button id="select-all-btn"   class="btn btn-small" type="button">Select all</button>
         <button id="select-none-btn"  class="btn btn-small" type="button">Select none</button>
-        <button id="skip-short-btn"   class="btn btn-small" type="button">Skip &lt; 500 chars</button>
         <div class="grow"></div>
         <div class="summary-stats" id="selection-stats"></div>
       </div>
@@ -314,15 +331,20 @@
       fileInput: document.getElementById("file-input"),
       parseStatus: document.getElementById("parse-status"),
       bookSection: document.getElementById("book-section"),
+      auditionSection: document.getElementById("audition-section"),
+      chaptersSection: document.getElementById("chapters-section"),
       bookTitle: document.getElementById("book-title"),
       bookAuthor: document.getElementById("book-author"),
       bookName: document.getElementById("book-name"),
       voiceSelect: document.getElementById("voice-select"),
+      auditionBtn: document.getElementById("audition-btn"),
+      auditionSource: document.getElementById("audition-source"),
+      auditionStatus: document.getElementById("audition-status"),
+      auditionAudio: document.getElementById("audition-audio"),
       chapterTable: document.getElementById("chapter-table"),
       selectionStats: document.getElementById("selection-stats"),
       selectAllBtn: document.getElementById("select-all-btn"),
       selectNoneBtn: document.getElementById("select-none-btn"),
-      skipShortBtn: document.getElementById("skip-short-btn"),
       renderBtn: document.getElementById("render-btn"),
       retryBtn: document.getElementById("retry-btn"),
       cancelBtn: document.getElementById("cancel-btn"),
@@ -405,6 +427,9 @@
         const usable = chapters.filter(c => c.charCount > 0).length;
         setStatus(els.parseStatus, `Parsed: ${chapters.length} sections (${usable} with content).`, "success");
         els.bookSection.hidden = false;
+        els.auditionSection.hidden = false;
+        els.chaptersSection.hidden = false;
+        updateAuditionSourceLabel();
       } catch (err) {
         console.error(err);
         setStatus(els.parseStatus, `Failed to parse: ${err.message}`, "error");
@@ -612,16 +637,54 @@
       renderChapterTable();
       flashSelectionMsg(`Deselected ${n} chapters.`);
     });
-    els.skipShortBtn.addEventListener("click", () => {
-      let kept = 0, skipped = 0;
-      for (const c of chapters) {
-        if (c.status === "done" || c.status === "running") continue;
-        const should = defaultSelected(c.title, c.charCount);
-        c.selected = should;
-        if (should) kept++; else skipped++;
+    // -------- Voice audition --------
+    function firstAuditionChapter() {
+      // Prefer the first chapter the default-selector would include (skips Title,
+      // Copyright, Acknowledgements, and short sections). Fall back to the first
+      // chapter with any content if nothing matches.
+      const preferred = chapters.find(c => defaultSelected(c.title, c.charCount) && c.charCount > 0 && c.text);
+      if (preferred) return preferred;
+      return chapters.find(c => c.charCount > 0 && c.text);
+    }
+    function updateAuditionSourceLabel() {
+      const ch = firstAuditionChapter();
+      els.auditionSource.textContent = ch
+        ? `Sample: first 500 chars of "${ch.title}"`
+        : "No chapter content available to audition.";
+      els.auditionBtn.disabled = !ch;
+    }
+    els.auditionBtn.addEventListener("click", async () => {
+      const ch = firstAuditionChapter();
+      if (!ch) {
+        setStatus(els.auditionStatus, "No chapter content to audition.", "error");
+        return;
       }
-      renderChapterTable();
-      flashSelectionMsg(`Kept ${kept} chapters · skipped ${skipped} (short sections + copyright/acknowledgements).`);
+      const sample = ch.text.slice(0, 500);
+      els.auditionBtn.disabled = true;
+      setStatus(els.auditionStatus, `Synthesizing sample with ${els.voiceSelect.value}…`, "info");
+      els.auditionAudio.hidden = true;
+      els.auditionAudio.removeAttribute("src");
+      try {
+        const resp = await fetch(`${TTS_BASE}/api/tts/synthesize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: sample, voice: els.voiceSelect.value, rate: 0 }),
+        });
+        if (!resp.ok) {
+          const errTxt = await resp.text();
+          throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
+        }
+        const blob = await resp.blob();
+        els.auditionAudio.src = URL.createObjectURL(blob);
+        els.auditionAudio.hidden = false;
+        els.auditionAudio.play().catch(() => {}); // browser may block autoplay; user can press play
+        setStatus(els.auditionStatus, `Ready · ${els.voiceSelect.value} · ${sample.length} chars`, "success");
+        rememberVoiceForBook();
+      } catch (err) {
+        setStatus(els.auditionStatus, `Error: ${err.message}`, "error");
+      } finally {
+        els.auditionBtn.disabled = false;
+      }
     });
 
     // -------- Render pipeline --------
