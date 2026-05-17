@@ -515,21 +515,37 @@
         `~<strong>${Math.round(estSec / 60)} min</strong> to render</span>`;
     }
 
+    function flashSelectionMsg(msg) {
+      setStatus(els.renderStatus, msg, "info");
+    }
     els.selectAllBtn.addEventListener("click", () => {
-      for (const c of chapters) if (c.charCount > 0 && c.status === "pending") c.selected = true;
-      renderChapterTable();
-    });
-    els.selectNoneBtn.addEventListener("click", () => {
-      for (const c of chapters) if (c.status !== "done" && c.status !== "running") c.selected = false;
-      renderChapterTable();
-    });
-    els.skipShortBtn.addEventListener("click", () => {
+      let n = 0;
       for (const c of chapters) {
-        if (c.status !== "done" && c.status !== "running") {
-          c.selected = c.charCount >= 500;
-        }
+        if (c.status === "done" || c.status === "running") continue;
+        if (c.charCount > 0) { c.selected = true; n++; }
       }
       renderChapterTable();
+      flashSelectionMsg(`Selected ${n} chapters with content. (Skipped ${chapters.length - n} empty/done/running.)`);
+    });
+    els.selectNoneBtn.addEventListener("click", () => {
+      let n = 0;
+      for (const c of chapters) {
+        if (c.status === "done" || c.status === "running") continue;
+        if (c.selected) { c.selected = false; n++; }
+      }
+      renderChapterTable();
+      flashSelectionMsg(`Deselected ${n} chapters.`);
+    });
+    els.skipShortBtn.addEventListener("click", () => {
+      let kept = 0, skipped = 0;
+      for (const c of chapters) {
+        if (c.status === "done" || c.status === "running") continue;
+        const should = c.charCount >= 500;
+        c.selected = should;
+        if (should) kept++; else skipped++;
+      }
+      renderChapterTable();
+      flashSelectionMsg(`Kept ${kept} chapters ≥ 500 chars · skipped ${skipped} short sections.`);
     });
 
     // -------- Render pipeline --------
