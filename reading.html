@@ -138,23 +138,24 @@
     }
     .jump-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
     }
     .jump-link {
       display: flex;
       align-items: center;
       justify-content: center;
       min-height: 38px;
-      padding: 8px 10px;
+      padding: 8px 8px;
       border: 1px solid var(--line);
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.72);
       color: var(--ink);
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 0.88rem;
+      font-size: 0.84rem;
       text-align: center;
       text-decoration: none;
+      white-space: nowrap;
       transition: border-color 0.15s, color 0.15s, background 0.15s;
     }
     .jump-link:hover, .jump-link:focus-visible {
@@ -171,16 +172,13 @@
         padding: 8px 4px 10px;
       }
       .jump-grid {
-        grid-template-columns: repeat(4, minmax(92px, 1fr));
-        overflow-x: auto;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         padding-bottom: 2px;
-        scrollbar-width: none;
       }
-      .jump-grid::-webkit-scrollbar { display: none; }
       .jump-link {
         min-height: 36px;
-        padding-inline: 12px;
-        white-space: nowrap;
+        padding-inline: 6px;
+        font-size: 0.74rem;
       }
     }
 
@@ -952,11 +950,11 @@
     <section class="jump-section" aria-label="Reading sections">
       <h2>Jump To</h2>
       <div class="jump-grid">
-        <a class="jump-link" href="#section-tbr">To Be Read</a>
-        <a class="jump-link" href="#section-library">Reading Log</a>
-        <a class="jump-link" href="#section-taste">Taste Profile</a>
-        <a class="jump-link" href="#section-book-buddy">Book Buddy</a>
-        <a class="jump-link" href="/audio-render">EPUB → MP3</a>
+        <a class="jump-link" href="#section-tbr" aria-label="To Be Read">TBR</a>
+        <a class="jump-link" href="#section-library" aria-label="Reading Log">Log</a>
+        <a class="jump-link" href="#section-taste" aria-label="Taste Profile">Taste</a>
+        <a class="jump-link" href="/audio-render" aria-label="EPUB to MP3">EPUB</a>
+        <a class="jump-link" href="#section-book-buddy" aria-label="Book Buddy">Buddy</a>
       </div>
     </section>
 
