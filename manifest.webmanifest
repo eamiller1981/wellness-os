@@ -10,16 +10,16 @@
   "theme_color": "#f5eae3",
   "icons": [
     {
-      "src": "assets/2.png",
-      "sizes": "300x300",
+      "src": "assets/favicons/wellness-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "assets/header-logo.png",
-      "sizes": "267x205",
+      "src": "assets/favicons/wellness-512.png",
+      "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ]
 }

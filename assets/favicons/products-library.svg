@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="products-library icon">
+  <rect width="256" height="256" rx="58" fill="#f5eae3"/>
+  <rect x="22" y="22" width="212" height="212" rx="48" fill="#fffaf7" stroke="#d8c8be" stroke-width="8"/>
+  <circle cx="190" cy="66" r="18" fill="#b77b82" opacity="0.9"/>
+  <path d="M62 178 C87 194 169 194 194 178" fill="none" stroke="#d8c8be" stroke-width="10" stroke-linecap="round"/>
+  <path d="M70 184 C99 202 157 202 186 184" fill="none" stroke="#b77b82" stroke-width="7" stroke-linecap="round" opacity="0.82"/>
+  <text x="128" y="151" text-anchor="middle" dominant-baseline="middle" font-family="Georgia, 'Times New Roman', serif" font-size="74" font-weight="700" letter-spacing="3" fill="#806f64">PL</text>
+</svg>
