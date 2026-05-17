@@ -645,18 +645,29 @@
       flashSelectionMsg(`Deselected ${n} chapters.`);
     });
     // -------- Voice audition --------
+    const AUDITION_WORDS = 500;
+    function isPreliminaryTitle(title) {
+      const t = (title || "").trim();
+      return ALWAYS_INCLUDE_TITLES.some(re => re.test(t))   // Title / Title Page
+          || ALWAYS_EXCLUDE_TITLES.some(re => re.test(t));  // Copyright / Acknowledgements
+    }
     function firstAuditionChapter() {
-      // Prefer the first chapter the default-selector would include (skips Title,
-      // Copyright, Acknowledgements, and short sections). Fall back to the first
-      // chapter with any content if nothing matches.
-      const preferred = chapters.find(c => defaultSelected(c.title, c.charCount) && c.charCount > 0 && c.text);
-      if (preferred) return preferred;
-      return chapters.find(c => c.charCount > 0 && c.text);
+      // Find the first chapter with substantial prose. We deliberately skip
+      // Title/Copyright/Acknowledgements and anything under 1,500 chars so the
+      // audition uses an actual chapter (~500 words), not a title page.
+      const meaty = chapters.find(c => c.text && c.charCount >= 1500 && !isPreliminaryTitle(c.title));
+      if (meaty) return meaty;
+      // Fallback to the longest chapter we have, just in case.
+      return chapters.slice().sort((a, b) => b.charCount - a.charCount).find(c => c.text);
+    }
+    function buildSample(text, maxWords) {
+      const words = String(text).split(/\s+/).filter(Boolean);
+      return words.slice(0, maxWords).join(" ");
     }
     function updateAuditionSourceLabel() {
       const ch = firstAuditionChapter();
       els.auditionSource.textContent = ch
-        ? `Sample: first 500 chars of "${ch.title}"`
+        ? `Sample: first ${AUDITION_WORDS} words of "${ch.title}"`
         : "No chapter content available to audition.";
       els.auditionBtn.disabled = !ch;
     }
@@ -666,9 +677,9 @@
         setStatus(els.auditionStatus, "No chapter content to audition.", "error");
         return;
       }
-      const sample = ch.text.slice(0, 500);
+      const sample = buildSample(ch.text, AUDITION_WORDS);
       els.auditionBtn.disabled = true;
-      setStatus(els.auditionStatus, `Synthesizing sample with ${els.voiceSelect.value}…`, "info");
+      setStatus(els.auditionStatus, `Synthesizing ~${AUDITION_WORDS}-word sample with ${els.voiceSelect.value}…`, "info");
       els.auditionAudio.hidden = true;
       els.auditionAudio.removeAttribute("src");
       try {
@@ -685,7 +696,8 @@
         els.auditionAudio.src = URL.createObjectURL(blob);
         els.auditionAudio.hidden = false;
         els.auditionAudio.play().catch(() => {}); // browser may block autoplay; user can press play
-        setStatus(els.auditionStatus, `Ready · ${els.voiceSelect.value} · ${sample.length} chars`, "success");
+        const wordCount = sample.split(/\s+/).filter(Boolean).length;
+        setStatus(els.auditionStatus, `Ready · ${els.voiceSelect.value} · ${wordCount} words / ${sample.length.toLocaleString()} chars`, "success");
         rememberVoiceForBook();
       } catch (err) {
         setStatus(els.auditionStatus, `Error: ${err.message}`, "error");
