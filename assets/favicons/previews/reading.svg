@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Reading icon">
+  <rect width="256" height="256" rx="58" fill="#f5eae3"/>
+  <rect x="22" y="22" width="212" height="212" rx="48" fill="#fffaf7" stroke="#d8c8be" stroke-width="8"/>
+  <path d="M63 82h48c13 0 17 8 17 19v88c0-11-8-18-20-18H63V82Z" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M193 82h-48c-13 0-17 8-17 19v88c0-11 8-18 20-18h45V82Z" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M160 88v44l14-10 14 10V88" fill="none" stroke="#7b5a88" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

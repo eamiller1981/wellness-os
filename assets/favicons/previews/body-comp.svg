@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Body Comp icon">
+  <rect width="256" height="256" rx="58" fill="#f5eae3"/>
+  <rect x="22" y="22" width="212" height="212" rx="48" fill="#fffaf7" stroke="#d8c8be" stroke-width="8"/>
+  <path d="M69 93c28-25 91-25 119 0 19 17 13 43-15 55-27 12-63 11-90-1-26-12-32-37-14-54Z" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M91 112v20M113 104v25M136 101v27M159 104v25" fill="none" stroke="#8a766e" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/><path d="M84 180h88" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

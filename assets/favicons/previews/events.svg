@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Events icon">
+  <rect width="256" height="256" rx="58" fill="#f5eae3"/>
+  <rect x="22" y="22" width="212" height="212" rx="48" fill="#fffaf7" stroke="#d8c8be" stroke-width="8"/>
+  <rect x="62" y="79" width="132" height="113" rx="18" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M62 113h132" fill="none" stroke="#b88b55" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M95 60v32M161 60v32" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><circle cx="99" cy="145" r="8" fill="#b88b55"/><circle cx="128" cy="145" r="8" fill="#b88b55"/><circle cx="157" cy="145" r="8" fill="#b88b55"/>
+</svg>

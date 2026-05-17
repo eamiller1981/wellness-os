@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Meals icon">
+  <rect width="256" height="256" rx="58" fill="#f5eae3"/>
+  <rect x="22" y="22" width="212" height="212" rx="48" fill="#fffaf7" stroke="#d8c8be" stroke-width="8"/>
+  <path d="M64 125h128c-5 39-31 62-64 62s-59-23-64-62Z" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M84 190h88" fill="none" stroke="#b88b55" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M169 84l28-24" fill="none" stroke="#b88b55" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

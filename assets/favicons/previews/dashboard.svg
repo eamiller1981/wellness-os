@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Dashboard icon">
+  <rect width="256" height="256" rx="58" fill="#f5eae3"/>
+  <rect x="22" y="22" width="212" height="212" rx="48" fill="#fffaf7" stroke="#d8c8be" stroke-width="8"/>
+  <rect x="69" y="72" width="45" height="45" rx="12" fill="#b77b82"/><rect x="141" y="72" width="45" height="45" rx="12" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><rect x="69" y="145" width="45" height="45" rx="12" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><rect x="141" y="145" width="45" height="45" rx="12" fill="#b77b82"/>
+</svg>

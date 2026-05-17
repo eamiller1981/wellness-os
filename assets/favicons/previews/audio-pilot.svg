@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Audio Pilot icon">
+  <rect width="256" height="256" rx="58" fill="#f5eae3"/>
+  <rect x="22" y="22" width="212" height="212" rx="48" fill="#fffaf7" stroke="#d8c8be" stroke-width="8"/>
+  <path d="M75 141v-21a53 53 0 0 1 106 0v21" fill="none" stroke="#806f64" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><rect x="61" y="133" width="28" height="46" rx="12" fill="#b77b82"/><rect x="167" y="133" width="28" height="46" rx="12" fill="#b77b82"/><path d="M102 188c17 8 35 8 52 0" fill="none" stroke="#b77b82" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
