@@ -58,6 +58,14 @@ Core outputs:
 - Re-rank normal TBR separately from Wildcard books.
 - Keep wildcard books out of normal ranked TBR unless the user explicitly asks to promote one.
 
+Field formatting rules:
+- What Changed must be one compact paragraph, not bullets and not HTML.
+- What Changed must begin with the uppercase rating label, rating, and a period, using this pattern: `LOVED (5★). Three durable signals: (1) ...; (2) ...; (3) ... .`
+- For non-5★ books, use the same structure with "Three calibration signals" unless the signal is clearly durable. Example: `GOOD (4★). Three calibration signals: (1) ...; (2) ...; (3) ... .`
+- Current Appetite Signal must be one or two polished sentence-case sentences.
+- Current Appetite Signal must not begin with label prefixes such as "Confirmed:", "Preference Strengthened:", "Downweight:", or "Current appetite:".
+- When useful, Current Appetite Signal should compare the new signal to the strongest current anchor instead of treating every finished book as an equal preference reset.
+
 TBR movement rules:
 - For each changed TBR book, write TBR Rank, Previous TBR Rank, TBR Movement, Movement Reason, Movement Badge, Last Movement At, Predicted Rating, Why It Fits, Wildcard, and Why It Stretches as appropriate.
 - TBR Movement must be one of: Up, Down, New, No Change, Wildcard, Removed.

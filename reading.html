@@ -2598,10 +2598,11 @@ Current TBR:
 ${tbr || "None"}
 
 Return:
-1. What changed, in 3 bullets max.
-2. TBR movements, if any.
-3. Whether this is transient or structural.
-4. Any wildcard candidate logic, without hard-dealbreaker violations.`;
+1. What Changed as one compact paragraph, no bullets and no HTML, using this pattern: UPPERCASE RATING LABEL (rating★). Three calibration signals: (1) ...; (2) ...; (3) ... .
+2. Current Appetite Signal as one or two polished sentence-case sentences with no label prefix such as "Confirmed:" or "Preference strengthened:"; compare the new signal against the strongest current anchor when useful.
+3. TBR movements, if any.
+4. Whether this is transient or structural.
+5. Any wildcard candidate logic, without hard-dealbreaker violations.`;
     }
 
     // ---- Finish-book ritual ----
@@ -2776,8 +2777,8 @@ APPLY_PACKET
   "tasteProfileUpdate": "Complete updated Taste Profile text. Use concise headings and bullets if helpful.",
   "triggerBookUpdate": {
     "title": "Exact finished book title",
-    "whatChanged": "Short traceable summary of what changed after this book.",
-    "currentAppetiteSignal": "Temporary or structural appetite signal.",
+    "whatChanged": "One compact paragraph, no bullets and no HTML: UPPERCASE RATING LABEL (rating★). Three calibration signals: (1) ...; (2) ...; (3) ... .",
+    "currentAppetiteSignal": "One or two polished sentence-case sentences, no label prefix; compare with the strongest current anchor when useful.",
     "sentiment": "Strong Positive",
     "vibe": ["Atmospheric"],
     "dealbreakers": "",
