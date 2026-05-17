@@ -412,11 +412,21 @@ async function synthesizeLong(text, voice, ratePct, pitchHz) {
   if (pieces.length === 1) {
     return synthesize(pieces[0], voice, ratePct, pitchHz);
   }
-  // Fire all chunk synths concurrently — Microsoft accepts parallel WebSockets,
-  // and Workers free wall-clock budget is too tight for sequential chunks at
-  // chapter scale. Order is preserved via Promise.all index alignment.
-  const buffers = await Promise.all(
-    pieces.map((piece) => synthesize(piece, voice, ratePct, pitchHz))
+  // Cap concurrent WebSocket synths per chapter to avoid burst-rate-limiting
+  // by Microsoft's IP-level throttle. Two-at-a-time still fits comfortably in
+  // the Workers 30s wall-clock budget for typical chapters (≤6 chunks).
+  const MAX_CONCURRENT = 2;
+  const buffers = new Array(pieces.length);
+  let cursor = 0;
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= pieces.length) return;
+      buffers[i] = await synthesize(pieces[i], voice, ratePct, pitchHz);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(MAX_CONCURRENT, pieces.length) }, worker)
   );
   let total = 0;
   for (const b of buffers) total += b.byteLength;

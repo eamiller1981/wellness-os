@@ -139,8 +139,6 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
-      max-height: 480px;
-      overflow-y: auto;
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 6px;
@@ -559,9 +557,18 @@
     }
 
     // -------- Chapter table --------
+    const STATUS_RANK = { done: 0, error: 1, running: 2, pending: 3, skipped: 4 };
+    function displayOrderedChapters() {
+      return [...chapters].sort((a, b) => {
+        const ra = STATUS_RANK[a.status] ?? 99;
+        const rb = STATUS_RANK[b.status] ?? 99;
+        if (ra !== rb) return ra - rb;
+        return a.index - b.index;
+      });
+    }
     function renderChapterTable() {
       els.chapterTable.innerHTML = "";
-      for (const ch of chapters) {
+      for (const ch of displayOrderedChapters()) {
         const row = document.createElement("div");
         row.className = "chapter-row";
         row.dataset.index = ch.index;
@@ -688,8 +695,8 @@
     });
 
     // -------- Render pipeline --------
-    const INTER_CHAPTER_DELAY_MS = 1500;
-    const RETRY_DELAY_MS = 5000;
+    const INTER_CHAPTER_DELAY_MS = 5000;
+    const RETRY_BACKOFFS_MS = [8000, 20000, 45000]; // 3 retries with exponential-ish backoff
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
     async function renderOneChapter(ch, bookName) {
@@ -735,7 +742,8 @@
         setStatus(els.renderStatus, `Rendering ${ch.title} (${ch.charCount.toLocaleString()} chars)… [${i + 1}/${total}]`, "info");
 
         let lastErr = null;
-        for (let attempt = 1; attempt <= 2; attempt++) {
+        const maxAttempts = 1 + RETRY_BACKOFFS_MS.length;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
             const data = await renderOneChapter(ch, bookName);
             ch.status = "done";
@@ -745,9 +753,10 @@
             break;
           } catch (err) {
             lastErr = err;
-            if (attempt === 1 && !cancelRequested) {
-              setStatus(els.renderStatus, `Retrying ${ch.title} in ${RETRY_DELAY_MS / 1000}s after error: ${err.message.slice(0, 100)}`, "info");
-              await sleep(RETRY_DELAY_MS);
+            if (attempt < maxAttempts && !cancelRequested) {
+              const backoff = RETRY_BACKOFFS_MS[attempt - 1];
+              setStatus(els.renderStatus, `Retry ${attempt}/${RETRY_BACKOFFS_MS.length} for "${ch.title}" in ${backoff / 1000}s · ${err.message.slice(0, 80)}`, "info");
+              await sleep(backoff);
             }
           }
         }
@@ -776,6 +785,8 @@
       els.renderBtn.disabled = false;
       els.retryBtn.disabled = !chapters.some(c => c.status === "error");
       els.cancelBtn.hidden = true;
+      // Re-render so done floats to top, error next, rest below
+      renderChapterTable();
     }
 
     els.renderBtn.addEventListener("click", async () => {
