@@ -337,6 +337,21 @@
       el.textContent = msg || "";
       el.className = "status" + (kind ? " " + kind : "");
     }
+
+    // Title-based default-selection rules. Matches are case-insensitive, full-word-ish.
+    const ALWAYS_INCLUDE_TITLES = [/^title$/i, /^title page$/i];
+    const ALWAYS_EXCLUDE_TITLES = [
+      /^copyright/i,
+      /^acknowledge?ments?$/i,
+      /^acknowledgments?$/i,
+    ];
+    function defaultSelected(title, charCount) {
+      if (charCount === 0) return false;
+      const t = (title || "").trim();
+      if (ALWAYS_EXCLUDE_TITLES.some(re => re.test(t))) return false;
+      if (ALWAYS_INCLUDE_TITLES.some(re => re.test(t))) return true;
+      return charCount >= 500;
+    }
     const BOOK_VOICE_PREFIX = "bookVoice:";
     function bookKey(book) { return BOOK_VOICE_PREFIX + book.trim().toLowerCase(); }
     function loadVoiceForBook() {
@@ -506,7 +521,7 @@
           title: label,
           text,
           charCount,
-          selected: charCount >= 500,
+          selected: defaultSelected(label, charCount),
           status: err ? "error" : "pending",
           error: err,
           pageId: null,
@@ -599,12 +614,12 @@
       let kept = 0, skipped = 0;
       for (const c of chapters) {
         if (c.status === "done" || c.status === "running") continue;
-        const should = c.charCount >= 500;
+        const should = defaultSelected(c.title, c.charCount);
         c.selected = should;
         if (should) kept++; else skipped++;
       }
       renderChapterTable();
-      flashSelectionMsg(`Kept ${kept} chapters ≥ 500 chars · skipped ${skipped} short sections.`);
+      flashSelectionMsg(`Kept ${kept} chapters · skipped ${skipped} (short sections + copyright/acknowledgements).`);
     });
 
     // -------- Render pipeline --------
