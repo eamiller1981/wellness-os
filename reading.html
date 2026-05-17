@@ -1751,7 +1751,7 @@
       const value = String(signal || "").trim();
       if (!value) return { title: "Stable baseline", body: "Recent ratings have not created a temporary re-ranking signal yet." };
       const parts = value.split(":");
-      if (parts.length < 2) return { title: value, body: "" };
+      if (parts.length < 2) return { title: "", body: value };
       const title = parts.shift().trim();
       const body = parts.join(":").trim();
       return {
@@ -1766,7 +1766,7 @@
       const latestSignal = recentAppetiteSignals(1)[0];
       const signal = latestSignal ? splitAppetiteSignal(latestSignal.currentAppetiteSignal) : null;
       const body = signal
-        ? (signal.body ? `${signal.title}: ${signal.body}` : `Recommendation tilt: ${signal.title}.`)
+        ? (signal.title ? `${signal.title}: ${signal.body}` : signal.body)
         : "Prioritize active haunting pressure, emotional attachment, escalation, and a decisive payoff. Down-rank vibe-only slow burns unless there is clear payoff.";
       el.querySelector(".signal-body").textContent = body;
     }
@@ -1792,10 +1792,12 @@
       if (recentSignals.length) {
         const primary = splitAppetiteSignal(recentSignals[0].currentAppetiteSignal);
         appetiteTitle.textContent = primary.title;
+        appetiteTitle.hidden = !primary.title;
         appetiteBody.textContent = primary.body;
         appetiteBody.hidden = !primary.body;
       } else {
         appetiteTitle.textContent = "Stable baseline";
+        appetiteTitle.hidden = false;
         appetiteBody.textContent = "Recent ratings have not created a temporary re-ranking signal yet.";
         appetiteBody.hidden = false;
       }
