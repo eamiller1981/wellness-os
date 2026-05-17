@@ -412,13 +412,14 @@ async function synthesizeLong(text, voice, ratePct, pitchHz) {
   if (pieces.length === 1) {
     return synthesize(pieces[0], voice, ratePct, pitchHz);
   }
-  const buffers = [];
+  // Fire all chunk synths concurrently — Microsoft accepts parallel WebSockets,
+  // and Workers free wall-clock budget is too tight for sequential chunks at
+  // chapter scale. Order is preserved via Promise.all index alignment.
+  const buffers = await Promise.all(
+    pieces.map((piece) => synthesize(piece, voice, ratePct, pitchHz))
+  );
   let total = 0;
-  for (const piece of pieces) {
-    const mp3 = await synthesize(piece, voice, ratePct, pitchHz);
-    buffers.push(mp3);
-    total += mp3.byteLength;
-  }
+  for (const b of buffers) total += b.byteLength;
   const merged = new Uint8Array(total);
   let offset = 0;
   for (const b of buffers) {

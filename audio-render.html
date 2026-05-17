@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5eae3">
+  <title>EPUB → Audio | Wellness OS</title>
+  <link rel="stylesheet" href="space.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <script src="app-auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+  <style>
+    .page { gap: 24px; }
+    .module-section {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .module-section h2 {
+      margin: 0 0 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.5rem;
+      font-weight: 400;
+      color: var(--ink);
+    }
+    .section-sub {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .drop-zone {
+      padding: 36px 24px;
+      border: 2px dashed var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.5);
+      text-align: center;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #806f64;
+      background: rgba(255, 255, 255, 0.75);
+      color: var(--ink);
+    }
+    .drop-zone input { display: none; }
+    .form-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .form-row label {
+      font-size: 0.82rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .form-row input[type="text"],
+    .form-row select {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.6);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 680px) { .form-grid { grid-template-columns: 1fr; } }
+    .book-meta {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.55);
+      margin-bottom: 16px;
+    }
+    .book-meta-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.15rem;
+      color: var(--ink);
+      margin: 0 0 4px;
+    }
+    .book-meta-author {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 12px 0;
+    }
+    .toolbar .grow { flex: 1; }
+    .btn {
+      min-height: 38px;
+      padding: 0 16px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.6);
+      color: var(--ink);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn:hover:not(:disabled), .btn:focus-visible {
+      border-color: #5f514a;
+      color: #5f514a;
+      outline: none;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary {
+      background: #806f64;
+      color: #f5eae3;
+      border-color: #806f64;
+    }
+    .btn-primary:hover:not(:disabled), .btn-primary:focus-visible {
+      background: #5f514a;
+      border-color: #5f514a;
+    }
+    .btn-small {
+      min-height: 32px;
+      padding: 0 12px;
+      font-size: 0.8rem;
+    }
+    .chapter-table {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 480px;
+      overflow-y: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 6px;
+      background: rgba(255, 255, 255, 0.4);
+    }
+    .chapter-row {
+      display: grid;
+      grid-template-columns: 24px 1fr 90px 110px;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .chapter-row:hover { background: rgba(255, 255, 255, 0.55); }
+    .chapter-row .chap-title {
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chapter-row .chap-chars {
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .chap-status {
+      font-size: 0.78rem;
+      padding: 3px 9px;
+      border-radius: 999px;
+      text-align: center;
+      background: rgba(128, 111, 100, 0.10);
+      color: var(--muted);
+    }
+    .chap-status.pending  { background: rgba(180, 150, 90, 0.18); color: #715a26; }
+    .chap-status.running  { background: rgba(120, 130, 170, 0.22); color: #3f4878; }
+    .chap-status.done     { background: rgba(95, 140, 95, 0.20); color: #3f6238; }
+    .chap-status.error    { background: rgba(180, 70, 70, 0.18); color: #7a2828; }
+    .chap-status.skipped  { background: rgba(128, 111, 100, 0.12); color: var(--muted); }
+    .status {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+    .status.info    { background: rgba(128, 111, 100, 0.10); color: var(--ink); }
+    .status.success { background: rgba(95, 140, 95, 0.18); color: #3f6238; }
+    .status.error   { background: rgba(180, 70, 70, 0.14); color: #7a2828; }
+    .status:empty { display: none; }
+    .progress-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(128, 111, 100, 0.12);
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: #806f64;
+      width: 0;
+      transition: width 0.25s;
+    }
+    .summary-stats {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .summary-stats strong { color: var(--ink); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="dashboard.html">Wellness OS</a>
+    <nav class="topnav">
+      <a href="reading.html">Reading</a>
+      <a href="audio-pilot.html">Voice Pilot</a>
+      <a href="dashboard.html">Dashboard</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    <section class="module-section">
+      <h2>EPUB → Audio library</h2>
+      <p class="section-sub">Drop a .epub file. We'll extract chapters, you pick which to render, and each becomes an audio entry in your library via Microsoft Edge TTS.</p>
+
+      <label class="drop-zone" id="drop-zone">
+        <div id="drop-zone-text">Click or drag an .epub file here</div>
+        <input id="file-input" type="file" accept=".epub,application/epub+zip">
+      </label>
+      <div id="parse-status" class="status"></div>
+    </section>
+
+    <section class="module-section" id="book-section" hidden>
+      <h2>Book</h2>
+      <div class="book-meta">
+        <h3 class="book-meta-title" id="book-title">—</h3>
+        <div class="book-meta-author" id="book-author">—</div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label for="book-name">Book name (for library)</label>
+          <input id="book-name" type="text">
+        </div>
+        <div class="form-row">
+          <label for="voice-select">Voice</label>
+          <select id="voice-select">
+            <optgroup label="en-US — Novel-tagged">
+              <option value="en-US-ChristopherNeural">Christopher (Authoritative)</option>
+              <option value="en-US-SteffanNeural" selected>Steffan (Rational)</option>
+              <option value="en-US-EricNeural">Eric (Rational)</option>
+              <option value="en-US-RogerNeural">Roger (Lively)</option>
+              <option value="en-US-GuyNeural">Guy (Passion)</option>
+              <option value="en-US-MichelleNeural">Michelle (Pleasant)</option>
+              <option value="en-US-AriaNeural">Aria (Confident)</option>
+            </optgroup>
+            <optgroup label="en-US Multilingual">
+              <option value="en-US-AndrewMultilingualNeural">Andrew (Warm)</option>
+              <option value="en-US-BrianMultilingualNeural">Brian</option>
+              <option value="en-US-AvaMultilingualNeural">Ava</option>
+              <option value="en-US-EmmaMultilingualNeural">Emma</option>
+            </optgroup>
+            <optgroup label="en-GB">
+              <option value="en-GB-SoniaNeural">Sonia</option>
+              <option value="en-GB-RyanNeural">Ryan</option>
+              <option value="en-GB-ThomasNeural">Thomas</option>
+              <option value="en-GB-LibbyNeural">Libby</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      <h3 style="margin: 14px 0 8px; font-family: Georgia, 'Times New Roman', serif; font-weight: 400;">Chapters</h3>
+      <p class="section-sub" style="margin-bottom: 8px;">Uncheck chapters you want to skip (e.g. title pages, copyright, TOC). Short sections under 500 chars are auto-skipped by default.</p>
+
+      <div class="toolbar">
+        <button id="select-all-btn"   class="btn btn-small" type="button">Select all</button>
+        <button id="select-none-btn"  class="btn btn-small" type="button">Select none</button>
+        <button id="skip-short-btn"   class="btn btn-small" type="button">Skip &lt; 500 chars</button>
+        <div class="grow"></div>
+        <div class="summary-stats" id="selection-stats"></div>
+      </div>
+
+      <div class="chapter-table" id="chapter-table"></div>
+
+      <div class="toolbar" style="margin-top: 16px;">
+        <button id="render-btn" class="btn btn-primary" type="button">Render selected chapters</button>
+        <button id="cancel-btn" class="btn btn-small" type="button" hidden>Cancel after current</button>
+      </div>
+
+      <div id="render-status" class="status"></div>
+      <div class="progress-bar" id="progress-wrap" hidden>
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const TTS_BASE = "https://tts.eamiller1981.workers.dev";
+
+    const els = {
+      dropZone: document.getElementById("drop-zone"),
+      dropZoneText: document.getElementById("drop-zone-text"),
+      fileInput: document.getElementById("file-input"),
+      parseStatus: document.getElementById("parse-status"),
+      bookSection: document.getElementById("book-section"),
+      bookTitle: document.getElementById("book-title"),
+      bookAuthor: document.getElementById("book-author"),
+      bookName: document.getElementById("book-name"),
+      voiceSelect: document.getElementById("voice-select"),
+      chapterTable: document.getElementById("chapter-table"),
+      selectionStats: document.getElementById("selection-stats"),
+      selectAllBtn: document.getElementById("select-all-btn"),
+      selectNoneBtn: document.getElementById("select-none-btn"),
+      skipShortBtn: document.getElementById("skip-short-btn"),
+      renderBtn: document.getElementById("render-btn"),
+      cancelBtn: document.getElementById("cancel-btn"),
+      renderStatus: document.getElementById("render-status"),
+      progressWrap: document.getElementById("progress-wrap"),
+      progressFill: document.getElementById("progress-fill"),
+    };
+
+    // chapters: [{ index, title, text, charCount, selected, status, error }]
+    let chapters = [];
+    let cancelRequested = false;
+
+    function setStatus(el, msg, kind) {
+      el.textContent = msg || "";
+      el.className = "status" + (kind ? " " + kind : "");
+    }
+    const BOOK_VOICE_PREFIX = "bookVoice:";
+    function bookKey(book) { return BOOK_VOICE_PREFIX + book.trim().toLowerCase(); }
+    function loadVoiceForBook() {
+      const book = els.bookName.value.trim();
+      if (!book) return;
+      const saved = localStorage.getItem(bookKey(book));
+      if (saved && [...els.voiceSelect.options].some(o => o.value === saved)) {
+        els.voiceSelect.value = saved;
+      }
+    }
+    function rememberVoiceForBook() {
+      const book = els.bookName.value.trim();
+      if (!book) return;
+      localStorage.setItem(bookKey(book), els.voiceSelect.value);
+    }
+    els.bookName.addEventListener("blur", loadVoiceForBook);
+    els.voiceSelect.addEventListener("change", rememberVoiceForBook);
+
+    // -------- File handling --------
+    ;["dragenter", "dragover"].forEach(ev =>
+      els.dropZone.addEventListener(ev, e => { e.preventDefault(); els.dropZone.classList.add("dragover"); })
+    );
+    ;["dragleave", "drop"].forEach(ev =>
+      els.dropZone.addEventListener(ev, e => { e.preventDefault(); els.dropZone.classList.remove("dragover"); })
+    );
+    els.dropZone.addEventListener("drop", e => {
+      const f = e.dataTransfer?.files?.[0];
+      if (f) handleFile(f);
+    });
+    els.fileInput.addEventListener("change", e => {
+      const f = e.target.files?.[0];
+      if (f) handleFile(f);
+    });
+
+    async function handleFile(file) {
+      setStatus(els.parseStatus, `Parsing ${file.name}…`, "info");
+      els.bookSection.hidden = true;
+      try {
+        const buf = await file.arrayBuffer();
+        const book = ePub(buf);
+        await book.ready;
+
+        const meta = book.package?.metadata || {};
+        const title = meta.title || file.name.replace(/\.epub$/i, "");
+        const author = meta.creator || "(unknown author)";
+        els.bookTitle.textContent = title;
+        els.bookAuthor.textContent = author;
+        els.bookName.value = title;
+        loadVoiceForBook();
+
+        chapters = await extractChapters(book);
+        renderChapterTable();
+        setStatus(els.parseStatus, `Parsed: ${chapters.length} sections found.`, "success");
+        els.bookSection.hidden = false;
+      } catch (err) {
+        console.error(err);
+        setStatus(els.parseStatus, `Failed to parse: ${err.message}`, "error");
+      }
+    }
+
+    async function extractChapters(book) {
+      // Walk the spine; each item is a section. Use TOC labels when available.
+      const tocByHref = {};
+      function indexToc(items) {
+        for (const it of items || []) {
+          const cleanHref = (it.href || "").split("#")[0];
+          if (cleanHref) tocByHref[cleanHref] = it.label?.trim() || cleanHref;
+          if (it.subitems) indexToc(it.subitems);
+        }
+      }
+      try { indexToc(book.navigation?.toc); } catch {}
+
+      const sections = [];
+      book.spine.each(s => sections.push(s));
+
+      const out = [];
+      for (let i = 0; i < sections.length; i++) {
+        const sec = sections[i];
+        try {
+          const doc = await sec.load(book.load.bind(book));
+          // doc may be Document (full XHTML) or just body fragment
+          let text = "";
+          if (doc?.body) {
+            text = doc.body.innerText || doc.body.textContent || "";
+          } else if (doc?.documentElement) {
+            text = doc.documentElement.innerText || doc.documentElement.textContent || "";
+          }
+          text = (text || "").replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+
+          const href = sec.href || sec.url || `section-${i}`;
+          const cleanHref = href.split("#")[0];
+          const label = tocByHref[cleanHref] || `Section ${i + 1}`;
+          const charCount = text.length;
+          out.push({
+            index: i,
+            title: label,
+            text,
+            charCount,
+            selected: charCount >= 500,
+            status: "pending",
+            error: null,
+            pageId: null,
+          });
+          sec.unload();
+        } catch (err) {
+          out.push({
+            index: i,
+            title: `Section ${i + 1}`,
+            text: "",
+            charCount: 0,
+            selected: false,
+            status: "error",
+            error: err.message,
+            pageId: null,
+          });
+        }
+      }
+      return out;
+    }
+
+    // -------- Chapter table --------
+    function renderChapterTable() {
+      els.chapterTable.innerHTML = "";
+      for (const ch of chapters) {
+        const row = document.createElement("div");
+        row.className = "chapter-row";
+        row.dataset.index = ch.index;
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = ch.selected;
+        cb.disabled = ch.charCount === 0 || ch.status === "running" || ch.status === "done";
+        cb.addEventListener("change", () => {
+          ch.selected = cb.checked;
+          updateSelectionStats();
+        });
+
+        const title = document.createElement("div");
+        title.className = "chap-title";
+        title.textContent = ch.title;
+        title.title = ch.title;
+
+        const chars = document.createElement("div");
+        chars.className = "chap-chars";
+        chars.textContent = ch.charCount.toLocaleString() + " chars";
+
+        const stat = document.createElement("div");
+        stat.className = "chap-status " + ch.status;
+        stat.textContent = ch.status === "error" ? "error" : ch.status;
+        if (ch.status === "error" && ch.error) stat.title = ch.error;
+
+        row.append(cb, title, chars, stat);
+        els.chapterTable.appendChild(row);
+      }
+      updateSelectionStats();
+    }
+
+    function updateRowStatus(ch) {
+      const row = els.chapterTable.querySelector(`.chapter-row[data-index="${ch.index}"]`);
+      if (!row) return;
+      const stat = row.querySelector(".chap-status");
+      stat.className = "chap-status " + ch.status;
+      stat.textContent = ch.status === "error" ? "error" : ch.status;
+      if (ch.status === "error" && ch.error) stat.title = ch.error;
+      const cb = row.querySelector("input[type=checkbox]");
+      if (cb) cb.disabled = ch.charCount === 0 || ch.status === "running" || ch.status === "done";
+    }
+
+    function updateSelectionStats() {
+      const selected = chapters.filter(c => c.selected);
+      const totalChars = selected.reduce((s, c) => s + c.charCount, 0);
+      const estSec = Math.round(totalChars / 6000 * 16); // rough wall-clock estimate per chapter @ ~16x text speed
+      els.selectionStats.innerHTML =
+        `<span><strong>${selected.length}</strong> chapters selected · ` +
+        `<strong>${totalChars.toLocaleString()}</strong> chars · ` +
+        `~<strong>${Math.round(estSec / 60)} min</strong> to render</span>`;
+    }
+
+    els.selectAllBtn.addEventListener("click", () => {
+      for (const c of chapters) if (c.charCount > 0 && c.status === "pending") c.selected = true;
+      renderChapterTable();
+    });
+    els.selectNoneBtn.addEventListener("click", () => {
+      for (const c of chapters) if (c.status !== "done" && c.status !== "running") c.selected = false;
+      renderChapterTable();
+    });
+    els.skipShortBtn.addEventListener("click", () => {
+      for (const c of chapters) {
+        if (c.status !== "done" && c.status !== "running") {
+          c.selected = c.charCount >= 500;
+        }
+      }
+      renderChapterTable();
+    });
+
+    // -------- Render pipeline --------
+    els.renderBtn.addEventListener("click", async () => {
+      const bookName = els.bookName.value.trim();
+      if (!bookName) {
+        setStatus(els.renderStatus, "Book name is required.", "error");
+        return;
+      }
+      const queue = chapters.filter(c => c.selected && c.status !== "done" && c.charCount > 0);
+      if (!queue.length) {
+        setStatus(els.renderStatus, "No chapters selected.", "error");
+        return;
+      }
+      rememberVoiceForBook();
+
+      cancelRequested = false;
+      els.cancelBtn.hidden = false;
+      els.renderBtn.disabled = true;
+      els.progressWrap.hidden = false;
+      els.progressFill.style.width = "0%";
+      const t0 = Date.now();
+
+      let done = 0, errors = 0;
+      const total = queue.length;
+
+      for (const ch of queue) {
+        if (cancelRequested) {
+          setStatus(els.renderStatus, `Cancelled. Completed ${done}/${total} (${errors} errors).`, "info");
+          break;
+        }
+        ch.status = "running"; updateRowStatus(ch);
+        setStatus(els.renderStatus, `Rendering ${ch.title} (${ch.charCount.toLocaleString()} chars)…`, "info");
+
+        try {
+          const resp = await fetch(`${TTS_BASE}/api/tts/library`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: ch.text,
+              voice: els.voiceSelect.value,
+              rate: 0,
+              title: ch.title,
+              book: bookName,
+              section: ch.title,
+            }),
+          });
+          if (!resp.ok) {
+            const errTxt = await resp.text();
+            throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
+          }
+          const data = await resp.json();
+          ch.status = "done";
+          ch.pageId = data.pageId;
+          done++;
+        } catch (err) {
+          ch.status = "error";
+          ch.error = err.message;
+          errors++;
+        }
+        updateRowStatus(ch);
+        els.progressFill.style.width = `${Math.round(((done + errors) / total) * 100)}%`;
+      }
+
+      els.renderBtn.disabled = false;
+      els.cancelBtn.hidden = true;
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(0);
+      if (!cancelRequested) {
+        setStatus(
+          els.renderStatus,
+          `Done in ${elapsed}s. ${done} succeeded${errors ? `, ${errors} errored` : ""}.`,
+          errors ? "error" : "success"
+        );
+      }
+    });
+
+    els.cancelBtn.addEventListener("click", () => {
+      cancelRequested = true;
+      els.cancelBtn.disabled = true;
+      setStatus(els.renderStatus, "Cancelling after current chapter…", "info");
+    });
+  </script>
+</body>
+</html>

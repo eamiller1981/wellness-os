@@ -196,8 +196,8 @@
           <label for="voice-select">Voice</label>
           <select id="voice-select">
             <optgroup label="en-US — Novel-tagged (designed for fiction)">
-              <option value="en-US-ChristopherNeural" selected>Christopher (male — Authoritative)</option>
-              <option value="en-US-SteffanNeural">Steffan (male — Rational)</option>
+              <option value="en-US-ChristopherNeural">Christopher (male — Authoritative)</option>
+              <option value="en-US-SteffanNeural" selected>Steffan (male — Rational)</option>
               <option value="en-US-EricNeural">Eric (male — Rational)</option>
               <option value="en-US-RogerNeural">Roger (male — Lively)</option>
               <option value="en-US-GuyNeural">Guy (male — Passion)</option>
@@ -320,6 +320,27 @@
     updateCharCount();
     updateSpeed();
 
+    // Per-book voice memory
+    const BOOK_VOICE_PREFIX = "bookVoice:";
+    function bookKey(book) {
+      return BOOK_VOICE_PREFIX + book.trim().toLowerCase();
+    }
+    function loadVoiceForBook() {
+      const book = els.libBook.value.trim();
+      if (!book) return;
+      const saved = localStorage.getItem(bookKey(book));
+      if (saved && [...els.voice.options].some(o => o.value === saved)) {
+        els.voice.value = saved;
+      }
+    }
+    function rememberVoiceForBook() {
+      const book = els.libBook.value.trim();
+      if (!book) return;
+      localStorage.setItem(bookKey(book), els.voice.value);
+    }
+    els.libBook.addEventListener("blur", loadVoiceForBook);
+    els.libBook.addEventListener("change", loadVoiceForBook);
+
     els.resetBtn.addEventListener("click", () => {
       els.text.value = "";
       updateCharCount();
@@ -397,6 +418,7 @@
         const data = await resp.json();
         const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
         setStatus(els.saveStatus, `Saved in ${elapsed}s. Page: ${data.pageId}`, "success");
+        rememberVoiceForBook();
         await loadLibrary();
       } catch (err) {
         setStatus(els.saveStatus, `Error: ${err.message}`, "error");
