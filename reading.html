@@ -138,7 +138,7 @@
     }
     .jump-grid {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 6px;
     }
     .jump-link {
@@ -146,13 +146,13 @@
       align-items: center;
       justify-content: center;
       min-height: 38px;
-      padding: 8px 8px;
+      padding: 8px 6px;
       border: 1px solid var(--line);
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.72);
       color: var(--ink);
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 0.84rem;
+      font-size: 0.8rem;
       text-align: center;
       text-decoration: none;
       white-space: nowrap;
@@ -165,29 +165,31 @@
       outline: none;
     }
     @media (max-width: 720px) {
-      html { scroll-padding-top: 104px; }
+      html { scroll-padding-top: 142px; }
       .page { gap: 18px; }
       .jump-section {
         margin-inline: -4px;
         padding: 8px 4px 10px;
       }
       .jump-grid {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         padding-bottom: 2px;
       }
       .jump-link {
-        min-height: 36px;
-        padding-inline: 6px;
-        font-size: 0.74rem;
+        min-height: 34px;
+        padding-inline: 4px;
+        font-size: 0.68rem;
       }
     }
 
+    #section-stats,
     #section-tbr,
     #section-library,
     #section-taste,
+    #section-last-book,
     #section-book-buddy,
     #section-ai {
-      scroll-margin-top: 104px;
+      scroll-margin-top: 142px;
     }
 
     /* Book card */
@@ -694,6 +696,7 @@
       gap: 12px;
       margin-top: 14px;
     }
+    #section-last-book .intelligence-panel { margin-top: 0; }
     @media (max-width: 720px) { .intelligence-panel { grid-template-columns: 1fr; } }
     .signal-card {
       padding: 14px 16px;
@@ -950,34 +953,25 @@
     <section class="jump-section" aria-label="Reading sections">
       <h2>Jump To</h2>
       <div class="jump-grid">
-        <a class="jump-link" href="#section-tbr" aria-label="To Be Read">TBR</a>
-        <a class="jump-link" href="#section-library" aria-label="Reading Log">Log</a>
-        <a class="jump-link" href="#section-taste" aria-label="Taste Profile">Taste</a>
-        <a class="jump-link" href="/audio-render" aria-label="EPUB to MP3">EPUB</a>
-        <a class="jump-link" href="#section-book-buddy" aria-label="Book Buddy">Buddy</a>
+        <a class="jump-link" href="#section-stats">My Stats</a>
+        <a class="jump-link" href="#section-tbr">To Be Read</a>
+        <a class="jump-link" href="#section-library">Reading Log</a>
+        <a class="jump-link" href="#section-taste">Taste Profile</a>
+        <a class="jump-link" href="#section-last-book">Last Book</a>
+        <a class="jump-link" href="/audio-render">EPUB Audio</a>
+        <a class="jump-link" href="#section-book-buddy">Book Buddy</a>
+        <a class="jump-link" href="#section-ai">Automation</a>
       </div>
     </section>
 
     <!-- Quick stats -->
-    <section class="module-section">
+    <section class="module-section" id="section-stats">
       <h2>My Stats</h2>
       <div class="stats-grid" id="statsGrid">
         <div class="stat"><span class="stat-value" id="statRated">—</span><span class="stat-label">Books Rated</span></div>
         <div class="stat"><span class="stat-value" id="statAvg">—</span><span class="stat-label">Avg rating</span></div>
         <div class="stat"><span class="stat-value" id="statTBR">—</span><span class="stat-label">TBR titles</span></div>
         <div class="stat"><span class="stat-value" id="statTag">—</span><span class="stat-label">Top 4+ tag</span></div>
-      </div>
-      <div class="intelligence-panel" aria-label="Reading intelligence">
-        <div class="signal-card">
-          <span class="signal-label">What changed</span>
-          <p class="signal-title" id="latestChangeTitle">Awaiting a finished book</p>
-          <p class="signal-body" id="latestChangeBody">Finish and rate a title to create a traceable taste signal.</p>
-        </div>
-        <div class="signal-card">
-          <span class="signal-label">Current appetite</span>
-          <p class="signal-title" id="currentAppetiteTitle">Stable baseline</p>
-          <p class="signal-body" id="currentAppetiteBody">Recent ratings have not created a temporary re-ranking signal yet.</p>
-        </div>
       </div>
     </section>
 
@@ -1051,6 +1045,23 @@
         <button class="btn btn-primary" id="editTasteBtn" type="button">Edit profile</button>
         <button class="btn btn-primary" id="saveTasteBtn" type="button" hidden>Save profile</button>
         <button class="btn" id="cancelTasteBtn" type="button" hidden>Cancel</button>
+      </div>
+    </section>
+
+    <!-- Last Book -->
+    <section class="module-section" id="section-last-book">
+      <h2>Last Book</h2>
+      <div class="intelligence-panel" aria-label="Latest reading intelligence">
+        <div class="signal-card">
+          <span class="signal-label">What changed</span>
+          <p class="signal-title" id="latestChangeTitle">Awaiting a finished book</p>
+          <p class="signal-body" id="latestChangeBody">Finish and rate a title to create a traceable taste signal.</p>
+        </div>
+        <div class="signal-card">
+          <span class="signal-label">Current appetite</span>
+          <p class="signal-title" id="currentAppetiteTitle">Stable baseline</p>
+          <p class="signal-body" id="currentAppetiteBody">Recent ratings have not created a temporary re-ranking signal yet.</p>
+        </div>
       </div>
     </section>
 
