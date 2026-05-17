@@ -294,6 +294,7 @@
 
       <div class="toolbar" style="margin-top: 16px;">
         <button id="render-btn" class="btn btn-primary" type="button">Render selected chapters</button>
+        <button id="retry-btn" class="btn btn-small" type="button" disabled>Retry errored</button>
         <button id="cancel-btn" class="btn btn-small" type="button" hidden>Cancel after current</button>
       </div>
 
@@ -323,6 +324,7 @@
       selectNoneBtn: document.getElementById("select-none-btn"),
       skipShortBtn: document.getElementById("skip-short-btn"),
       renderBtn: document.getElementById("render-btn"),
+      retryBtn: document.getElementById("retry-btn"),
       cancelBtn: document.getElementById("cancel-btn"),
       renderStatus: document.getElementById("render-status"),
       progressWrap: document.getElementById("progress-wrap"),
@@ -623,6 +625,96 @@
     });
 
     // -------- Render pipeline --------
+    const INTER_CHAPTER_DELAY_MS = 1500;
+    const RETRY_DELAY_MS = 5000;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    async function renderOneChapter(ch, bookName) {
+      const resp = await fetch(`${TTS_BASE}/api/tts/library`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: ch.text,
+          voice: els.voiceSelect.value,
+          rate: 0,
+          title: ch.title,
+          book: bookName,
+          section: ch.title,
+        }),
+      });
+      if (!resp.ok) {
+        const errTxt = await resp.text();
+        throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
+      }
+      return resp.json();
+    }
+
+    async function runQueue(queue, bookName) {
+      cancelRequested = false;
+      els.cancelBtn.hidden = false;
+      els.cancelBtn.disabled = false;
+      els.renderBtn.disabled = true;
+      els.retryBtn.disabled = true;
+      els.progressWrap.hidden = false;
+      els.progressFill.style.width = "0%";
+      const t0 = Date.now();
+
+      let done = 0, errors = 0;
+      const total = queue.length;
+
+      for (let i = 0; i < queue.length; i++) {
+        const ch = queue[i];
+        if (cancelRequested) {
+          setStatus(els.renderStatus, `Cancelled. Completed ${done}/${total} (${errors} errors).`, "info");
+          break;
+        }
+        ch.status = "running"; ch.error = null; updateRowStatus(ch);
+        setStatus(els.renderStatus, `Rendering ${ch.title} (${ch.charCount.toLocaleString()} chars)… [${i + 1}/${total}]`, "info");
+
+        let lastErr = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          try {
+            const data = await renderOneChapter(ch, bookName);
+            ch.status = "done";
+            ch.pageId = data.pageId;
+            lastErr = null;
+            done++;
+            break;
+          } catch (err) {
+            lastErr = err;
+            if (attempt === 1 && !cancelRequested) {
+              setStatus(els.renderStatus, `Retrying ${ch.title} in ${RETRY_DELAY_MS / 1000}s after error: ${err.message.slice(0, 100)}`, "info");
+              await sleep(RETRY_DELAY_MS);
+            }
+          }
+        }
+        if (lastErr) {
+          ch.status = "error";
+          ch.error = lastErr.message;
+          errors++;
+        }
+        updateRowStatus(ch);
+        els.progressFill.style.width = `${Math.round(((done + errors) / total) * 100)}%`;
+
+        // Inter-chapter throttle to avoid MS Edge TTS soft-blocks
+        if (i < queue.length - 1 && !cancelRequested) {
+          await sleep(INTER_CHAPTER_DELAY_MS);
+        }
+      }
+
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(0);
+      if (!cancelRequested) {
+        setStatus(
+          els.renderStatus,
+          `Done in ${elapsed}s. ${done} succeeded${errors ? `, ${errors} errored — click "Retry errored" to re-run failures.` : "."}`,
+          errors ? "error" : "success"
+        );
+      }
+      els.renderBtn.disabled = false;
+      els.retryBtn.disabled = !chapters.some(c => c.status === "error");
+      els.cancelBtn.hidden = true;
+    }
+
     els.renderBtn.addEventListener("click", async () => {
       const bookName = els.bookName.value.trim();
       if (!bookName) {
@@ -635,65 +727,23 @@
         return;
       }
       rememberVoiceForBook();
+      await runQueue(queue, bookName);
+    });
 
-      cancelRequested = false;
-      els.cancelBtn.hidden = false;
-      els.renderBtn.disabled = true;
-      els.progressWrap.hidden = false;
-      els.progressFill.style.width = "0%";
-      const t0 = Date.now();
-
-      let done = 0, errors = 0;
-      const total = queue.length;
-
-      for (const ch of queue) {
-        if (cancelRequested) {
-          setStatus(els.renderStatus, `Cancelled. Completed ${done}/${total} (${errors} errors).`, "info");
-          break;
-        }
-        ch.status = "running"; updateRowStatus(ch);
-        setStatus(els.renderStatus, `Rendering ${ch.title} (${ch.charCount.toLocaleString()} chars)…`, "info");
-
-        try {
-          const resp = await fetch(`${TTS_BASE}/api/tts/library`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text: ch.text,
-              voice: els.voiceSelect.value,
-              rate: 0,
-              title: ch.title,
-              book: bookName,
-              section: ch.title,
-            }),
-          });
-          if (!resp.ok) {
-            const errTxt = await resp.text();
-            throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
-          }
-          const data = await resp.json();
-          ch.status = "done";
-          ch.pageId = data.pageId;
-          done++;
-        } catch (err) {
-          ch.status = "error";
-          ch.error = err.message;
-          errors++;
-        }
-        updateRowStatus(ch);
-        els.progressFill.style.width = `${Math.round(((done + errors) / total) * 100)}%`;
+    els.retryBtn.addEventListener("click", async () => {
+      const bookName = els.bookName.value.trim();
+      if (!bookName) {
+        setStatus(els.renderStatus, "Book name is required.", "error");
+        return;
       }
-
-      els.renderBtn.disabled = false;
-      els.cancelBtn.hidden = true;
-      const elapsed = ((Date.now() - t0) / 1000).toFixed(0);
-      if (!cancelRequested) {
-        setStatus(
-          els.renderStatus,
-          `Done in ${elapsed}s. ${done} succeeded${errors ? `, ${errors} errored` : ""}.`,
-          errors ? "error" : "success"
-        );
+      const queue = chapters.filter(c => c.status === "error" && c.charCount > 0);
+      if (!queue.length) {
+        setStatus(els.renderStatus, "No errored chapters to retry.", "info");
+        return;
       }
+      // reset state so the runner treats them as pending
+      for (const c of queue) { c.status = "pending"; c.error = null; updateRowStatus(c); }
+      await runQueue(queue, bookName);
     });
 
     els.cancelBtn.addEventListener("click", () => {
