@@ -104,9 +104,13 @@
     .stat-value {
       display: block;
       font-family: Georgia, "Times New Roman", serif;
-      font-size: 1.7rem;
+      font-size: 1.5rem;
       color: var(--ink);
       line-height: 1.1;
+    }
+    .stat-signal {
+      font-size: 1.22rem;
+      line-height: 1.15;
     }
     .stat-label {
       display: block;
@@ -960,7 +964,7 @@
         <div class="stat"><span class="stat-value" id="statRated">—</span><span class="stat-label">Books Rated</span></div>
         <div class="stat"><span class="stat-value" id="statAvg">—</span><span class="stat-label">Avg rating</span></div>
         <div class="stat"><span class="stat-value" id="statTBR">—</span><span class="stat-label">TBR titles</span></div>
-        <div class="stat"><span class="stat-value" id="statTag">—</span><span class="stat-label">Top 4+ tag</span></div>
+        <div class="stat"><span class="stat-value stat-signal" id="statTag">—</span><span class="stat-label">Best Signal</span></div>
       </div>
     </section>
 
@@ -1713,28 +1717,62 @@
     }
 
     // ---- Render ----
+    const LOW_INSIGHT_SIGNAL_TAGS = new Set(["Single POV", "Paranormal"]);
+    const SIGNAL_WEIGHTS = {
+      "Possession": 8,
+      "Haunted House": 5.5,
+      "Dread": 5,
+      "Ensemble Cast": 4.5,
+      "Contained Setting": 4,
+      "Grief": 3.5,
+      "Domestic": 3,
+      "Ambiguous": 2,
+      "Identity": 1.5,
+      "Investigation": 1,
+      "Cosmic": 0.5
+    };
+    const SIGNAL_LABELS = {
+      "Ensemble Cast": "Ensemble",
+      "Contained Setting": "Contained"
+    };
+
+    function bestSignal(ratings) {
+      const signals = {};
+      ratings
+        .filter(b => b.rating >= 4)
+        .forEach(b => {
+          b.tags
+            .filter(tag => !LOW_INSIGHT_SIGNAL_TAGS.has(tag))
+            .forEach(tag => {
+              if (!signals[tag]) signals[tag] = { count: 0, ratingTotal: 0 };
+              signals[tag].count += 1;
+              signals[tag].ratingTotal += b.rating;
+            });
+        });
+      return Object.entries(signals)
+        .map(([tag, data]) => {
+          const avg = data.ratingTotal / data.count;
+          return {
+            tag,
+            avg,
+            count: data.count,
+            score: (avg * 10) + (data.count * 2) + (SIGNAL_WEIGHTS[tag] || 0)
+          };
+        })
+        .sort((a, b) => b.score - a.score || b.avg - a.avg || b.count - a.count || a.tag.localeCompare(b.tag))[0];
+    }
+
     function renderStats() {
       const ratings = state.books
         .filter(b => b.rating != null);
       const avg = ratings.length ? (ratings.reduce((sum, b) => sum + b.rating, 0) / ratings.length) : null;
       const tbrCount = state.books.filter(b => b.status === "TBR").length;
-      const lovedRatings = ratings.filter(b => b.rating >= 4);
-      const tags = {};
-      lovedRatings.forEach(b => {
-        b.tags.forEach(tag => {
-          if (!tags[tag]) tags[tag] = { count: 0, ratingTotal: 0 };
-          tags[tag].count += 1;
-          tags[tag].ratingTotal += b.rating;
-        });
-      });
-      const topTag = Object.entries(tags)
-        .map(([tag, data]) => ({ tag, count: data.count, avg: data.ratingTotal / data.count }))
-        .sort((a, b) => b.count - a.count || b.avg - a.avg || a.tag.localeCompare(b.tag))[0];
+      const signal = bestSignal(ratings);
 
       document.getElementById("statRated").textContent = ratings.length;
       document.getElementById("statAvg").textContent = avg != null ? avg.toFixed(2) : "—";
       document.getElementById("statTBR").textContent = tbrCount;
-      document.getElementById("statTag").textContent = topTag ? topTag.tag : "—";
+      document.getElementById("statTag").textContent = signal ? (SIGNAL_LABELS[signal.tag] || signal.tag) : "—";
     }
 
     function latestFinishedBook() {
