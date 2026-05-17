@@ -376,20 +376,17 @@
       els.bookSection.hidden = true;
       try {
         const buf = await file.arrayBuffer();
-        const book = ePub(buf);
-        await book.ready;
+        const { title, author, chapters: parsed } = await parseEpub(buf, file.name);
 
-        const meta = book.package?.metadata || {};
-        const title = meta.title || file.name.replace(/\.epub$/i, "");
-        const author = meta.creator || "(unknown author)";
         els.bookTitle.textContent = title;
         els.bookAuthor.textContent = author;
         els.bookName.value = title;
         loadVoiceForBook();
 
-        chapters = await extractChapters(book);
+        chapters = parsed;
         renderChapterTable();
-        setStatus(els.parseStatus, `Parsed: ${chapters.length} sections found.`, "success");
+        const usable = chapters.filter(c => c.charCount > 0).length;
+        setStatus(els.parseStatus, `Parsed: ${chapters.length} sections (${usable} with content).`, "success");
         els.bookSection.hidden = false;
       } catch (err) {
         console.error(err);
@@ -397,64 +394,126 @@
       }
     }
 
-    async function extractChapters(book) {
-      // Walk the spine; each item is a section. Use TOC labels when available.
+    // ---- EPUB parsing (pure JSZip; no epub.js). ----
+    // Reads META-INF/container.xml -> OPF -> spine/manifest/TOC -> per-section text.
+    async function parseEpub(buf, filename) {
+      const zip = await JSZip.loadAsync(buf);
+
+      // 1. container.xml -> OPF path
+      const containerEntry = zip.file("META-INF/container.xml");
+      if (!containerEntry) throw new Error("Not a valid EPUB (no META-INF/container.xml).");
+      const containerXml = await containerEntry.async("text");
+      const containerDoc = new DOMParser().parseFromString(containerXml, "application/xml");
+      const rootfileEl = containerDoc.querySelector("rootfile");
+      if (!rootfileEl) throw new Error("No rootfile entry in container.xml.");
+      const opfPath = rootfileEl.getAttribute("full-path");
+      const opfDir = opfPath.includes("/") ? opfPath.slice(0, opfPath.lastIndexOf("/") + 1) : "";
+
+      // 2. Parse OPF
+      const opfEntry = zip.file(opfPath);
+      if (!opfEntry) throw new Error(`OPF not found at ${opfPath}`);
+      const opfXml = await opfEntry.async("text");
+      const opfDoc = new DOMParser().parseFromString(opfXml, "application/xml");
+
+      // Metadata
+      const metaTitle = opfDoc.querySelector("metadata > title, metadata title")?.textContent?.trim();
+      const metaCreator = opfDoc.querySelector("metadata > creator, metadata creator")?.textContent?.trim();
+      const title = metaTitle || filename.replace(/\.epub$/i, "");
+      const author = metaCreator || "(unknown author)";
+
+      // Manifest: id -> {href, mediaType, properties}
+      const manifest = {};
+      for (const item of opfDoc.querySelectorAll("manifest > item")) {
+        const id = item.getAttribute("id");
+        manifest[id] = {
+          href: item.getAttribute("href"),
+          mediaType: item.getAttribute("media-type") || "",
+          properties: item.getAttribute("properties") || "",
+        };
+      }
+
+      // Spine: ordered list of manifest items
+      const spine = [];
+      for (const ref of opfDoc.querySelectorAll("spine > itemref")) {
+        const item = manifest[ref.getAttribute("idref")];
+        if (item) spine.push(item);
+      }
+
+      // 3. TOC label lookup — prefer EPUB3 nav, fall back to NCX
       const tocByHref = {};
-      function indexToc(items) {
-        for (const it of items || []) {
-          const cleanHref = (it.href || "").split("#")[0];
-          if (cleanHref) tocByHref[cleanHref] = it.label?.trim() || cleanHref;
-          if (it.subitems) indexToc(it.subitems);
-        }
-      }
-      try { indexToc(book.navigation?.toc); } catch {}
-
-      const sections = [];
-      book.spine.each(s => sections.push(s));
-
-      const out = [];
-      for (let i = 0; i < sections.length; i++) {
-        const sec = sections[i];
-        try {
-          const doc = await sec.load(book.load.bind(book));
-          // doc may be Document (full XHTML) or just body fragment
-          let text = "";
-          if (doc?.body) {
-            text = doc.body.innerText || doc.body.textContent || "";
-          } else if (doc?.documentElement) {
-            text = doc.documentElement.innerText || doc.documentElement.textContent || "";
+      const navItem = Object.values(manifest).find(m => m.properties.includes("nav"));
+      if (navItem) {
+        const navPath = opfDir + navItem.href;
+        const navEntry = zip.file(navPath);
+        if (navEntry) {
+          const navXml = await navEntry.async("text");
+          const navDoc = new DOMParser().parseFromString(navXml, "application/xhtml+xml");
+          for (const a of navDoc.querySelectorAll("nav a[href]")) {
+            const href = a.getAttribute("href").split("#")[0];
+            const label = (a.textContent || "").trim().replace(/\s+/g, " ");
+            if (href && label) tocByHref[href] = label;
           }
-          text = (text || "").replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-
-          const href = sec.href || sec.url || `section-${i}`;
-          const cleanHref = href.split("#")[0];
-          const label = tocByHref[cleanHref] || `Section ${i + 1}`;
-          const charCount = text.length;
-          out.push({
-            index: i,
-            title: label,
-            text,
-            charCount,
-            selected: charCount >= 500,
-            status: "pending",
-            error: null,
-            pageId: null,
-          });
-          sec.unload();
-        } catch (err) {
-          out.push({
-            index: i,
-            title: `Section ${i + 1}`,
-            text: "",
-            charCount: 0,
-            selected: false,
-            status: "error",
-            error: err.message,
-            pageId: null,
-          });
+        }
+      } else {
+        const ncxItem = Object.values(manifest).find(m => m.mediaType === "application/x-dtbncx+xml");
+        if (ncxItem) {
+          const ncxPath = opfDir + ncxItem.href;
+          const ncxEntry = zip.file(ncxPath);
+          if (ncxEntry) {
+            const ncxXml = await ncxEntry.async("text");
+            const ncxDoc = new DOMParser().parseFromString(ncxXml, "application/xml");
+            for (const np of ncxDoc.querySelectorAll("navPoint")) {
+              const labelEl = np.querySelector("navLabel > text") || np.querySelector("navLabel text");
+              const contentEl = np.querySelector("content");
+              const src = contentEl?.getAttribute("src") || "";
+              const href = src.split("#")[0];
+              const label = (labelEl?.textContent || "").trim().replace(/\s+/g, " ");
+              if (href && label) tocByHref[href] = label;
+            }
+          }
         }
       }
-      return out;
+
+      // 4. Pull text from each spine item
+      const chaptersOut = [];
+      for (let i = 0; i < spine.length; i++) {
+        const item = spine[i];
+        const path = opfDir + item.href;
+        let text = "";
+        let err = null;
+        try {
+          const entry = zip.file(path) || zip.file(decodeURIComponent(path));
+          if (!entry) throw new Error(`Not found in zip: ${path}`);
+          const xhtml = await entry.async("text");
+          let doc = new DOMParser().parseFromString(xhtml, "application/xhtml+xml");
+          if (doc.querySelector("parsererror")) {
+            doc = new DOMParser().parseFromString(xhtml, "text/html");
+          }
+          const body = doc.querySelector("body") || doc.documentElement;
+          body.querySelectorAll("script, style").forEach(n => n.remove());
+          text = (body.textContent || "")
+            .replace(/\r\n/g, "\n")
+            .replace(/[ \t]+/g, " ")
+            .replace(/\n{3,}/g, "\n\n")
+            .trim();
+        } catch (e) {
+          err = e.message;
+        }
+        const label = tocByHref[item.href] || `Section ${i + 1}`;
+        const charCount = text.length;
+        chaptersOut.push({
+          index: i,
+          title: label,
+          text,
+          charCount,
+          selected: charCount >= 500,
+          status: err ? "error" : "pending",
+          error: err,
+          pageId: null,
+        });
+      }
+
+      return { title, author, chapters: chaptersOut };
     }
 
     // -------- Chapter table --------
