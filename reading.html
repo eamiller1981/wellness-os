@@ -1883,6 +1883,7 @@
       const showFinish = book.status === "TBR" || book.status === "Reading";
       const showEdit = book.status === "Finished" || book.status === "DNF";
       const isReadingNow = book.status === "Reading";
+      const showReadNext = book.status === "TBR" && !book.wildcard;
       const isReorderable = opts.reorderable && book.status === "TBR" && !book.wildcard;
       const ratingDisplay =
         book.status === "TBR" && book.predictedRating != null
@@ -1933,9 +1934,10 @@
           <div class="book-footer">
             <div class="book-actions">
               ${showFinish ? `<button class="btn btn-small btn-primary" data-action="finish">Finish & rate</button>` : ""}
-              ${book.status === "TBR" ? `<button class="btn btn-small" data-action="start">Reading now</button>` : ""}
+              ${showReadNext ? `<button class="btn btn-small" data-action="read-next">Read Next</button>` : ""}
+              ${book.status === "TBR" ? `<button class="btn btn-small" data-action="start">Reading Now</button>` : ""}
               ${showEdit ? `<button class="btn btn-small" data-action="edit">Edit</button>` : ""}
-              <button class="btn btn-small" data-action="why">${book.status === "TBR" ? "Why this fits" : "Discuss"} <span class="ai-badge">Book Buddy</span></button>
+              <button class="btn btn-small" data-action="why">Discuss <span class="ai-badge">Book Buddy</span></button>
             </div>
             ${dateHtml}
           </div>
@@ -1978,7 +1980,7 @@
 
       const el = document.getElementById("tbrList");
       el.innerHTML = tbr.length
-        ? tbr.map(b => bookCardHtml(b, { reorderable: canReorder })).join("")
+        ? tbr.map(b => bookCardHtml(b, { reorderable: canReorder, showWhy: false })).join("")
         : `<div class="empty">Nothing matches.</div>`;
       el.classList.remove("loading");
 
@@ -2025,6 +2027,33 @@
         toast("TBR order saved");
       } catch (err) {
         toast("Could not save TBR order", 3600);
+        await refresh();
+      }
+    }
+
+    async function promoteReadNext(bookId) {
+      const target = state.books.find(b => b.id === bookId && b.status === "TBR" && !b.wildcard);
+      if (!target) return;
+      const ordered = state.books
+        .filter(b => b.status === "TBR" && !b.wildcard)
+        .sort(sortTbrBooks);
+      const ids = [target.id, ...ordered.filter(b => b.id !== target.id).map(b => b.id)];
+      const previousRanks = new Map(ids.map(id => [id, state.books.find(b => b.id === id)?.tbrRank ?? null]));
+      ids.forEach((id, index) => {
+        const book = state.books.find(b => b.id === id);
+        if (book) book.tbrRank = index + 1;
+      });
+      renderTBR();
+      try {
+        await Promise.all(ids.map((id, index) => {
+          const properties = { "TBR Rank": { number: index + 1 } };
+          const previous = previousRanks.get(id);
+          if (Number.isFinite(previous)) properties["Previous TBR Rank"] = { number: previous };
+          return notion(`/pages/${id}`, "PATCH", { properties });
+        }));
+        toast(`"${target.title}" is read next`);
+      } catch (err) {
+        toast("Could not save Read Next: " + err.message, 4200);
         await refresh();
       }
     }
@@ -3157,6 +3186,8 @@ ${applyPacketInstructions()}`;
       const action = btn.dataset.action;
       if (action === "finish" || action === "edit") {
         openFinishModal(book);
+      } else if (action === "read-next") {
+        promoteReadNext(book.id);
       } else if (action === "start") {
         notion(`/pages/${book.id}`, "PATCH", {
           properties: {
