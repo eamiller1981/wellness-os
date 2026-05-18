@@ -586,7 +586,7 @@
         <div>
           <p class="eyebrow" id="dateEyebrow">Today</p>
           <h1 id="todayHeading">Daily Planner</h1>
-          <p class="hero-sub">Priorities, time blocks, meals, hydration, reminders, skincare, and calendar context in one phone-first view.</p>
+          <p class="hero-sub">Priorities, Deep Focus Hours, meals, hydration, reminders, skincare, and calendar context in one phone-first view.</p>
         </div>
         <div class="save-state" id="saveState" role="status">Ready</div>
       </div>
@@ -599,7 +599,7 @@
     <section id="todayPanel" class="tab-panel" role="tabpanel" aria-labelledby="tabToday">
       <div class="grid">
         <div class="summary-grid" aria-label="Planner summary">
-          <div class="summary-card"><strong id="summaryBlocks">0/0</strong><span>time blocks done</span></div>
+          <div class="summary-card"><strong id="summaryBlocks">0m</strong><span>focus planned</span></div>
           <div class="summary-card"><strong id="summaryTasks">0/0</strong><span>goals and reminders</span></div>
           <div class="summary-card"><strong id="summaryWater">0/8</strong><span>water target</span></div>
           <div class="summary-card"><strong id="summarySkincare">...</strong><span>skincare steps</span></div>
@@ -634,16 +634,32 @@
 
         <section class="card" aria-labelledby="timeTitle">
           <div class="card-head">
-            <h2 id="timeTitle">Time blocks</h2>
-            <span class="chip blue">Schedule</span>
+            <div>
+              <h2 id="timeTitle">Deep Focus Hours</h2>
+              <div class="card-meta" id="deepFocusMeta">Loading Notion plan...</div>
+            </div>
+            <button class="mini-btn" id="dayPlannerRefresh" type="button">Refresh</button>
           </div>
           <ul class="block-list" id="blocksList"></ul>
-          <p class="empty" id="blocksEmpty" hidden>Add the shape of the day: work block, class, errand, reset, anything time-bound.</p>
+          <p class="empty" id="blocksEmpty" hidden>No Deep Focus blocks found in Notion for this date.</p>
+          <div class="status-line" id="dayPlannerStatus" hidden></div>
           <form class="inline-form" id="blocksForm" autocomplete="off">
             <input class="time-input" id="blockTimeInput" type="time" aria-label="Time block time">
-            <input class="text-input" id="blockTextInput" type="text" placeholder="Add a time block" aria-label="Add a time block">
+            <input class="text-input" id="blockTextInput" type="text" placeholder="Add a manual focus block" aria-label="Add a manual focus block">
             <button class="action-btn" type="submit">Add</button>
           </form>
+        </section>
+
+        <section class="card" aria-labelledby="scheduleContextTitle">
+          <div class="card-head">
+            <div>
+              <h2 id="scheduleContextTitle">Schedule Context</h2>
+              <div class="card-meta" id="scheduleContextMeta">Meetings and buffer from Notion.</div>
+            </div>
+            <span class="chip blue">Context</span>
+          </div>
+          <ul class="block-list" id="scheduleContextList"></ul>
+          <p class="empty" id="scheduleContextEmpty" hidden>No meetings or buffer blocks found for this date.</p>
         </section>
 
         <section class="card" aria-labelledby="fitnessTitle">
@@ -860,6 +876,27 @@
         .replace(/'/g, "&#39;");
     }
 
+    function formatDuration(minutes) {
+      const total = Math.max(0, Math.round(Number(minutes) || 0));
+      const hours = Math.floor(total / 60);
+      const mins = total % 60;
+      if (hours && mins) return `${hours}h ${mins}m`;
+      if (hours) return `${hours}h`;
+      return `${mins}m`;
+    }
+
+    function plannerBlockLabel(type) {
+      if (type === "meeting") return "Meeting";
+      if (type === "buffer") return "Buffer";
+      return "Focus";
+    }
+
+    function plannerBlockChip(type) {
+      if (type === "meeting") return "rose";
+      if (type === "buffer") return "blue";
+      return "sage";
+    }
+
     const els = {
       dateInput: document.getElementById("dateInput"),
       prevDate: document.getElementById("prevDate"),
@@ -880,9 +917,15 @@
       notesInput: document.getElementById("notesInput"),
       blocksList: document.getElementById("blocksList"),
       blocksEmpty: document.getElementById("blocksEmpty"),
+      deepFocusMeta: document.getElementById("deepFocusMeta"),
+      dayPlannerStatus: document.getElementById("dayPlannerStatus"),
+      dayPlannerRefresh: document.getElementById("dayPlannerRefresh"),
       blocksForm: document.getElementById("blocksForm"),
       blockTimeInput: document.getElementById("blockTimeInput"),
       blockTextInput: document.getElementById("blockTextInput"),
+      scheduleContextMeta: document.getElementById("scheduleContextMeta"),
+      scheduleContextList: document.getElementById("scheduleContextList"),
+      scheduleContextEmpty: document.getElementById("scheduleContextEmpty"),
       fitnessList: document.getElementById("fitnessList"),
       fitnessEmpty: document.getElementById("fitnessEmpty"),
       fitnessForm: document.getElementById("fitnessForm"),
@@ -916,6 +959,17 @@
         checked: loadCheckedSteps(todayKey()),
         loading: true,
         error: null
+      },
+      dayPlanner: {
+        blocks: [],
+        summary: {
+          deepFocusMinutes: 0,
+          meetingMinutes: 0,
+          bufferMinutes: 0
+        },
+        loading: true,
+        error: null,
+        configured: false
       },
       todoist: {
         tasks: [],
@@ -959,30 +1013,117 @@
     function renderSummary() {
       const blockTotal = state.plan.blocks.length;
       const blockDone = state.plan.blocks.filter((item) => item.done).length;
+      const focusMinutes = Number(state.dayPlanner.summary.deepFocusMinutes || 0);
       const taskItems = [...state.plan.fitness, ...state.plan.reminders];
       const taskTotal = taskItems.length + state.todoist.tasks.length + state.todoist.completedCount;
       const taskDone = taskItems.filter((item) => item.done).length + state.todoist.completedCount;
       const skincareSteps = getSelectedSkincareSteps();
       const skincareDone = skincareSteps.filter((step) => state.skincare.checked.has(step)).length;
 
-      els.summaryBlocks.textContent = `${blockDone}/${blockTotal}`;
+      els.summaryBlocks.textContent = focusMinutes ? formatDuration(focusMinutes) : `${blockDone}/${blockTotal}`;
       els.summaryTasks.textContent = `${taskDone}/${taskTotal}`;
       els.summaryWater.textContent = `${Number(state.plan.water || 0)}/8`;
       els.summarySkincare.textContent = state.skincare.loading ? "..." : `${skincareDone}/${skincareSteps.length}`;
     }
 
     function renderBlocks() {
-      state.plan.blocks.sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
-      renderList({
-        items: state.plan.blocks,
-        listEl: els.blocksList,
-        emptyEl: els.blocksEmpty,
-        kind: "block"
-      });
+      if (state.dayPlanner.loading) {
+        els.deepFocusMeta.textContent = "Loading Notion plan...";
+        els.blocksList.innerHTML = "";
+        els.blocksEmpty.hidden = true;
+        els.dayPlannerStatus.hidden = true;
+        els.dayPlannerRefresh.disabled = true;
+        return;
+      }
+
+      els.dayPlannerRefresh.disabled = false;
+      const focusBlocks = state.dayPlanner.blocks.filter((block) => block.blockType === "deep-focus");
+
+      if (state.dayPlanner.error) {
+        els.deepFocusMeta.textContent = "Notion plan unavailable";
+        els.blocksList.innerHTML = "";
+        els.blocksEmpty.hidden = true;
+        els.dayPlannerStatus.hidden = false;
+        els.dayPlannerStatus.textContent = state.dayPlanner.error;
+        return;
+      }
+
+      if (!state.dayPlanner.configured) {
+        state.plan.blocks.sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+        els.deepFocusMeta.textContent = "Manual focus blocks";
+        els.dayPlannerStatus.hidden = false;
+        if (IS_LOCAL_PREVIEW && !hasAuthToken()) {
+          els.dayPlannerStatus.innerHTML = 'Local preview is unlocked, but Notion Deep Focus needs a real Wellness OS session. <br><button class="mini-btn" type="button" id="localPlannerLogin">Sign in for Deep Focus</button>';
+          const loginButton = document.getElementById("localPlannerLogin");
+          loginButton.addEventListener("click", () => {
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set("auth", "1");
+            window.location.href = nextUrl.toString();
+          });
+        } else {
+          els.dayPlannerStatus.textContent = "Connect the Day Planner database to show scheduled Deep Focus Hours from Notion.";
+        }
+        renderList({
+          items: state.plan.blocks,
+          listEl: els.blocksList,
+          emptyEl: els.blocksEmpty,
+          kind: "block"
+        });
+        return;
+      }
+
+      els.dayPlannerStatus.hidden = true;
+      els.deepFocusMeta.textContent = `${focusBlocks.length} block${focusBlocks.length === 1 ? "" : "s"} - ${formatDuration(state.dayPlanner.summary.deepFocusMinutes || 0)} planned`;
+      renderPlannerBlocks(focusBlocks, els.blocksList, els.blocksEmpty, "No Deep Focus blocks found in Notion for this date.");
+    }
+
+    function renderScheduleContext() {
+      if (state.dayPlanner.loading) {
+        els.scheduleContextMeta.textContent = "Loading meetings and buffer...";
+        els.scheduleContextList.innerHTML = "";
+        els.scheduleContextEmpty.hidden = true;
+        return;
+      }
+
+      const contextBlocks = state.dayPlanner.blocks.filter((block) => block.blockType !== "deep-focus");
+      const meetingMinutes = state.dayPlanner.summary.meetingMinutes || 0;
+      const bufferMinutes = state.dayPlanner.summary.bufferMinutes || 0;
+      els.scheduleContextMeta.textContent = `${formatDuration(meetingMinutes)} meetings - ${formatDuration(bufferMinutes)} buffer`;
+      renderPlannerBlocks(contextBlocks, els.scheduleContextList, els.scheduleContextEmpty, "No meetings or buffer blocks found for this date.");
     }
 
     function renderChecklist(items, listEl, emptyEl) {
       renderList({ items, listEl, emptyEl, kind: "check" });
+    }
+
+    function renderPlannerBlocks(items, listEl, emptyEl, emptyText) {
+      listEl.innerHTML = "";
+      if (!items.length) {
+        emptyEl.textContent = emptyText;
+        emptyEl.hidden = false;
+        return;
+      }
+      emptyEl.hidden = true;
+
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        li.className = "block-item";
+        const meta = [
+          item.duration ? formatDuration(item.duration) : "",
+          item.energyDemand || "",
+          item.priority ? `${item.priority} priority` : ""
+        ].filter(Boolean).join(" - ");
+        li.innerHTML = `
+          <span class="block-time">${escapeHtml(item.start || "Anytime")}${item.end ? `-${escapeHtml(item.end)}` : ""}</span>
+          <span class="chip ${plannerBlockChip(item.blockType)}">${plannerBlockLabel(item.blockType)}</span>
+          <span class="block-title">
+            ${escapeHtml(item.title)}
+            ${meta ? `<span class="todoist-meta">${escapeHtml(meta)}</span>` : ""}
+          </span>
+          ${item.url ? `<a class="todoist-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener" aria-label="Open in Notion">Open</a>` : "<span></span>"}
+        `;
+        listEl.appendChild(li);
+      });
     }
 
     function renderList({ items, listEl, emptyEl, kind }) {
@@ -1171,6 +1312,43 @@
         throw new Error(message);
       }
       return data;
+    }
+
+    async function loadDayPlanner() {
+      state.dayPlanner.loading = true;
+      state.dayPlanner.error = null;
+      renderBlocks();
+      renderScheduleContext();
+      try {
+        await waitForAuthReady();
+        if (IS_LOCAL_PREVIEW && !hasAuthToken()) {
+          state.dayPlanner.blocks = [];
+          state.dayPlanner.configured = false;
+          return;
+        }
+        const data = await fetchJson(`/api/day-planner?date=${encodeURIComponent(state.dateKey)}`);
+        state.dayPlanner.blocks = Array.isArray(data.blocks) ? data.blocks : [];
+        state.dayPlanner.summary = {
+          deepFocusMinutes: Number(data.summary?.deepFocusMinutes || 0),
+          meetingMinutes: Number(data.summary?.meetingMinutes || 0),
+          bufferMinutes: Number(data.summary?.bufferMinutes || 0)
+        };
+        state.dayPlanner.configured = true;
+      } catch (error) {
+        state.dayPlanner.blocks = [];
+        state.dayPlanner.summary = {
+          deepFocusMinutes: 0,
+          meetingMinutes: 0,
+          bufferMinutes: 0
+        };
+        state.dayPlanner.configured = !/not connected|not configured|connect the Day Planner/i.test(error.message || "");
+        state.dayPlanner.error = error.message || "Day Planner unavailable.";
+      } finally {
+        state.dayPlanner.loading = false;
+        renderBlocks();
+        renderScheduleContext();
+        renderSummary();
+      }
     }
 
     async function loadTodoist() {
@@ -1365,6 +1543,7 @@
       state.skincare.checked = loadCheckedSteps(nextDateKey);
       state.todoist.completedCount = 0;
       renderAll();
+      loadDayPlanner();
       loadTodoist();
     }
 
@@ -1372,6 +1551,7 @@
       renderShell();
       renderFocus();
       renderBlocks();
+      renderScheduleContext();
       renderChecklist(state.plan.fitness, els.fitnessList, els.fitnessEmpty);
       renderChecklist(state.plan.reminders, els.remindersList, els.remindersEmpty);
       renderTodoist();
@@ -1409,6 +1589,7 @@
 
     els.tabToday.addEventListener("click", () => setActiveTab("today"));
     els.tabCalendar.addEventListener("click", () => setActiveTab("calendar"));
+    els.dayPlannerRefresh.addEventListener("click", () => loadDayPlanner());
     els.todoistRefresh.addEventListener("click", () => loadTodoist());
 
     els.blocksForm.addEventListener("submit", (event) => {
@@ -1471,6 +1652,7 @@
 
     wireTextPersistence();
     renderAll();
+    loadDayPlanner();
     loadTodoist();
     loadSkincare();
   </script>

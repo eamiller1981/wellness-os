@@ -337,6 +337,127 @@ function normalizeTodoistTask(task) {
   };
 }
 
+function parsePlannerTimeToMinutes(value) {
+  const text = String(value || "").trim().toLowerCase();
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+  if (!match) return null;
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2] || 0);
+  const period = match[3];
+
+  if (hour === 12) hour = 0;
+  if (period === "pm") hour += 12;
+  return hour * 60 + minute;
+}
+
+function formatPlannerMinutes(totalMinutes) {
+  if (totalMinutes == null || Number.isNaN(totalMinutes)) return "";
+  const normalized = Math.max(0, Number(totalMinutes));
+  const hour24 = Math.floor(normalized / 60) % 24;
+  const minute = normalized % 60;
+  const period = hour24 >= 12 ? "pm" : "am";
+  const hour12 = hour24 % 12 || 12;
+  return `${hour12}:${String(minute).padStart(2, "0")}${period}`;
+}
+
+function classifyDayPlannerBlock(record) {
+  const task = String(record.title || "").trim().toLowerCase();
+  const status = String(record.status || "").trim().toLowerCase();
+  if (status === "meeting") return "meeting";
+  if (task === "open") return "buffer";
+  return "deep-focus";
+}
+
+function buildDayPlannerRecord(page) {
+  const props = page.properties || {};
+  const title = firstRichTextValue(props.Task) || "Untitled";
+  const start = firstRichTextValue(props.Start);
+  const startMinutes = numberValue(props["Start Minutes"]) ?? parsePlannerTimeToMinutes(start);
+  const duration = numberValue(props["Est Time"]) ?? numberValue(props["Duration Minutes"]) ?? 0;
+  const endMinutes = numberValue(props["End Minutes"]) ?? (startMinutes == null ? null : startMinutes + duration);
+  const status = firstRichTextValue(props.Status);
+  const record = {
+    id: page.id,
+    url: page.url || "",
+    title,
+    date: dateValue(props.Do),
+    start,
+    startMinutes,
+    end: firstRichTextValue(props.End) || formatPlannerMinutes(endMinutes),
+    endMinutes,
+    duration,
+    status,
+    priority: firstRichTextValue(props.Priority),
+    energyDemand: firstRichTextValue(props["Energy Demand"]),
+    domain: firstRichTextValue(props.Domain),
+    source: firstRichTextValue(props.Source) || "Notion",
+    todoistTaskId: firstRichTextValue(props["Todoist Task ID"]),
+    addToDay: checkboxValue(props["Add to Day"])
+  };
+
+  return {
+    ...record,
+    blockType: classifyDayPlannerBlock(record)
+  };
+}
+
+function sumDurations(records, blockType) {
+  return records
+    .filter((record) => record.blockType === blockType)
+    .reduce((total, record) => total + (Number(record.duration) || 0), 0);
+}
+
+async function resolveDayPlannerPayload(env, date) {
+  if (!env.DAY_PLANNER_DB_ID) {
+    throw new HttpError(501, "Day Planner is not connected yet.", {
+      message: "Add DAY_PLANNER_DB_ID to the skincare Worker vars to enable Deep Focus Hours."
+    });
+  }
+
+  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))
+    ? String(date)
+    : dateStringInZone(new Date(), USER_TIME_ZONE);
+  const data = await notionQueryDatabaseAll(env, env.DAY_PLANNER_DB_ID, {
+    page_size: 100,
+    filter: {
+      and: [
+        {
+          property: "Do",
+          date: {
+            equals: selectedDate
+          }
+        },
+        {
+          property: "Add to Day",
+          checkbox: {
+            equals: true
+          }
+        }
+      ]
+    }
+  });
+
+  const blocks = data
+    .map(buildDayPlannerRecord)
+    .filter((record) => record.startMinutes != null && Number(record.duration) > 0)
+    .sort((left, right) => (left.startMinutes || 0) - (right.startMinutes || 0));
+
+  return {
+    ok: true,
+    date: selectedDate,
+    blocks,
+    summary: {
+      deepFocusMinutes: sumDurations(blocks, "deep-focus"),
+      meetingMinutes: sumDurations(blocks, "meeting"),
+      bufferMinutes: sumDurations(blocks, "buffer"),
+      deepFocusCount: blocks.filter((record) => record.blockType === "deep-focus").length,
+      meetingCount: blocks.filter((record) => record.blockType === "meeting").length,
+      bufferCount: blocks.filter((record) => record.blockType === "buffer").length
+    }
+  };
+}
+
 async function resolveTodoistTasksPayload(env, date) {
   const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))
     ? String(date)
@@ -2377,6 +2498,10 @@ export default {
 
       if (request.method === "GET" && url.pathname === "/api/routine-plan") {
         return jsonResponse(await resolveRoutinePlanPayload(env), 200, origin);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/day-planner") {
+        return jsonResponse(await resolveDayPlannerPayload(env, url.searchParams.get("date")), 200, origin);
       }
 
       if (request.method === "GET" && url.pathname === "/api/todoist/tasks") {
