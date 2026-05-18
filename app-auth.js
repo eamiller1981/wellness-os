@@ -4,6 +4,9 @@
   const SESSION_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
   const TOKEN_KEY = "wellnessAuthToken";
   const EXPIRES_KEY = "wellnessAuthExpiresAt";
+  const LOCAL_PREVIEW_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+  const FORCE_LOCAL_AUTH = new URLSearchParams(window.location.search).has("auth");
+  const IS_LOCAL_PREVIEW = LOCAL_PREVIEW_HOSTS.has(window.location.hostname) && !FORCE_LOCAL_AUTH;
   const originalFetch = window.fetch.bind(window);
   let stylesInjected = false;
   let authReadyResolved = false;
@@ -86,7 +89,7 @@
 
     return originalFetch(input, nextInit).then((response) => {
       const isLoginRequest = url.origin === AUTH_URL && url.pathname.endsWith("/api/auth/login");
-      if (response.status === 401 && !isLoginRequest) {
+      if (response.status === 401 && !isLoginRequest && !IS_LOCAL_PREVIEW) {
         clearToken();
         showLock("Session expired.");
       }
@@ -231,6 +234,11 @@
   }
 
   async function verifyOrLock() {
+    if (IS_LOCAL_PREVIEW) {
+      markAuthReady();
+      return authReady;
+    }
+
     const token = getToken();
     if (!token) {
       showLock();

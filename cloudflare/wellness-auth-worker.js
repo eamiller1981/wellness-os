@@ -15,6 +15,8 @@ const ALLOWED_ORIGINS = new Set([
   "https://liz-wellness-os.vercel.app",
   "http://127.0.0.1:4173",
   "http://localhost:4173",
+  "http://127.0.0.1:4177",
+  "http://localhost:4177",
   "null"
 ]);
 

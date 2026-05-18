@@ -1,6 +1,7 @@
 import { authorizePersonalRequest } from "./personal-auth.js";
 
 const DEFAULT_NOTION_ORIGIN = "https://eamiller1981.github.io";
+const TODOIST_API_BASE = "https://api.todoist.com/api/v1";
 const USER_TIME_ZONE = "America/New_York";
 const NOTION_UPLOAD_VERSION = "2026-03-11";
 const MAX_PROGRESS_FILE_BYTES = 20 * 1024 * 1024;
@@ -18,6 +19,8 @@ const ALLOWED_ORIGINS = new Set([
   "https://liz-wellness-os.vercel.app",
   "http://127.0.0.1:4173",
   "http://localhost:4173",
+  "http://127.0.0.1:4177",
+  "http://localhost:4177",
   "null"
 ]);
 
@@ -268,6 +271,117 @@ async function notionQueryDatabaseAll(env, databaseId, body = {}) {
   } while (cursor);
 
   return results;
+}
+
+async function todoistRequest(env, path, init = {}) {
+  if (!env.TODOIST_API_TOKEN) {
+    throw new HttpError(501, "Todoist is not connected yet.", {
+      message: "Add TODOIST_API_TOKEN as a Cloudflare Worker secret to enable planner task sync."
+    });
+  }
+
+  const headers = new Headers(init.headers || {});
+  headers.set("Authorization", `Bearer ${env.TODOIST_API_TOKEN}`);
+  if (init.json !== undefined) headers.set("Content-Type", "application/json");
+
+  const response = await fetch(`${TODOIST_API_BASE}${path}`, {
+    method: init.method || "GET",
+    headers,
+    body: init.json !== undefined ? JSON.stringify(init.json) : init.body
+  });
+  const text = await response.text();
+  const data = parseJson(text);
+
+  if (!response.ok) {
+    throw new HttpError(response.status, "Todoist request failed.", {
+      message: data?.error || data?.message || text || "Todoist returned an error.",
+      status: response.status
+    });
+  }
+
+  return data;
+}
+
+function todoistDateFilter(date) {
+  const today = dateStringInZone(new Date(), USER_TIME_ZONE);
+  return date === today ? "today" : date;
+}
+
+function normalizeTodoistTask(task) {
+  const due = task.due || null;
+  const dueDate = due?.date || "";
+  const dueTime = dueDate && dueDate.includes("T")
+    ? new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: due?.timezone || USER_TIME_ZONE
+      }).format(new Date(dueDate))
+    : "";
+
+  return {
+    id: String(task.id || ""),
+    content: task.content || "",
+    description: task.description || "",
+    priority: task.priority || 1,
+    projectId: task.project_id || "",
+    sectionId: task.section_id || "",
+    parentId: task.parent_id || "",
+    labels: Array.isArray(task.labels) ? task.labels : [],
+    url: task.url || "",
+    due: due ? {
+      date: due.date || "",
+      string: due.string || "",
+      isRecurring: Boolean(due.is_recurring),
+      time: dueTime
+    } : null
+  };
+}
+
+async function resolveTodoistTasksPayload(env, date) {
+  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))
+    ? String(date)
+    : dateStringInZone(new Date(), USER_TIME_ZONE);
+  const data = await todoistRequest(
+    env,
+    `/tasks/filter?query=${encodeURIComponent(todoistDateFilter(selectedDate))}&limit=100`
+  );
+  const rows = Array.isArray(data?.results) ? data.results : [];
+
+  return {
+    ok: true,
+    date: selectedDate,
+    filter: todoistDateFilter(selectedDate),
+    tasks: rows.map(normalizeTodoistTask).filter((task) => task.id && task.content)
+  };
+}
+
+async function closeTodoistTask(env, taskId) {
+  const id = String(taskId || "").trim();
+  if (!id) throw new HttpError(400, "Todoist task id is required.", { message: "Missing task id." });
+  await todoistRequest(env, `/tasks/${encodeURIComponent(id)}/close`, { method: "POST" });
+  return { ok: true, id };
+}
+
+async function quickAddTodoistTask(env, text, date) {
+  const content = String(text || "").trim();
+  if (!content) throw new HttpError(400, "Todoist task text is required.", { message: "Missing task text." });
+  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date || ""))
+    ? String(date)
+    : dateStringInZone(new Date(), USER_TIME_ZONE);
+  const today = dateStringInZone(new Date(), USER_TIME_ZONE);
+  const datePhrase = selectedDate === today ? "today" : selectedDate;
+  const data = await todoistRequest(env, "/tasks/quick", {
+    method: "POST",
+    json: {
+      text: `${content} ${datePhrase}`,
+      auto_reminder: false
+    }
+  });
+
+  return {
+    ok: true,
+    task: normalizeTodoistTask(data?.task || data)
+  };
 }
 
 async function notionGetPage(env, pageId) {
@@ -2263,6 +2377,20 @@ export default {
 
       if (request.method === "GET" && url.pathname === "/api/routine-plan") {
         return jsonResponse(await resolveRoutinePlanPayload(env), 200, origin);
+      }
+
+      if (request.method === "GET" && url.pathname === "/api/todoist/tasks") {
+        return jsonResponse(await resolveTodoistTasksPayload(env, url.searchParams.get("date")), 200, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/todoist/quick-add") {
+        const body = await readRequestBody(request);
+        return jsonResponse(await quickAddTodoistTask(env, body.text, body.date), 200, origin);
+      }
+
+      if (request.method === "POST" && url.pathname === "/api/todoist/complete") {
+        const body = await readRequestBody(request);
+        return jsonResponse(await closeTodoistTask(env, body.id), 200, origin);
       }
 
       if (request.method === "GET" && url.pathname === "/api/routine-assignment") {

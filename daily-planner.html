@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5eae3">
+  <meta name="description" content="A daily Wellness OS planning surface for priorities, time blocks, meals, hydration, skincare, reminders, and calendar context.">
+  <title>Daily Planner | Wellness OS</title>
+  <style>
+    :root {
+      --bg: #f5eae3;
+      --paper: rgba(255, 250, 246, 0.72);
+      --paper-strong: #fffaf6;
+      --ink: #403534;
+      --muted: #806f64;
+      --soft: #a39289;
+      --line: rgba(128, 111, 100, 0.18);
+      --sage: #6f9b94;
+      --sage-soft: #dfece8;
+      --blue: #6d7f9a;
+      --blue-soft: #e2e7ef;
+      --rose: #b77a6f;
+      --rose-soft: #f0d9d3;
+      --gold: #a78345;
+      --gold-soft: #f3e7ce;
+      --danger: #8d3030;
+      --radius: 8px;
+      --shadow: 0 10px 30px rgba(80, 60, 50, 0.08);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 14px;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    a { color: inherit; }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .page {
+      width: min(1040px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 12px;
+      padding-bottom: 34px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .home-link,
+    .icon-btn,
+    .date-input,
+    .tab-btn,
+    .action-btn,
+    .mini-btn,
+    .chip {
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--ink);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      box-shadow: 0 6px 18px rgba(80, 60, 50, 0.05);
+    }
+
+    .home-link {
+      padding: 0 14px;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+
+    .date-nav {
+      display: grid;
+      grid-template-columns: 40px minmax(0, 1fr) 40px;
+      gap: 8px;
+      align-items: center;
+      width: min(360px, 100%);
+    }
+
+    .icon-btn {
+      width: 40px;
+      padding: 0;
+      font-size: 1.16rem;
+      font-weight: 700;
+    }
+
+    .date-input {
+      width: 100%;
+      padding: 0 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .hero {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .hero-main {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--soft);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(2.25rem, 8vw, 4.4rem);
+      font-weight: 400;
+      line-height: 0.96;
+      letter-spacing: 0;
+    }
+
+    .hero-sub {
+      margin: 8px 0 0;
+      max-width: 620px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .save-state {
+      min-height: 24px;
+      color: var(--soft);
+      font-size: 0.82rem;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .tab-btn {
+      padding: 0 16px;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    .tab-btn[aria-selected="true"] {
+      background: var(--ink);
+      color: #fffaf6;
+      border-color: var(--ink);
+    }
+
+    .tab-panel[hidden] { display: none; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .summary-card {
+      min-height: 72px;
+      padding: 12px;
+      border-radius: var(--radius);
+      background: rgba(255, 250, 246, 0.58);
+      border: 1px solid var(--line);
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 1.22rem;
+      line-height: 1.1;
+    }
+
+    .summary-card span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    @media (min-width: 800px) {
+      .grid {
+        grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+        align-items: start;
+      }
+
+      .card.full,
+      .summary-grid,
+      .calendar-card {
+        grid-column: 1 / -1;
+      }
+    }
+
+    .card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .card-head h2 {
+      margin: 0;
+      font-size: 1rem;
+      line-height: 1.2;
+    }
+
+    .card-meta {
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+
+    .chip {
+      min-height: 26px;
+      padding: 0 10px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      box-shadow: none;
+    }
+
+    .chip.sage { background: var(--sage-soft); color: #4e6f69; }
+    .chip.blue { background: var(--blue-soft); color: #526176; }
+    .chip.rose { background: var(--rose-soft); color: #7c4f48; }
+    .chip.gold { background: var(--gold-soft); color: #765d2d; }
+
+    .field-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    .field label,
+    .field-label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .text-input,
+    .textarea,
+    .select,
+    .time-input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper-strong);
+      color: var(--ink);
+    }
+
+    .text-input,
+    .select,
+    .time-input {
+      min-height: 42px;
+      padding: 0 12px;
+    }
+
+    .textarea {
+      min-height: 88px;
+      padding: 11px 12px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .text-input:focus,
+    .textarea:focus,
+    .select:focus,
+    .time-input:focus {
+      outline: 2px solid rgba(111, 155, 148, 0.18);
+      border-color: var(--sage);
+    }
+
+    .inline-form {
+      display: grid;
+      grid-template-columns: minmax(82px, 0.28fr) minmax(0, 1fr) auto;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .add-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .action-btn {
+      min-height: 42px;
+      padding: 0 16px;
+      border-color: var(--ink);
+      background: var(--ink);
+      color: #fffaf6;
+      font-weight: 800;
+    }
+
+    .action-btn.secondary {
+      border-color: var(--line);
+      background: var(--paper-strong);
+      color: var(--ink);
+    }
+
+    .mini-btn {
+      min-height: 32px;
+      padding: 0 10px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      box-shadow: none;
+    }
+
+    .checklist,
+    .block-list,
+    .meal-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 7px;
+    }
+
+    .check-item,
+    .block-item,
+    .meal-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 44px;
+      padding: 8px 10px;
+      border: 1px solid rgba(128, 111, 100, 0.11);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 246, 0.58);
+    }
+
+    .block-item {
+      grid-template-columns: 62px auto minmax(0, 1fr) auto;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--sage);
+      cursor: pointer;
+    }
+
+    .label,
+    .block-title {
+      min-width: 0;
+      font-size: 0.93rem;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .block-time {
+      color: var(--blue);
+      font-size: 0.86rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .check-item.done .label,
+    .block-item.done .block-title {
+      color: var(--soft);
+      text-decoration: line-through;
+    }
+
+    .todoist-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      color: var(--soft);
+      font-size: 0.75rem;
+      font-weight: 800;
+    }
+
+    .todoist-link {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .todoist-link:hover,
+    .todoist-link:focus-visible {
+      color: var(--ink);
+      outline: none;
+    }
+
+    .delete-btn {
+      width: 32px;
+      min-height: 32px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--soft);
+      font-size: 1.15rem;
+    }
+
+    .delete-btn:hover,
+    .delete-btn:focus-visible {
+      color: var(--danger);
+      outline: none;
+    }
+
+    .empty {
+      margin: 0;
+      padding: 12px 10px;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    .water-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+    }
+
+    .water-btn {
+      aspect-ratio: 1;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper-strong);
+      color: var(--blue);
+      font-weight: 900;
+    }
+
+    .water-btn.active {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+      color: #526176;
+    }
+
+    .meal-row {
+      grid-template-columns: 86px minmax(0, 1fr);
+    }
+
+    .meal-row label {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 900;
+    }
+
+    .meal-row input {
+      min-height: 36px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      outline: 0;
+    }
+
+    .status-line {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-left: 3px solid var(--rose);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--rose-soft);
+      color: #7c4f48;
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .status-line .mini-btn {
+      margin-top: 10px;
+      background: var(--paper-strong);
+      color: var(--ink);
+    }
+
+    .skincare-sub {
+      margin: -4px 0 10px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .calendar-settings {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .calendar-frame {
+      width: 100%;
+      height: 72vh;
+      min-height: 500px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper-strong);
+    }
+
+    .calendar-placeholder {
+      padding: 28px 18px;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 250, 246, 0.52);
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 10px; }
+      .topbar { align-items: stretch; flex-direction: column; }
+      .date-nav { width: 100%; }
+      .hero-main { display: grid; gap: 8px; }
+      .save-state { text-align: left; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .inline-form { grid-template-columns: 1fr; }
+      .add-row { grid-template-columns: 1fr; }
+      .calendar-settings { grid-template-columns: 1fr; }
+      .block-item { grid-template-columns: auto minmax(0, 1fr) auto; }
+      .block-time { grid-column: 1 / -1; }
+      .water-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+  </style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/favicons/wellness-180.png">
+  <script src="app-auth.js?v=20260517b"></script>
+</head>
+<body>
+  <main class="page">
+    <nav class="topbar" aria-label="Page">
+      <a class="home-link" href="index.html">Home</a>
+      <div class="date-nav" aria-label="Planner date">
+        <button class="icon-btn" id="prevDate" type="button" aria-label="Previous day">&lt;</button>
+        <input class="date-input" id="dateInput" type="date" aria-label="Planner date">
+        <button class="icon-btn" id="nextDate" type="button" aria-label="Next day">&gt;</button>
+      </div>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-main">
+        <div>
+          <p class="eyebrow" id="dateEyebrow">Today</p>
+          <h1 id="todayHeading">Daily Planner</h1>
+          <p class="hero-sub">Priorities, time blocks, meals, hydration, reminders, skincare, and calendar context in one phone-first view.</p>
+        </div>
+        <div class="save-state" id="saveState" role="status">Ready</div>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Planner sections">
+        <button class="tab-btn" id="tabToday" role="tab" aria-selected="true" aria-controls="todayPanel" type="button">Plan</button>
+        <button class="tab-btn" id="tabCalendar" role="tab" aria-selected="false" aria-controls="calendarPanel" type="button">Calendar</button>
+      </div>
+    </section>
+
+    <section id="todayPanel" class="tab-panel" role="tabpanel" aria-labelledby="tabToday">
+      <div class="grid">
+        <div class="summary-grid" aria-label="Planner summary">
+          <div class="summary-card"><strong id="summaryBlocks">0/0</strong><span>time blocks done</span></div>
+          <div class="summary-card"><strong id="summaryTasks">0/0</strong><span>goals and reminders</span></div>
+          <div class="summary-card"><strong id="summaryWater">0/8</strong><span>water target</span></div>
+          <div class="summary-card"><strong id="summarySkincare">...</strong><span>skincare steps</span></div>
+        </div>
+
+        <section class="card" aria-labelledby="focusTitle">
+          <div class="card-head">
+            <h2 id="focusTitle">Focus</h2>
+            <span class="chip sage">Anchor</span>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="priorityInput">Top priority</label>
+              <input class="text-input" id="priorityInput" type="text" placeholder="What matters most today?">
+            </div>
+            <div class="field">
+              <label for="energySelect">Energy</label>
+              <select class="select" id="energySelect">
+                <option value="">Choose a level</option>
+                <option value="Low">Low</option>
+                <option value="Steady">Steady</option>
+                <option value="High">High</option>
+                <option value="Recovery">Recovery</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="notesInput">Notes</label>
+              <textarea class="textarea" id="notesInput" placeholder="Parking lot, constraints, tiny wins, anything you want future-you to have."></textarea>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="timeTitle">
+          <div class="card-head">
+            <h2 id="timeTitle">Time blocks</h2>
+            <span class="chip blue">Schedule</span>
+          </div>
+          <ul class="block-list" id="blocksList"></ul>
+          <p class="empty" id="blocksEmpty" hidden>Add the shape of the day: work block, class, errand, reset, anything time-bound.</p>
+          <form class="inline-form" id="blocksForm" autocomplete="off">
+            <input class="time-input" id="blockTimeInput" type="time" aria-label="Time block time">
+            <input class="text-input" id="blockTextInput" type="text" placeholder="Add a time block" aria-label="Add a time block">
+            <button class="action-btn" type="submit">Add</button>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="fitnessTitle">
+          <div class="card-head">
+            <h2 id="fitnessTitle">Fitness goals</h2>
+            <span class="chip rose">Move</span>
+          </div>
+          <ul class="checklist" id="fitnessList"></ul>
+          <p class="empty" id="fitnessEmpty" hidden>Add a movement goal for today: a class, walk, lift, stretch, or recovery session.</p>
+          <form class="add-row" id="fitnessForm" autocomplete="off">
+            <input class="text-input" id="fitnessInput" type="text" placeholder="Add a fitness goal" aria-label="Add a fitness goal">
+            <button class="action-btn" type="submit">Add</button>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="remindersTitle">
+          <div class="card-head">
+            <h2 id="remindersTitle">Reminders</h2>
+            <span class="chip gold">Nudge</span>
+          </div>
+          <ul class="checklist" id="remindersList"></ul>
+          <p class="empty" id="remindersEmpty" hidden>Weigh-in, bills, intake, text someone back: jot what you want to remember.</p>
+          <form class="add-row" id="remindersForm" autocomplete="off">
+            <input class="text-input" id="remindersInput" type="text" placeholder="Add a reminder" aria-label="Add a reminder">
+            <button class="action-btn" type="submit">Add</button>
+          </form>
+        </section>
+
+        <section class="card full" aria-labelledby="todoistTitle">
+          <div class="card-head">
+            <div>
+              <h2 id="todoistTitle">Todoist</h2>
+              <div class="card-meta" id="todoistMeta">Loading selected-date tasks...</div>
+            </div>
+            <button class="mini-btn" id="todoistRefresh" type="button">Refresh</button>
+          </div>
+          <ul class="checklist" id="todoistList"></ul>
+          <p class="empty" id="todoistEmpty" hidden>No Todoist tasks found for this date.</p>
+          <div class="status-line" id="todoistStatus" hidden></div>
+          <form class="add-row" id="todoistForm" autocomplete="off">
+            <input class="text-input" id="todoistInput" type="text" placeholder="Quick add to Todoist for this date" aria-label="Quick add Todoist task">
+            <button class="action-btn" type="submit">Add</button>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="mealsTitle">
+          <div class="card-head">
+            <h2 id="mealsTitle">Meals and water</h2>
+            <span class="chip blue">Fuel</span>
+          </div>
+          <ul class="meal-list">
+            <li class="meal-row"><label for="breakfastInput">Breakfast</label><input id="breakfastInput" data-meal="breakfast" type="text" placeholder="Plan or log"></li>
+            <li class="meal-row"><label for="lunchInput">Lunch</label><input id="lunchInput" data-meal="lunch" type="text" placeholder="Plan or log"></li>
+            <li class="meal-row"><label for="dinnerInput">Dinner</label><input id="dinnerInput" data-meal="dinner" type="text" placeholder="Plan or log"></li>
+            <li class="meal-row"><label for="snacksInput">Snacks</label><input id="snacksInput" data-meal="snacks" type="text" placeholder="Plan or log"></li>
+          </ul>
+          <div class="field" style="margin-top:12px;">
+            <div class="field-label">Water</div>
+            <div class="water-grid" id="waterGrid" aria-label="Water glasses"></div>
+          </div>
+        </section>
+
+        <section class="card" aria-labelledby="skincareTitle">
+          <div class="card-head">
+            <h2 id="skincareTitle">Skincare</h2>
+            <span class="chip sage" id="skincarePhase" hidden></span>
+          </div>
+          <div class="skincare-sub" id="skincareSub">Loading routine...</div>
+          <ul class="checklist" id="skincareList"></ul>
+          <div class="status-line" id="skincareStatus" hidden></div>
+        </section>
+      </div>
+    </section>
+
+    <section id="calendarPanel" class="tab-panel" role="tabpanel" aria-labelledby="tabCalendar" hidden>
+      <section class="card calendar-card" aria-labelledby="calendarTitle">
+        <div class="card-head">
+          <h2 id="calendarTitle">Calendar</h2>
+          <span class="chip sage">Embed</span>
+        </div>
+        <div class="calendar-settings">
+          <input class="text-input" id="calendarUrlInput" type="url" placeholder="Paste Google Calendar embed URL" aria-label="Google Calendar embed URL">
+          <button class="action-btn secondary" id="saveCalendarUrl" type="button">Save</button>
+        </div>
+        <div id="calendarMount">
+          <div class="calendar-placeholder">
+            Paste the Google Calendar embed URL once and it will stay saved on this device.
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const SKINCARE_API = "https://skincare.eamiller1981.workers.dev";
+    const CALENDAR_KEY = "wellness.planner.calendarEmbedUrl";
+    const IS_LOCAL_PREVIEW = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    const DEFAULT_PLAN = {
+      priority: "",
+      energy: "",
+      notes: "",
+      water: 0,
+      meals: {
+        breakfast: "",
+        lunch: "",
+        dinner: "",
+        snacks: ""
+      },
+      blocks: [],
+      fitness: [],
+      reminders: []
+    };
+
+    function todayKey() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function dateFromKey(key) {
+      return new Date(`${key}T12:00:00`);
+    }
+
+    function shiftDate(key, amount) {
+      const date = dateFromKey(key);
+      date.setDate(date.getDate() + amount);
+      return toDateKey(date);
+    }
+
+    function toDateKey(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatHeading(key) {
+      return new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric"
+      }).format(dateFromKey(key));
+    }
+
+    function formatDateLabel(value) {
+      if (!value) return "";
+      return new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      }).format(dateFromKey(value));
+    }
+
+    function storageKey(name, dateKey) {
+      return `wellness.planner.${name}.${dateKey}`;
+    }
+
+    function cloneDefaultPlan() {
+      return JSON.parse(JSON.stringify(DEFAULT_PLAN));
+    }
+
+    function loadPlan(dateKey) {
+      try {
+        const raw = localStorage.getItem(storageKey("plan", dateKey));
+        if (!raw) return cloneDefaultPlan();
+        const parsed = JSON.parse(raw);
+        return {
+          ...cloneDefaultPlan(),
+          ...parsed,
+          meals: { ...DEFAULT_PLAN.meals, ...(parsed.meals || {}) },
+          blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
+          fitness: Array.isArray(parsed.fitness) ? parsed.fitness : [],
+          reminders: Array.isArray(parsed.reminders) ? parsed.reminders : []
+        };
+      } catch {
+        return cloneDefaultPlan();
+      }
+    }
+
+    function savePlan() {
+      localStorage.setItem(storageKey("plan", state.dateKey), JSON.stringify(state.plan));
+      flashSaved();
+      renderSummary();
+    }
+
+    function loadCheckedSteps(dateKey) {
+      try {
+        const raw = localStorage.getItem(storageKey("skincare", dateKey));
+        const parsed = raw ? JSON.parse(raw) : [];
+        return new Set(Array.isArray(parsed) ? parsed : []);
+      } catch {
+        return new Set();
+      }
+    }
+
+    function saveCheckedSteps() {
+      localStorage.setItem(storageKey("skincare", state.dateKey), JSON.stringify(Array.from(state.skincare.checked)));
+      flashSaved();
+      renderSummary();
+    }
+
+    function makeId() {
+      return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    const els = {
+      dateInput: document.getElementById("dateInput"),
+      prevDate: document.getElementById("prevDate"),
+      nextDate: document.getElementById("nextDate"),
+      dateEyebrow: document.getElementById("dateEyebrow"),
+      todayHeading: document.getElementById("todayHeading"),
+      saveState: document.getElementById("saveState"),
+      tabToday: document.getElementById("tabToday"),
+      tabCalendar: document.getElementById("tabCalendar"),
+      todayPanel: document.getElementById("todayPanel"),
+      calendarPanel: document.getElementById("calendarPanel"),
+      summaryBlocks: document.getElementById("summaryBlocks"),
+      summaryTasks: document.getElementById("summaryTasks"),
+      summaryWater: document.getElementById("summaryWater"),
+      summarySkincare: document.getElementById("summarySkincare"),
+      priorityInput: document.getElementById("priorityInput"),
+      energySelect: document.getElementById("energySelect"),
+      notesInput: document.getElementById("notesInput"),
+      blocksList: document.getElementById("blocksList"),
+      blocksEmpty: document.getElementById("blocksEmpty"),
+      blocksForm: document.getElementById("blocksForm"),
+      blockTimeInput: document.getElementById("blockTimeInput"),
+      blockTextInput: document.getElementById("blockTextInput"),
+      fitnessList: document.getElementById("fitnessList"),
+      fitnessEmpty: document.getElementById("fitnessEmpty"),
+      fitnessForm: document.getElementById("fitnessForm"),
+      fitnessInput: document.getElementById("fitnessInput"),
+      remindersList: document.getElementById("remindersList"),
+      remindersEmpty: document.getElementById("remindersEmpty"),
+      remindersForm: document.getElementById("remindersForm"),
+      remindersInput: document.getElementById("remindersInput"),
+      todoistMeta: document.getElementById("todoistMeta"),
+      todoistList: document.getElementById("todoistList"),
+      todoistEmpty: document.getElementById("todoistEmpty"),
+      todoistStatus: document.getElementById("todoistStatus"),
+      todoistRefresh: document.getElementById("todoistRefresh"),
+      todoistForm: document.getElementById("todoistForm"),
+      todoistInput: document.getElementById("todoistInput"),
+      waterGrid: document.getElementById("waterGrid"),
+      skincarePhase: document.getElementById("skincarePhase"),
+      skincareSub: document.getElementById("skincareSub"),
+      skincareList: document.getElementById("skincareList"),
+      skincareStatus: document.getElementById("skincareStatus"),
+      calendarUrlInput: document.getElementById("calendarUrlInput"),
+      saveCalendarUrl: document.getElementById("saveCalendarUrl"),
+      calendarMount: document.getElementById("calendarMount")
+    };
+
+    const state = {
+      dateKey: todayKey(),
+      plan: loadPlan(todayKey()),
+      skincare: {
+        rows: null,
+        checked: loadCheckedSteps(todayKey()),
+        loading: true,
+        error: null
+      },
+      todoist: {
+        tasks: [],
+        completedCount: 0,
+        loading: true,
+        error: null,
+        configured: false
+      },
+      calendarMountedUrl: ""
+    };
+
+    let saveTimer = null;
+
+    function flashSaved() {
+      els.saveState.textContent = "Saved";
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(() => {
+        els.saveState.textContent = "Ready";
+      }, 1200);
+    }
+
+    function renderShell() {
+      els.dateInput.value = state.dateKey;
+      els.todayHeading.textContent = formatHeading(state.dateKey);
+      if (state.dateKey === todayKey()) {
+        els.dateEyebrow.textContent = "Today";
+      } else {
+        els.dateEyebrow.textContent = formatDateLabel(state.dateKey);
+      }
+    }
+
+    function renderFocus() {
+      els.priorityInput.value = state.plan.priority || "";
+      els.energySelect.value = state.plan.energy || "";
+      els.notesInput.value = state.plan.notes || "";
+      document.querySelectorAll("[data-meal]").forEach((input) => {
+        input.value = state.plan.meals[input.dataset.meal] || "";
+      });
+    }
+
+    function renderSummary() {
+      const blockTotal = state.plan.blocks.length;
+      const blockDone = state.plan.blocks.filter((item) => item.done).length;
+      const taskItems = [...state.plan.fitness, ...state.plan.reminders];
+      const taskTotal = taskItems.length + state.todoist.tasks.length + state.todoist.completedCount;
+      const taskDone = taskItems.filter((item) => item.done).length + state.todoist.completedCount;
+      const skincareSteps = getSelectedSkincareSteps();
+      const skincareDone = skincareSteps.filter((step) => state.skincare.checked.has(step)).length;
+
+      els.summaryBlocks.textContent = `${blockDone}/${blockTotal}`;
+      els.summaryTasks.textContent = `${taskDone}/${taskTotal}`;
+      els.summaryWater.textContent = `${Number(state.plan.water || 0)}/8`;
+      els.summarySkincare.textContent = state.skincare.loading ? "..." : `${skincareDone}/${skincareSteps.length}`;
+    }
+
+    function renderBlocks() {
+      state.plan.blocks.sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")));
+      renderList({
+        items: state.plan.blocks,
+        listEl: els.blocksList,
+        emptyEl: els.blocksEmpty,
+        kind: "block"
+      });
+    }
+
+    function renderChecklist(items, listEl, emptyEl) {
+      renderList({ items, listEl, emptyEl, kind: "check" });
+    }
+
+    function renderList({ items, listEl, emptyEl, kind }) {
+      listEl.innerHTML = "";
+      if (!items.length) {
+        emptyEl.hidden = false;
+        return;
+      }
+      emptyEl.hidden = true;
+
+      items.forEach((item) => {
+        const li = document.createElement("li");
+        const doneClass = item.done ? " done" : "";
+        if (kind === "block") {
+          li.className = `block-item${doneClass}`;
+          li.innerHTML = `
+            <span class="block-time">${escapeHtml(item.time || "Anytime")}</span>
+            <input type="checkbox" ${item.done ? "checked" : ""} aria-label="Mark time block done">
+            <span class="block-title">${escapeHtml(item.text)}</span>
+            <button class="delete-btn" type="button" aria-label="Remove time block">&times;</button>
+          `;
+        } else {
+          li.className = `check-item${doneClass}`;
+          li.innerHTML = `
+            <input type="checkbox" ${item.done ? "checked" : ""} aria-label="Mark done">
+            <span class="label">${escapeHtml(item.text)}</span>
+            <button class="delete-btn" type="button" aria-label="Remove item">&times;</button>
+          `;
+        }
+
+        const checkbox = li.querySelector("input[type='checkbox']");
+        const deleteButton = li.querySelector(".delete-btn");
+        checkbox.addEventListener("change", () => {
+          item.done = checkbox.checked;
+          li.classList.toggle("done", checkbox.checked);
+          savePlan();
+        });
+        deleteButton.addEventListener("click", () => {
+          const idx = items.findIndex((entry) => entry.id === item.id);
+          if (idx >= 0) items.splice(idx, 1);
+          savePlan();
+          if (kind === "block") renderBlocks();
+          else if (items === state.plan.fitness) renderChecklist(state.plan.fitness, els.fitnessList, els.fitnessEmpty);
+          else renderChecklist(state.plan.reminders, els.remindersList, els.remindersEmpty);
+        });
+        listEl.appendChild(li);
+      });
+    }
+
+    function renderWater() {
+      els.waterGrid.innerHTML = "";
+      for (let index = 1; index <= 8; index += 1) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `water-btn${Number(state.plan.water || 0) >= index ? " active" : ""}`;
+        button.textContent = index;
+        button.setAttribute("aria-label", `${index} glasses of water`);
+        button.addEventListener("click", () => {
+          state.plan.water = Number(state.plan.water || 0) === index ? index - 1 : index;
+          savePlan();
+          renderWater();
+        });
+        els.waterGrid.appendChild(button);
+      }
+    }
+
+    function getSelectedSkincareRow() {
+      const rows = Array.isArray(state.skincare.rows) ? state.skincare.rows : [];
+      return rows.find((row) => row.date === state.dateKey) ||
+        (state.dateKey === todayKey() ? rows.find((row) => row.isToday) : null) ||
+        null;
+    }
+
+    function getSelectedSkincareSteps() {
+      const row = getSelectedSkincareRow();
+      return row && Array.isArray(row.steps) ? row.steps : [];
+    }
+
+    async function waitForAuthReady() {
+      if (window.WellnessAuth && window.WellnessAuth.ready) {
+        await window.WellnessAuth.ready.catch(() => {});
+      }
+    }
+
+    function hasAuthToken() {
+      return Boolean(window.WellnessAuth && typeof window.WellnessAuth.token === "function" && window.WellnessAuth.token());
+    }
+
+    function todoistDueLabel(task) {
+      if (!task || !task.due) return "";
+      const parts = [];
+      if (task.due.time) parts.push(task.due.time);
+      if (task.due.isRecurring) parts.push("recurring");
+      return parts.join(" - ");
+    }
+
+    function renderTodoist() {
+      els.todoistList.innerHTML = "";
+      els.todoistRefresh.disabled = state.todoist.loading;
+
+      if (state.todoist.loading) {
+        els.todoistMeta.textContent = "Loading selected-date tasks...";
+        els.todoistEmpty.hidden = true;
+        els.todoistStatus.hidden = true;
+        renderSummary();
+        return;
+      }
+
+      if (state.todoist.error) {
+        els.todoistMeta.textContent = "Todoist unavailable";
+        els.todoistEmpty.hidden = true;
+        els.todoistStatus.hidden = false;
+        els.todoistStatus.textContent = state.todoist.error;
+        renderSummary();
+        return;
+      }
+
+      els.todoistStatus.hidden = true;
+      if (!state.todoist.configured) {
+        els.todoistMeta.textContent = "Ready for connection";
+        els.todoistEmpty.hidden = true;
+        els.todoistStatus.hidden = false;
+        if (IS_LOCAL_PREVIEW && !hasAuthToken()) {
+          els.todoistStatus.innerHTML = 'Local preview is unlocked, but live Todoist needs a real Wellness OS session. <br><button class="mini-btn" type="button" id="localTodoistLogin">Sign in for Todoist</button>';
+          const loginButton = document.getElementById("localTodoistLogin");
+          loginButton.addEventListener("click", () => {
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set("auth", "1");
+            window.location.href = nextUrl.toString();
+          });
+        } else {
+          els.todoistStatus.textContent = "Add the TODOIST_API_TOKEN Worker secret, deploy, then this card will show your selected-date Todoist tasks.";
+        }
+        renderSummary();
+        return;
+      }
+
+      const count = state.todoist.tasks.length;
+      els.todoistMeta.textContent = `${count} task${count === 1 ? "" : "s"} for ${formatDateLabel(state.dateKey)}`;
+      if (!count) {
+        els.todoistEmpty.hidden = false;
+        renderSummary();
+        return;
+      }
+      els.todoistEmpty.hidden = true;
+
+      state.todoist.tasks.forEach((task) => {
+        const li = document.createElement("li");
+        li.className = "check-item";
+        const meta = todoistDueLabel(task);
+        li.innerHTML = `
+          <input type="checkbox" aria-label="Complete Todoist task">
+          <span class="label">
+            ${escapeHtml(task.content)}
+            ${meta ? `<span class="todoist-meta">${escapeHtml(meta)}</span>` : ""}
+          </span>
+          ${task.url ? `<a class="todoist-link" href="${escapeHtml(task.url)}" target="_blank" rel="noopener" aria-label="Open in Todoist">Open</a>` : "<span></span>"}
+        `;
+        const checkbox = li.querySelector("input");
+        checkbox.addEventListener("change", async () => {
+          if (!checkbox.checked) return;
+          checkbox.disabled = true;
+          li.classList.add("done");
+          await completeTodoistTask(task.id);
+        });
+        els.todoistList.appendChild(li);
+      });
+      renderSummary();
+    }
+
+    async function fetchJson(path, init = {}) {
+      const response = await fetch(`${SKINCARE_API}${path}`, {
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          ...(init.headers || {})
+        }
+      });
+      const text = await response.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+      if (!response.ok || data.ok === false) {
+        const message = data && data.details && data.details.message
+          ? data.details.message
+          : data.error || "Request failed.";
+        throw new Error(message);
+      }
+      return data;
+    }
+
+    async function loadTodoist() {
+      state.todoist.loading = true;
+      state.todoist.error = null;
+      renderTodoist();
+      try {
+        await waitForAuthReady();
+        if (IS_LOCAL_PREVIEW && !hasAuthToken()) {
+          state.todoist.tasks = [];
+          state.todoist.configured = false;
+          return;
+        }
+        const data = await fetchJson(`/api/todoist/tasks?date=${encodeURIComponent(state.dateKey)}`);
+        state.todoist.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+        state.todoist.configured = true;
+      } catch (error) {
+        state.todoist.tasks = [];
+        state.todoist.configured = !/not connected/i.test(error.message || "");
+        state.todoist.error = error.message || "Todoist unavailable.";
+      } finally {
+        state.todoist.loading = false;
+        renderTodoist();
+      }
+    }
+
+    async function completeTodoistTask(id) {
+      try {
+        await fetchJson("/api/todoist/complete", {
+          method: "POST",
+          body: JSON.stringify({ id })
+        });
+        state.todoist.tasks = state.todoist.tasks.filter((task) => task.id !== id);
+        state.todoist.completedCount += 1;
+        renderTodoist();
+      } catch (error) {
+        state.todoist.error = error.message || "Could not complete Todoist task.";
+        renderTodoist();
+      }
+    }
+
+    async function quickAddTodoistTask(text) {
+      state.todoist.error = null;
+      renderTodoist();
+      try {
+        const data = await fetchJson("/api/todoist/quick-add", {
+          method: "POST",
+          body: JSON.stringify({ text, date: state.dateKey })
+        });
+        if (data.task && data.task.id) {
+          state.todoist.tasks = [data.task, ...state.todoist.tasks];
+          state.todoist.configured = true;
+        }
+        flashSaved();
+      } catch (error) {
+        state.todoist.error = error.message || "Could not add Todoist task.";
+      } finally {
+        renderTodoist();
+      }
+    }
+
+    function renderSkincare() {
+      const { loading, error, checked } = state.skincare;
+      els.skincareList.innerHTML = "";
+
+      if (loading) {
+        els.skincareSub.textContent = "Loading routine...";
+        els.skincarePhase.hidden = true;
+        els.skincareStatus.hidden = true;
+        renderSummary();
+        return;
+      }
+
+      if (error) {
+        els.skincareSub.textContent = "Could not load skincare.";
+        els.skincarePhase.hidden = true;
+        els.skincareStatus.hidden = false;
+        els.skincareStatus.textContent = error;
+        renderSummary();
+        return;
+      }
+
+      const row = getSelectedSkincareRow();
+      if (!row) {
+        els.skincareSub.textContent = "No routine assigned for this date.";
+        els.skincarePhase.hidden = true;
+        els.skincareStatus.hidden = true;
+        renderSummary();
+        return;
+      }
+
+      const dateLabel = formatDateLabel(row.date);
+      els.skincareSub.textContent = `${row.night || "Routine"}${dateLabel ? ` - ${dateLabel}` : ""}`;
+      if (row.phase) {
+        els.skincarePhase.textContent = row.phase;
+        els.skincarePhase.hidden = false;
+      } else {
+        els.skincarePhase.hidden = true;
+      }
+
+      const steps = Array.isArray(row.steps) ? row.steps : [];
+      if (!steps.length) {
+        const li = document.createElement("li");
+        li.className = "empty";
+        li.textContent = "No steps listed for this routine.";
+        els.skincareList.appendChild(li);
+        renderSummary();
+        return;
+      }
+
+      steps.forEach((step) => {
+        const li = document.createElement("li");
+        const isDone = checked.has(step);
+        li.className = `check-item${isDone ? " done" : ""}`;
+        li.innerHTML = `
+          <input type="checkbox" ${isDone ? "checked" : ""} aria-label="Mark skincare step done">
+          <span class="label">${escapeHtml(step)}</span>
+          <span></span>
+        `;
+        const checkbox = li.querySelector("input");
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) checked.add(step);
+          else checked.delete(step);
+          li.classList.toggle("done", checkbox.checked);
+          saveCheckedSteps();
+        });
+        els.skincareList.appendChild(li);
+      });
+      els.skincareStatus.hidden = true;
+      renderSummary();
+    }
+
+    async function loadSkincare() {
+      state.skincare.loading = true;
+      renderSkincare();
+      try {
+        await waitForAuthReady();
+        const response = await fetch(`${SKINCARE_API}/api/routine-plan`, {
+          headers: { "Content-Type": "application/json" }
+        });
+        const text = await response.text();
+        let data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
+        if (!response.ok || data.ok === false) {
+          const message = data && data.details && data.details.message
+            ? data.details.message
+            : data.error || "Unable to reach the Skincare API right now.";
+          throw new Error(message);
+        }
+        state.skincare.rows = Array.isArray(data.rows) ? data.rows : [];
+        state.skincare.error = null;
+      } catch (error) {
+        state.skincare.rows = [];
+        state.skincare.error = error.message || "Skincare API unavailable.";
+      } finally {
+        state.skincare.loading = false;
+        renderSkincare();
+      }
+    }
+
+    function renderCalendar() {
+      const savedUrl = localStorage.getItem(CALENDAR_KEY) || "";
+      els.calendarUrlInput.value = savedUrl;
+      if (!savedUrl) {
+        state.calendarMountedUrl = "";
+        els.calendarMount.innerHTML = '<div class="calendar-placeholder">Paste the Google Calendar embed URL once and it will stay saved on this device.</div>';
+        return;
+      }
+      if (state.calendarMountedUrl === savedUrl) return;
+      state.calendarMountedUrl = savedUrl;
+      els.calendarMount.innerHTML = "";
+      const frame = document.createElement("iframe");
+      frame.className = "calendar-frame";
+      frame.src = savedUrl;
+      frame.title = "Calendar";
+      frame.loading = "lazy";
+      els.calendarMount.appendChild(frame);
+    }
+
+    function setActiveTab(name) {
+      const isToday = name === "today";
+      els.tabToday.setAttribute("aria-selected", String(isToday));
+      els.tabCalendar.setAttribute("aria-selected", String(!isToday));
+      els.todayPanel.hidden = !isToday;
+      els.calendarPanel.hidden = isToday;
+      if (!isToday) renderCalendar();
+    }
+
+    function changeDate(nextDateKey) {
+      state.dateKey = nextDateKey;
+      state.plan = loadPlan(nextDateKey);
+      state.skincare.checked = loadCheckedSteps(nextDateKey);
+      state.todoist.completedCount = 0;
+      renderAll();
+      loadTodoist();
+    }
+
+    function renderAll() {
+      renderShell();
+      renderFocus();
+      renderBlocks();
+      renderChecklist(state.plan.fitness, els.fitnessList, els.fitnessEmpty);
+      renderChecklist(state.plan.reminders, els.remindersList, els.remindersEmpty);
+      renderTodoist();
+      renderWater();
+      renderSkincare();
+      renderSummary();
+    }
+
+    function wireTextPersistence() {
+      els.priorityInput.addEventListener("input", () => {
+        state.plan.priority = els.priorityInput.value;
+        savePlan();
+      });
+      els.energySelect.addEventListener("change", () => {
+        state.plan.energy = els.energySelect.value;
+        savePlan();
+      });
+      els.notesInput.addEventListener("input", () => {
+        state.plan.notes = els.notesInput.value;
+        savePlan();
+      });
+      document.querySelectorAll("[data-meal]").forEach((input) => {
+        input.addEventListener("input", () => {
+          state.plan.meals[input.dataset.meal] = input.value;
+          savePlan();
+        });
+      });
+    }
+
+    els.prevDate.addEventListener("click", () => changeDate(shiftDate(state.dateKey, -1)));
+    els.nextDate.addEventListener("click", () => changeDate(shiftDate(state.dateKey, 1)));
+    els.dateInput.addEventListener("change", () => {
+      if (els.dateInput.value) changeDate(els.dateInput.value);
+    });
+
+    els.tabToday.addEventListener("click", () => setActiveTab("today"));
+    els.tabCalendar.addEventListener("click", () => setActiveTab("calendar"));
+    els.todoistRefresh.addEventListener("click", () => loadTodoist());
+
+    els.blocksForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const text = els.blockTextInput.value.trim();
+      if (!text) return;
+      state.plan.blocks.push({
+        id: makeId(),
+        time: els.blockTimeInput.value,
+        text,
+        done: false
+      });
+      els.blockTextInput.value = "";
+      els.blockTimeInput.value = "";
+      savePlan();
+      renderBlocks();
+      els.blockTextInput.focus();
+    });
+
+    function wireQuickAdd(form, input, items, render) {
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+        items.push({ id: makeId(), text, done: false });
+        input.value = "";
+        savePlan();
+        render();
+        input.focus();
+      });
+    }
+
+    wireQuickAdd(els.fitnessForm, els.fitnessInput, state.plan.fitness, () => {
+      renderChecklist(state.plan.fitness, els.fitnessList, els.fitnessEmpty);
+    });
+    wireQuickAdd(els.remindersForm, els.remindersInput, state.plan.reminders, () => {
+      renderChecklist(state.plan.reminders, els.remindersList, els.remindersEmpty);
+    });
+
+    els.todoistForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const text = els.todoistInput.value.trim();
+      if (!text) return;
+      els.todoistInput.value = "";
+      await quickAddTodoistTask(text);
+      els.todoistInput.focus();
+    });
+
+    els.saveCalendarUrl.addEventListener("click", () => {
+      const value = els.calendarUrlInput.value.trim();
+      if (value && !/^https?:\/\//i.test(value)) {
+        els.saveState.textContent = "Calendar URL needs http or https";
+        return;
+      }
+      localStorage.setItem(CALENDAR_KEY, value);
+      state.calendarMountedUrl = "";
+      flashSaved();
+      renderCalendar();
+    });
+
+    wireTextPersistence();
+    renderAll();
+    loadTodoist();
+    loadSkincare();
+  </script>
+</body>
+</html>

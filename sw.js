@@ -1,9 +1,10 @@
-const CACHE_NAME = "wellness-os-shell-v9";
+const CACHE_NAME = "wellness-os-shell-v14";
 const SHELL_ASSETS = [
   "./",
   "index.html",
+  "daily-planner.html",
   "space.css",
-  "app-auth.js?v=20260429e",
+  "app-auth.js?v=20260517b",
   "manifest.webmanifest",
   "assets/favicons/audio-pilot-180.png",
   "assets/favicons/audio-pilot-32.png",
