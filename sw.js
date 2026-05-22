@@ -1,10 +1,11 @@
-const CACHE_NAME = "wellness-os-shell-v15";
+const CACHE_NAME = "wellness-os-shell-v16";
 const SHELL_ASSETS = [
   "./",
   "index.html",
+  "share.html",
   "daily-planner.html",
   "space.css",
-  "app-auth.js?v=20260517b",
+  "app-auth.js",
   "manifest.webmanifest",
   "assets/favicons/audio-pilot-180.png",
   "assets/favicons/audio-pilot-32.png",
@@ -100,6 +101,50 @@ self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "WELLNESS_REFRESH") {
     self.skipWaiting();
   }
+});
+
+self.addEventListener("push", (event) => {
+  const fallback = {
+    title: "Wellness OS",
+    body: "You have a Wellness OS update.",
+    url: "/"
+  };
+  let payload = fallback;
+
+  try {
+    payload = event.data ? { ...fallback, ...event.data.json() } : fallback;
+  } catch {
+    payload = event.data ? { ...fallback, body: event.data.text() } : fallback;
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title || fallback.title, {
+      body: payload.body || fallback.body,
+      icon: "assets/favicons/wellness-192.png",
+      badge: "assets/favicons/wellness-192.png",
+      tag: payload.tag || "wellness-os",
+      data: {
+        url: payload.url || "/"
+      }
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/", self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url === targetUrl && "focus" in client) {
+          return client.focus();
+        }
+      }
+
+      return self.clients.openWindow(targetUrl);
+    })
+  );
 });
 
 self.addEventListener("fetch", (event) => {

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5eae3">
+  <title>Shared to Wellness OS</title>
+  <link rel="stylesheet" href="space.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="assets/favicons/wellness-180.png">
+  <script src="app-auth.js"></script>
+  <style>
+    .share-card {
+      width: min(640px, 100%);
+      margin: auto;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      display: grid;
+      gap: 14px;
+    }
+
+    .share-card h1 {
+      font-size: 2.4rem;
+    }
+
+    .share-content {
+      display: grid;
+      gap: 10px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .share-field {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.45);
+      overflow-wrap: anywhere;
+    }
+
+    .share-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .share-actions a,
+    .share-actions button {
+      min-height: 40px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <a href="index.html" class="home-link">Home</a>
+      <img src="assets/header-logo.png" alt="Wellness OS" class="brand">
+    </div>
+
+    <section class="share-card">
+      <p class="eyebrow">Shared Item</p>
+      <h1>Saved for Review</h1>
+      <div class="share-content" id="shareContent"></div>
+      <div class="share-actions">
+        <a href="index.html">Done</a>
+        <button type="button" id="copyShare">Copy</button>
+        <a href="#" id="openShare" target="_blank" rel="noreferrer" hidden>Open Link</a>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const shared = {
+      title: params.get("title") || "",
+      text: params.get("text") || "",
+      url: params.get("url") || "",
+      savedAt: new Date().toISOString()
+    };
+
+    const existing = JSON.parse(localStorage.getItem("wellnessSharedItems") || "[]");
+    if (shared.title || shared.text || shared.url) {
+      existing.unshift(shared);
+      localStorage.setItem("wellnessSharedItems", JSON.stringify(existing.slice(0, 50)));
+    }
+
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    const content = document.getElementById("shareContent");
+    const fields = [
+      shared.title ? `<div class="share-field"><strong>Title</strong><br>${escapeHtml(shared.title)}</div>` : "",
+      shared.text ? `<div class="share-field"><strong>Text</strong><br>${escapeHtml(shared.text)}</div>` : "",
+      shared.url ? `<div class="share-field"><strong>URL</strong><br>${escapeHtml(shared.url)}</div>` : ""
+    ].filter(Boolean);
+    content.innerHTML = fields.length ? fields.join("") : `<div class="share-field">Nothing came through with this share.</div>`;
+
+    const openLink = document.getElementById("openShare");
+    if (shared.url) {
+      openLink.href = shared.url;
+      openLink.hidden = false;
+    }
+
+    document.getElementById("copyShare").addEventListener("click", async () => {
+      const value = [shared.title, shared.text, shared.url].filter(Boolean).join("\n");
+      await navigator.clipboard.writeText(value || "Wellness OS shared item").catch(() => {});
+    });
+  </script>
+</body>
+</html>

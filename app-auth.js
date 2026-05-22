@@ -181,6 +181,24 @@
       .wellness-refresh-button:disabled {
         opacity: 0.72;
       }
+      .wellness-notify-button {
+        position: fixed;
+        left: 14px;
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        z-index: 2147483000;
+        min-height: 38px;
+        padding: 0 13px;
+        border: 1px solid rgba(128, 111, 100, 0.24);
+        border-radius: 999px;
+        background: rgba(255, 250, 246, 0.86);
+        color: #806f64;
+        box-shadow: 0 10px 26px rgba(80, 60, 50, 0.1);
+        font: 700 0.82rem ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        backdrop-filter: blur(12px);
+      }
+      .wellness-notify-button:disabled {
+        opacity: 0.72;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -301,8 +319,129 @@
     document.body.appendChild(button);
   }
 
+  function pushSupported() {
+    return Boolean(
+      window.isSecureContext &&
+      "Notification" in window &&
+      "PushManager" in window &&
+      "serviceWorker" in navigator
+    );
+  }
+
+  function base64UrlToUint8Array(base64Url) {
+    const padded = base64Url + "=".repeat((4 - (base64Url.length % 4)) % 4);
+    const binary = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  }
+
+  async function enableNotifications(button) {
+    if (!pushSupported()) {
+      button.textContent = "Unsupported";
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Checking";
+    await authReady;
+
+    if (Notification.permission === "denied") {
+      button.textContent = "Blocked";
+      return;
+    }
+
+    const permission = Notification.permission === "granted"
+      ? "granted"
+      : await Notification.requestPermission();
+
+    if (permission !== "granted") {
+      button.disabled = false;
+      button.textContent = "Notify";
+      return;
+    }
+
+    button.textContent = "Subscribing";
+    const configResponse = await fetch(`${AUTH_URL}/api/push/config`, { credentials: "include" });
+    const config = await configResponse.json().catch(() => ({}));
+    if (!configResponse.ok || !config.publicKey) {
+      throw new Error(config.error || "Push config unavailable.");
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlToUint8Array(config.publicKey)
+      });
+    }
+
+    const subscribeResponse = await fetch(`${AUTH_URL}/api/push/subscribe`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscription })
+    });
+    if (!subscribeResponse.ok) {
+      const payload = await subscribeResponse.json().catch(() => ({}));
+      throw new Error(payload.error || "Push subscribe failed.");
+    }
+
+    button.textContent = "Sending test";
+    await fetch(`${AUTH_URL}/api/push/test`, {
+      method: "POST",
+      credentials: "include"
+    }).catch(() => {});
+
+    button.textContent = "Notifications on";
+  }
+
+  async function syncNotificationButton(button) {
+    if (!pushSupported()) {
+      button.hidden = true;
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      button.textContent = "Blocked";
+      button.disabled = true;
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.ready.catch(() => null);
+    const subscription = registration ? await registration.pushManager.getSubscription() : null;
+    button.textContent = subscription && Notification.permission === "granted" ? "Notifications on" : "Notify";
+  }
+
+  function installNotificationButton() {
+    if (document.querySelector(".wellness-notify-button")) return;
+    injectStyles();
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "wellness-notify-button";
+    button.textContent = "Notify";
+    button.setAttribute("aria-label", "Enable Wellness OS notifications");
+    button.addEventListener("click", () => {
+      enableNotifications(button)
+        .catch((error) => {
+          button.disabled = false;
+          button.textContent = error && error.message ? "Try again" : "Notify";
+        });
+    });
+    document.body.appendChild(button);
+    syncNotificationButton(button).catch(() => {});
+  }
+
   window.WellnessAuth = {
     ready: authReady,
+    enableNotifications: async function enableWellnessNotifications() {
+      const button = document.querySelector(".wellness-notify-button");
+      return enableNotifications(button || { disabled: false, textContent: "" });
+    },
     logout: async function logout() {
       clearToken();
       await originalFetch(`${AUTH_URL}/api/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
@@ -320,10 +459,12 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       installRefreshButton();
+      installNotificationButton();
       verifyOrLock();
     });
   } else {
     installRefreshButton();
+    installNotificationButton();
     verifyOrLock();
   }
 })();

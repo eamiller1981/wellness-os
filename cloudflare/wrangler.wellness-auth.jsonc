@@ -6,5 +6,15 @@
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
+  },
+  "kv_namespaces": [
+    {
+      "binding": "WELLNESS_PUSH_SUBSCRIPTIONS",
+      "id": "2e911ea7429b4d89ab84ed18ed3e5985"
+    }
+  ],
+  "vars": {
+    "VAPID_PUBLIC_KEY": "BA_TNGYCU-xD94IzHAHQ8ioyfDujbbOV_WOB9vKA_t1VuBR81IyIWW_1zeeCxKT0eULiRW7popvoPGgyCE1O5NM",
+    "VAPID_SUBJECT": "mailto:eamiller1981@gmail.com"
   }
 }
