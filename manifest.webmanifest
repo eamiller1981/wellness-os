@@ -23,7 +23,7 @@
     }
   ],
   "share_target": {
-    "action": "share.html",
+    "action": "share",
     "method": "GET",
     "params": {
       "title": "title",

@@ -155,6 +155,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (url.pathname.endsWith("/share")) {
+    event.respondWith(fetch(request).catch(() => caches.match("share.html")));
+    return;
+  }
+
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
