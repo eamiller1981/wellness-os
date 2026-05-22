@@ -13,6 +13,8 @@ const PROGRESS_FILE_FIELDS = {
 
 const MODE_VALUES = new Set(["cycle", "travel", "minimal"]);
 const ALLOWED_ORIGINS = new Set([
+  "https://my-wellness-os.com",
+  "https://www.my-wellness-os.com",
   "https://eamiller1981.github.io",
   "https://wellness-os.vercel.app",
   "https://wellness-os-psi.vercel.app",

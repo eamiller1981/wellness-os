@@ -7,6 +7,8 @@ const BOOKS_DB_ID = "f75e04e67a7047408a6448f8879f0c29";
 const AI_QUEUE_DB_ID = "42510040d9284f8387307edf056fae72";
 
 const ALLOWED_ORIGINS = new Set([
+  "https://my-wellness-os.com",
+  "https://www.my-wellness-os.com",
   "https://eamiller1981.github.io",
   "https://wellness-os-eamiller1981-eamiller1981-3240s-projects.vercel.app",
   "https://wellness-os-eamiller1981-3240-eamiller1981-3240s-projects.vercel.app",

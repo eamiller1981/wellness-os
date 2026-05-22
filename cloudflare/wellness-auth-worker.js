@@ -9,6 +9,8 @@ import {
 
 const DEFAULT_ORIGIN = "https://wellness-os.vercel.app";
 const ALLOWED_ORIGINS = new Set([
+  "https://my-wellness-os.com",
+  "https://www.my-wellness-os.com",
   "https://eamiller1981.github.io",
   "https://wellness-os.vercel.app",
   "https://wellness-os-psi.vercel.app",
