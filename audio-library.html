@@ -224,14 +224,37 @@
 
     .ab-chapter {
       display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 4px 12px;
+      grid-template-columns: 32px 1fr auto;
+      gap: 0 12px;
       align-items: center;
       padding: 8px 10px;
       border: 1px solid var(--line);
       border-radius: 10px;
       background: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      transition: background 0.12s, border-color 0.12s;
     }
+    .ab-chapter:hover { background: rgba(255, 255, 255, 0.85); border-color: #5f514a; }
+    .ab-chapter.is-current {
+      background: rgba(120, 130, 170, 0.16);
+      border-color: #5f514a;
+    }
+    .ab-chapter.is-current .ab-chapter-title { font-weight: 600; }
+    .ab-chapter-play {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.85);
+      color: var(--ink);
+      font-size: 0.85rem;
+      line-height: 1;
+    }
+    .ab-chapter.is-current.is-playing .ab-chapter-play::before { content: "❚❚"; }
+    .ab-chapter.is-current:not(.is-playing) .ab-chapter-play::before { content: "▶"; }
+    .ab-chapter:not(.is-current) .ab-chapter-play::before { content: "▶"; }
     .ab-chapter-title {
       font-size: 0.9rem;
       color: var(--ink);
@@ -239,16 +262,161 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .ab-chapter-meta {
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
     .ab-chapter-duration {
       font-size: 0.78rem;
       color: var(--muted);
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
-    .ab-chapter audio {
-      grid-column: 1 / -1;
-      width: 100%;
-      height: 32px;
+
+    /* Resume signpost on the card with the last-played chapter */
+    .audiobook-card.is-resume {
+      border-color: #5f514a;
+      box-shadow: 0 0 0 1px rgba(95, 81, 74, 0.25);
+    }
+    .ab-resume-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(95, 140, 95, 0.18);
+      color: #3f6238;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
+
+    /* ------------------------------------------------------------------
+       Floating now-playing player
+       ------------------------------------------------------------------ */
+    .player {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 50;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom)) 16px;
+      background: rgba(245, 234, 227, 0.96);
+      border-top: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.08);
+      transform: translateY(100%);
+      transition: transform 0.18s ease;
+      font-size: 0.85rem;
+    }
+    .player.is-visible { transform: translateY(0); }
+    body.player-active { padding-bottom: 130px; }
+
+    .player-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 12px;
+      max-width: 880px;
+      margin: 0 auto;
+    }
+    .player-meta {
+      flex: 1 1 200px;
+      min-width: 0;
+    }
+    .player-meta .player-book {
+      color: var(--muted);
+      font-size: 0.74rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .player-meta .player-chapter {
+      color: var(--ink);
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .player-controls {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .player-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      height: 36px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .player-btn:hover { border-color: #5f514a; }
+    .player-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .player-btn.player-play {
+      min-width: 44px;
+      height: 40px;
+      font-size: 1rem;
+      background: #5f514a;
+      color: #f5eae3;
+      border-color: #5f514a;
+    }
+    .player-scrub {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1 1 100%;
+      order: 3;
+    }
+    .player-scrub input[type="range"] {
+      flex: 1;
+      accent-color: #5f514a;
+    }
+    .player-time {
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      font-size: 0.78rem;
+      min-width: 44px;
+      text-align: center;
+    }
+    .player-extras {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .player-select {
+      padding: 6px 24px 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.78rem;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+                        linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+      background-position: calc(100% - 12px) 50%, calc(100% - 8px) 50%;
+      background-size: 4px 4px, 4px 4px;
+      background-repeat: no-repeat;
+    }
+    .player-sleep-indicator {
+      color: #3f6238;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .player-sleep-indicator[hidden] { display: none; }
+
+    @media (max-width: 560px) {
+      .player-extras { width: 100%; justify-content: flex-end; order: 4; }
+      body.player-active { padding-bottom: 170px; }
     }
 
     .empty {
@@ -309,6 +477,48 @@
     <section id="shelf" class="shelf" aria-live="polite"></section>
   </main>
 
+  <div id="player" class="player" role="region" aria-label="Audio player" aria-hidden="true">
+    <div class="player-row">
+      <div class="player-meta">
+        <div class="player-book" id="playerBook">—</div>
+        <div class="player-chapter" id="playerChapter">No chapter selected</div>
+      </div>
+      <div class="player-controls">
+        <button class="player-btn" type="button" id="playerPrev" title="Previous chapter" aria-label="Previous chapter">⏮</button>
+        <button class="player-btn" type="button" id="playerBack" title="Back 15 seconds" aria-label="Back 15 seconds">−15</button>
+        <button class="player-btn player-play" type="button" id="playerPlay" title="Play / Pause" aria-label="Play">▶</button>
+        <button class="player-btn" type="button" id="playerFwd" title="Forward 30 seconds" aria-label="Forward 30 seconds">+30</button>
+        <button class="player-btn" type="button" id="playerNext" title="Next chapter" aria-label="Next chapter">⏭</button>
+      </div>
+      <div class="player-extras">
+        <select class="player-select" id="playerSpeed" aria-label="Playback speed">
+          <option value="0.85">0.85x</option>
+          <option value="1" selected>1.0x</option>
+          <option value="1.15">1.15x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5">1.5x</option>
+          <option value="1.75">1.75x</option>
+          <option value="2">2.0x</option>
+        </select>
+        <select class="player-select" id="playerSleep" aria-label="Sleep timer">
+          <option value="0">Sleep: Off</option>
+          <option value="chapter">End of chapter</option>
+          <option value="15">15 min</option>
+          <option value="30">30 min</option>
+          <option value="45">45 min</option>
+          <option value="60">60 min</option>
+        </select>
+        <span class="player-sleep-indicator" id="playerSleepIndicator" hidden></span>
+      </div>
+      <div class="player-scrub">
+        <span class="player-time" id="playerCurTime">0:00</span>
+        <input type="range" id="playerScrub" min="0" max="0" step="0.1" value="0" aria-label="Seek">
+        <span class="player-time" id="playerDuration">0:00</span>
+      </div>
+    </div>
+    <audio id="playerAudio" preload="metadata"></audio>
+  </div>
+
   <script>
     const NOTION_WORKER = "https://notion-budget-manager.eamiller1981.workers.dev";
     const TTS_WORKER    = "https://tts.eamiller1981.workers.dev";
@@ -356,6 +566,17 @@
       if (h) return `${h}h ${m}m`;
       if (m) return `${m}m ${ss}s`;
       return `${ss}s`;
+    }
+
+    // 1:23:45 / 4:32 — for inline position display.
+    function fmtClock(sec) {
+      const s = Math.max(0, Math.round(Number(sec) || 0));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const ss = s % 60;
+      const mm = String(m).padStart(h ? 2 : 1, "0");
+      const sss = String(ss).padStart(2, "0");
+      return h ? `${h}:${mm}:${sss}` : `${mm}:${sss}`;
     }
 
     async function notionQuery(dbId) {
@@ -479,19 +700,37 @@
         ? `<div class="ab-tags">${tags.slice(0, 6).map(t => `<span class="ab-tag">${escapeHtml(t)}</span>`).join("")}</div>`
         : "";
 
-      const chaptersHtml = audioEntry.chapters.map((c, idx) => `
-        <div class="ab-chapter" data-chapter-index="${idx}">
-          <div class="ab-chapter-title">${escapeHtml(c.displayTitle)}</div>
+      const isResume = lastPlayed && lastPlayed.book === audioEntry.name;
+      const chaptersHtml = audioEntry.chapters.map((c, idx) => {
+        const saved = Number(positions[c.id]) || 0;
+        const dur = Number(c.durationSec) || 0;
+        const isResumeChapter = isResume && lastPlayed.chapterId === c.id;
+        const isFinished = dur > 0 && saved > 0 && saved >= dur - 5;
+        let meta = "";
+        if (isResumeChapter && saved > 0) {
+          meta = `<div class="ab-chapter-meta">Resume at ${fmtClock(saved)}</div>`;
+        } else if (isFinished) {
+          meta = `<div class="ab-chapter-meta">Finished</div>`;
+        } else if (saved > 5) {
+          meta = `<div class="ab-chapter-meta">${fmtClock(saved)} in</div>`;
+        }
+        return `
+        <div class="ab-chapter" role="button" tabindex="0" data-chapter-index="${idx}" data-chapter-id="${escapeHtml(c.id)}">
+          <span class="ab-chapter-play" aria-hidden="true"></span>
+          <div>
+            <div class="ab-chapter-title">${escapeHtml(c.displayTitle)}</div>
+            ${meta}
+          </div>
           <div class="ab-chapter-duration">${fmtDuration(c.durationSec)}</div>
-          <audio controls preload="none" src="${escapeHtml(c.fileUrl)}" data-chapter-key="${escapeHtml(c.id)}"></audio>
         </div>
-      `).join("");
+        `;
+      }).join("");
 
       return `
-        <article class="audiobook-card ab-card ${isOpen ? "open" : ""}" data-book="${escapeHtml(audioEntry.name)}">
+        <article class="audiobook-card ab-card ${isOpen ? "open" : ""} ${isResume ? "is-resume" : ""}" data-book="${escapeHtml(audioEntry.name)}">
           <div class="ab-head">
             <div>
-              <h3 class="ab-title">${escapeHtml(audioEntry.name)}</h3>
+              <h3 class="ab-title">${escapeHtml(audioEntry.name)}${isResume ? `<span class="ab-resume-tag">Resume</span>` : ""}</h3>
               ${author ? `<div class="ab-author">${escapeHtml(author)}</div>` : ""}
             </div>
             <div class="ab-rating ${rating.cls}">${escapeHtml(rating.text)}</div>
@@ -558,36 +797,327 @@
     }
 
     // ------------------------------------------------------------------
-    // Player position persistence + autoplay-next
+    // Persistence: per-chapter playback position + last-played pointer + speed
     // ------------------------------------------------------------------
-    const POSITION_KEY = "audioLibrary.positions"; // map of chapterKey → seconds
+    const POSITION_KEY    = "audioLibrary.positions";   // { chapterId: seconds }
+    const LAST_PLAYED_KEY = "audioLibrary.lastPlayed";  // { book, chapterId, position }
+    const SPEED_KEY       = "audioLibrary.speed";       // number string
     const POSITION_SAVE_THROTTLE_MS = 1500;
-    let positions = {};
-    try { positions = JSON.parse(localStorage.getItem(POSITION_KEY) || "{}"); }
-    catch { positions = {}; }
-    const lastSaveAt = new WeakMap();
+
+    let positions  = {};
+    let lastPlayed = null;
+    try { positions  = JSON.parse(localStorage.getItem(POSITION_KEY)    || "{}"); } catch { positions  = {}; }
+    try { lastPlayed = JSON.parse(localStorage.getItem(LAST_PLAYED_KEY) || "null"); } catch { lastPlayed = null; }
 
     function persistPositions() {
       try { localStorage.setItem(POSITION_KEY, JSON.stringify(positions)); }
       catch (err) { console.warn("position save failed", err); }
     }
+    function persistLastPlayed() {
+      try { localStorage.setItem(LAST_PLAYED_KEY, JSON.stringify(lastPlayed)); }
+      catch (err) { console.warn("lastPlayed save failed", err); }
+    }
+    function persistSpeed(s) {
+      try { localStorage.setItem(SPEED_KEY, String(s)); } catch {}
+    }
+    function loadSpeed() {
+      const raw = localStorage.getItem(SPEED_KEY);
+      const n = Number(raw);
+      return Number.isFinite(n) && n >= 0.5 && n <= 3 ? n : 1;
+    }
 
-    function restorePosition(audio) {
-      const key = audio.dataset.chapterKey;
-      const saved = key && Number(positions[key]);
-      if (!Number.isFinite(saved) || saved <= 0) return;
-      const dur = audio.duration;
-      if (!Number.isFinite(dur)) return;
-      // Don't restore if we're within 5s of the end — treat as finished.
-      if (saved >= dur - 5) return;
-      try { audio.currentTime = saved; }
-      catch (err) { console.warn("currentTime restore failed", err); }
+    // ------------------------------------------------------------------
+    // Floating now-playing player
+    // ------------------------------------------------------------------
+    const player = (() => {
+      const el = {
+        root:        document.getElementById("player"),
+        audio:       document.getElementById("playerAudio"),
+        book:        document.getElementById("playerBook"),
+        chapter:     document.getElementById("playerChapter"),
+        play:        document.getElementById("playerPlay"),
+        prev:        document.getElementById("playerPrev"),
+        next:        document.getElementById("playerNext"),
+        back:        document.getElementById("playerBack"),
+        fwd:         document.getElementById("playerFwd"),
+        scrub:       document.getElementById("playerScrub"),
+        curTime:     document.getElementById("playerCurTime"),
+        duration:    document.getElementById("playerDuration"),
+        speed:       document.getElementById("playerSpeed"),
+        sleep:       document.getElementById("playerSleep"),
+        sleepBadge:  document.getElementById("playerSleepIndicator"),
+      };
+
+      const ctx = {
+        book: null,        // book name
+        bookEntry: null,   // { name, chapters: [...] }
+        chapterIndex: -1,
+        chapter: null,     // { id, displayTitle, fileUrl, durationSec }
+        seeking: false,
+        lastSaveAt: 0,
+        sleepMode: "off",  // "off" | "chapter" | "minutes"
+        sleepTimer: null,
+        sleepDeadline: 0,
+        endOfChapterSleep: false,
+      };
+
+      function show() {
+        el.root.classList.add("is-visible");
+        el.root.setAttribute("aria-hidden", "false");
+        document.body.classList.add("player-active");
+      }
+
+      function updatePlayPauseUI() {
+        const playing = !el.audio.paused && !el.audio.ended;
+        el.play.textContent = playing ? "❚❚" : "▶";
+        el.play.setAttribute("aria-label", playing ? "Pause" : "Play");
+        // Update chapter row UI
+        document.querySelectorAll(".ab-chapter.is-current").forEach(row => {
+          row.classList.toggle("is-playing", playing);
+        });
+      }
+
+      function updateChapterHighlights() {
+        document.querySelectorAll(".ab-chapter").forEach(row => {
+          row.classList.remove("is-current", "is-playing");
+        });
+        if (!ctx.chapter) return;
+        const card = document.querySelector(`.audiobook-card[data-book="${cssEscape(ctx.book)}"]`);
+        if (!card) return;
+        const row = card.querySelector(`.ab-chapter[data-chapter-id="${cssEscape(ctx.chapter.id)}"]`);
+        if (row) {
+          row.classList.add("is-current");
+          if (!el.audio.paused && !el.audio.ended) row.classList.add("is-playing");
+        }
+      }
+
+      function updatePrevNextDisabled() {
+        const chapters = ctx.bookEntry?.chapters || [];
+        el.prev.disabled = ctx.chapterIndex <= 0;
+        el.next.disabled = ctx.chapterIndex < 0 || ctx.chapterIndex >= chapters.length - 1;
+      }
+
+      function load(bookName, chapterIndex, opts = {}) {
+        const entry = state.audio.get(bookName);
+        if (!entry) return;
+        const chapter = entry.chapters[chapterIndex];
+        if (!chapter) return;
+
+        ctx.book = bookName;
+        ctx.bookEntry = entry;
+        ctx.chapterIndex = chapterIndex;
+        ctx.chapter = chapter;
+
+        el.book.textContent = bookName;
+        el.chapter.textContent = chapter.displayTitle;
+        el.audio.src = chapter.fileUrl;
+        el.audio.playbackRate = Number(el.speed.value) || 1;
+
+        const resumeAt = opts.resumeAt != null
+          ? opts.resumeAt
+          : (Number(positions[chapter.id]) || 0);
+
+        // Apply resume position once metadata arrives.
+        const applyResume = () => {
+          const dur = el.audio.duration;
+          if (Number.isFinite(dur) && resumeAt > 0 && resumeAt < dur - 5) {
+            try { el.audio.currentTime = resumeAt; } catch {}
+          }
+          el.scrub.max = Number.isFinite(dur) ? String(dur) : "0";
+          el.duration.textContent = Number.isFinite(dur) ? fmtClock(dur) : "0:00";
+        };
+        if (el.audio.readyState >= 1) {
+          applyResume();
+        } else {
+          el.audio.addEventListener("loadedmetadata", applyResume, { once: true });
+        }
+
+        lastPlayed = { book: bookName, chapterId: chapter.id, position: resumeAt };
+        persistLastPlayed();
+
+        show();
+        updateChapterHighlights();
+        updatePrevNextDisabled();
+        updatePlayPauseUI();
+
+        if (opts.autoplay !== false) {
+          el.audio.play().catch(err => console.warn("play failed", err));
+        }
+      }
+
+      function togglePlay() {
+        if (!ctx.chapter) return;
+        if (el.audio.paused) el.audio.play().catch(err => console.warn("play failed", err));
+        else el.audio.pause();
+      }
+
+      function gotoNext() {
+        if (!ctx.bookEntry) return;
+        if (ctx.chapterIndex >= ctx.bookEntry.chapters.length - 1) return;
+        load(ctx.book, ctx.chapterIndex + 1, { resumeAt: 0 });
+      }
+      function gotoPrev() {
+        if (!ctx.bookEntry) return;
+        if (ctx.chapterIndex <= 0) return;
+        load(ctx.book, ctx.chapterIndex - 1, { resumeAt: 0 });
+      }
+
+      function setSleep(value) {
+        clearSleep();
+        if (value === "0" || !value) return;
+        if (value === "chapter") {
+          ctx.endOfChapterSleep = true;
+          el.sleepBadge.hidden = false;
+          el.sleepBadge.textContent = "Sleep: end of chapter";
+          return;
+        }
+        const mins = Number(value);
+        if (!Number.isFinite(mins) || mins <= 0) return;
+        ctx.sleepDeadline = Date.now() + mins * 60_000;
+        el.sleepBadge.hidden = false;
+        updateSleepBadge();
+        ctx.sleepTimer = setInterval(() => {
+          const remaining = ctx.sleepDeadline - Date.now();
+          if (remaining <= 0) {
+            el.audio.pause();
+            clearSleep();
+            el.sleep.value = "0";
+          } else {
+            updateSleepBadge();
+          }
+        }, 1000);
+      }
+      function clearSleep() {
+        ctx.endOfChapterSleep = false;
+        if (ctx.sleepTimer) { clearInterval(ctx.sleepTimer); ctx.sleepTimer = null; }
+        ctx.sleepDeadline = 0;
+        el.sleepBadge.hidden = true;
+        el.sleepBadge.textContent = "";
+      }
+      function updateSleepBadge() {
+        const remaining = ctx.sleepDeadline - Date.now();
+        if (remaining <= 0) return;
+        const mm = Math.floor(remaining / 60_000);
+        const ss = Math.floor((remaining % 60_000) / 1000);
+        el.sleepBadge.textContent = `Sleep: ${mm}:${String(ss).padStart(2, "0")}`;
+      }
+
+      // Wire DOM events
+      el.play.addEventListener("click", togglePlay);
+      el.prev.addEventListener("click", gotoPrev);
+      el.next.addEventListener("click", gotoNext);
+      el.back.addEventListener("click", () => {
+        if (!ctx.chapter) return;
+        el.audio.currentTime = Math.max(0, el.audio.currentTime - 15);
+      });
+      el.fwd.addEventListener("click", () => {
+        if (!ctx.chapter) return;
+        const dur = el.audio.duration;
+        el.audio.currentTime = Math.min(Number.isFinite(dur) ? dur : el.audio.currentTime + 30,
+                                         el.audio.currentTime + 30);
+      });
+      el.speed.addEventListener("change", () => {
+        const rate = Number(el.speed.value) || 1;
+        el.audio.playbackRate = rate;
+        persistSpeed(rate);
+      });
+      el.sleep.addEventListener("change", () => setSleep(el.sleep.value));
+
+      el.scrub.addEventListener("input", () => { ctx.seeking = true; });
+      el.scrub.addEventListener("change", () => {
+        const val = Number(el.scrub.value);
+        if (Number.isFinite(val)) el.audio.currentTime = val;
+        ctx.seeking = false;
+      });
+
+      el.audio.addEventListener("loadedmetadata", () => {
+        const dur = el.audio.duration;
+        el.scrub.max = Number.isFinite(dur) ? String(dur) : "0";
+        el.duration.textContent = Number.isFinite(dur) ? fmtClock(dur) : "0:00";
+      });
+      el.audio.addEventListener("timeupdate", () => {
+        if (!ctx.chapter) return;
+        if (!ctx.seeking) {
+          el.scrub.value = String(el.audio.currentTime);
+          el.curTime.textContent = fmtClock(el.audio.currentTime);
+        }
+        const now = Date.now();
+        if (now - ctx.lastSaveAt >= POSITION_SAVE_THROTTLE_MS) {
+          ctx.lastSaveAt = now;
+          positions[ctx.chapter.id] = el.audio.currentTime;
+          persistPositions();
+          if (lastPlayed && lastPlayed.chapterId === ctx.chapter.id) {
+            lastPlayed.position = el.audio.currentTime;
+            persistLastPlayed();
+          }
+        }
+      });
+      el.audio.addEventListener("play",  updatePlayPauseUI);
+      el.audio.addEventListener("pause", updatePlayPauseUI);
+      el.audio.addEventListener("ended", () => {
+        if (ctx.chapter) {
+          delete positions[ctx.chapter.id];
+          persistPositions();
+        }
+        if (ctx.endOfChapterSleep) {
+          clearSleep();
+          el.sleep.value = "0";
+          updatePlayPauseUI();
+          return;
+        }
+        // Autoplay next chapter
+        if (ctx.bookEntry && ctx.chapterIndex < ctx.bookEntry.chapters.length - 1) {
+          load(ctx.book, ctx.chapterIndex + 1, { resumeAt: 0 });
+        } else {
+          updatePlayPauseUI();
+        }
+      });
+      el.audio.addEventListener("error", () => {
+        console.warn("audio error", el.audio.error);
+        el.chapter.textContent = `${ctx.chapter?.displayTitle || "Chapter"} — playback error`;
+      });
+
+      // Keyboard shortcuts (when not typing in an input)
+      document.addEventListener("keydown", (e) => {
+        if (e.target.matches("input, textarea, select")) return;
+        if (e.code === "Space") { e.preventDefault(); togglePlay(); }
+        else if (e.code === "ArrowLeft")  { e.preventDefault(); el.audio.currentTime = Math.max(0, el.audio.currentTime - 5); }
+        else if (e.code === "ArrowRight") { e.preventDefault(); el.audio.currentTime = el.audio.currentTime + 5; }
+      });
+
+      // Init speed from storage
+      const savedSpeed = loadSpeed();
+      el.speed.value = String(savedSpeed);
+      el.audio.playbackRate = savedSpeed;
+
+      return {
+        load,
+        refreshHighlights: updateChapterHighlights,
+      };
+    })();
+
+    // cssEscape — quote a value for use in an attribute selector. Newer browsers
+    // expose CSS.escape; provide a minimal fallback otherwise.
+    function cssEscape(s) {
+      if (window.CSS && CSS.escape) return CSS.escape(String(s));
+      return String(s).replace(/["\\]/g, "\\$&");
     }
 
     function attachEventDelegation() {
       const shelf = document.getElementById("shelf");
 
       shelf.addEventListener("click", (e) => {
+        // Chapter-row click → play that chapter
+        const chapterRow = e.target.closest(".ab-chapter");
+        if (chapterRow) {
+          const card = chapterRow.closest(".audiobook-card");
+          const book = card?.dataset.book;
+          const idx  = Number(chapterRow.dataset.chapterIndex);
+          if (book && Number.isFinite(idx)) {
+            player.load(book, idx);
+          }
+          return;
+        }
         const btn = e.target.closest("[data-action]");
         if (!btn) return;
         const card = btn.closest(".audiobook-card");
@@ -606,58 +1136,31 @@
         }
       });
 
-      // Audio events use capture phase because <audio> doesn't bubble these.
-      shelf.addEventListener("loadedmetadata", (e) => {
-        const audio = e.target;
-        if (audio.tagName !== "AUDIO") return;
-        restorePosition(audio);
-      }, true);
-
-      shelf.addEventListener("timeupdate", (e) => {
-        const audio = e.target;
-        if (audio.tagName !== "AUDIO") return;
-        const key = audio.dataset.chapterKey;
-        if (!key) return;
-        const now = Date.now();
-        const last = lastSaveAt.get(audio) || 0;
-        if (now - last < POSITION_SAVE_THROTTLE_MS) return;
-        lastSaveAt.set(audio, now);
-        positions[key] = audio.currentTime;
-        persistPositions();
-      }, true);
-
-      shelf.addEventListener("ended", (e) => {
-        const audio = e.target;
-        if (audio.tagName !== "AUDIO") return;
-        const key = audio.dataset.chapterKey;
-        if (key) {
-          // Mark this chapter as finished so a future visit doesn't re-seek.
-          delete positions[key];
-          persistPositions();
-        }
-        const card = audio.closest(".audiobook-card");
-        if (!card) return;
-        const audios = [...card.querySelectorAll("audio")];
-        const idx = audios.indexOf(audio);
-        const next = audios[idx + 1];
-        if (next) {
-          // Ensure the source is loaded, then play.
-          next.scrollIntoView({ block: "nearest", behavior: "smooth" });
-          next.play().catch(err => console.warn("autoplay next failed", err));
-        }
-      }, true);
-
-      // Pause every other audio when one starts — only one chapter plays at a time.
-      shelf.addEventListener("play", (e) => {
-        const audio = e.target;
-        if (audio.tagName !== "AUDIO") return;
-        document.querySelectorAll("audio").forEach(other => {
-          if (other !== audio && !other.paused) other.pause();
-        });
-      }, true);
+      // Keyboard activation for chapter rows
+      shelf.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        const row = e.target.closest?.(".ab-chapter");
+        if (!row) return;
+        e.preventDefault();
+        row.click();
+      });
 
       document.getElementById("search").addEventListener("input", render);
       document.getElementById("statusFilter").addEventListener("change", render);
+    }
+
+    // Open the resume-card's chapter list + scroll into view after first render.
+    function applyResumeSignpost() {
+      if (!lastPlayed?.book) return;
+      const entry = state.audio.get(lastPlayed.book);
+      if (!entry) return;
+      state.open.add(lastPlayed.book);
+      // Re-render with the card open
+      render();
+      requestAnimationFrame(() => {
+        const card = document.querySelector(`.audiobook-card[data-book="${cssEscape(lastPlayed.book)}"]`);
+        card?.scrollIntoView({ block: "start", behavior: "smooth" });
+      });
     }
 
     async function init() {
@@ -668,6 +1171,7 @@
         state.books = books;
         state.audio = audio;
         render();
+        applyResumeSignpost();
       } catch (err) {
         shelf.innerHTML = `<div class="error">Failed to load: ${escapeHtml(err.message)}</div>`;
         document.getElementById("meta").textContent = "Error";

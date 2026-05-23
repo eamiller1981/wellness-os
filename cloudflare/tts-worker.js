@@ -57,8 +57,9 @@ function corsHeaders(origin) {
     "Access-Control-Allow-Origin": origin,
     "Vary": "Origin",
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Range",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Expose-Headers": "Content-Range, Accept-Ranges, Content-Length"
   };
 }
 
@@ -626,12 +627,59 @@ async function handleAudioGet(request, env, url) {
   if (!key.startsWith("library/") || givenToken !== expectedToken) {
     return new Response("Not found", { status: 404 });
   }
+
+  const rangeHeader = request.headers.get("Range");
+  if (rangeHeader) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+    if (match) {
+      const head = await env.AUDIO_BUCKET.head(key);
+      if (!head) return new Response("Not found", { status: 404 });
+      const total = head.size;
+      let start = match[1] === "" ? NaN : parseInt(match[1], 10);
+      let end = match[2] === "" ? NaN : parseInt(match[2], 10);
+      // "bytes=-N" means last N bytes
+      if (Number.isNaN(start) && !Number.isNaN(end)) {
+        start = Math.max(0, total - end);
+        end = total - 1;
+      } else {
+        if (Number.isNaN(start)) start = 0;
+        if (Number.isNaN(end)) end = total - 1;
+      }
+      if (start >= total || start < 0 || start > end) {
+        return new Response("Range Not Satisfiable", {
+          status: 416,
+          headers: {
+            "Content-Range": `bytes */${total}`,
+            "Access-Control-Allow-Origin": "*",
+            "Accept-Ranges": "bytes"
+          }
+        });
+      }
+      end = Math.min(end, total - 1);
+      const length = end - start + 1;
+      const obj = await env.AUDIO_BUCKET.get(key, {
+        range: { offset: start, length }
+      });
+      if (!obj) return new Response("Not found", { status: 404 });
+      const headers = new Headers();
+      obj.writeHttpMetadata(headers);
+      headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      headers.set("Access-Control-Allow-Origin", "*");
+      headers.set("Accept-Ranges", "bytes");
+      headers.set("Content-Range", `bytes ${start}-${end}/${total}`);
+      headers.set("Content-Length", String(length));
+      return new Response(obj.body, { status: 206, headers });
+    }
+  }
+
   const obj = await env.AUDIO_BUCKET.get(key);
   if (!obj) return new Response("Not found", { status: 404 });
   const headers = new Headers();
   obj.writeHttpMetadata(headers);
   headers.set("Cache-Control", "public, max-age=31536000, immutable");
   headers.set("Access-Control-Allow-Origin", "*");
+  headers.set("Accept-Ranges", "bytes");
+  headers.set("Content-Length", String(obj.size));
   return new Response(obj.body, { status: 200, headers });
 }
 
