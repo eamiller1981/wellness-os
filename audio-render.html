@@ -252,7 +252,7 @@
 
     <section class="module-section" id="audition-section" hidden>
       <h2>Voice Audition</h2>
-      <p class="section-sub">Pick a voice, then play the first 500 characters of the first chapter to audition it. Your choice will be used to render the whole book and is remembered per book.</p>
+      <p class="section-sub">Pick a voice, then play ~25-30s of the first chapter to audition it. Your choice will be used to render the whole book and is remembered per book.</p>
 
       <div class="form-row">
         <label for="voice-select">Voice</label>
@@ -262,14 +262,6 @@
             <option value="en-US-BrianMultilingualNeural">Brian (warm male, deeper)</option>
             <option value="en-US-AvaMultilingualNeural">Ava (warm female, expressive)</option>
             <option value="en-US-EmmaMultilingualNeural">Emma (warm female, lighter)</option>
-            <option value="en-US-AdamMultilingualNeural">Adam (male)</option>
-            <option value="en-US-PhoebeMultilingualNeural">Phoebe (female)</option>
-            <option value="en-US-ChristopherMultilingualNeural">Christopher Multilingual (male)</option>
-            <option value="en-US-DavisMultilingualNeural">Davis Multilingual (male)</option>
-            <option value="en-US-EvelynMultilingualNeural">Evelyn (female)</option>
-            <option value="en-US-LolaMultilingualNeural">Lola (female)</option>
-            <option value="en-US-NancyMultilingualNeural">Nancy Multilingual (female)</option>
-            <option value="en-US-SamuelMultilingualNeural">Samuel (male)</option>
           </optgroup>
           <optgroup label="en-US — Novel-tagged (best for fiction)">
             <option value="en-US-ChristopherNeural">Christopher (authoritative male)</option>
@@ -286,9 +278,6 @@
             <option value="en-US-NancyNeural">Nancy (warm female)</option>
             <option value="en-US-SaraNeural">Sara (cheerful female)</option>
             <option value="en-US-JaneNeural">Jane (gentle female)</option>
-            <option value="en-US-AshleyNeural">Ashley (female)</option>
-            <option value="en-US-CoraNeural">Cora (female)</option>
-            <option value="en-US-BlueNeural">Blue (neutral / androgynous)</option>
           </optgroup>
           <optgroup label="en-GB">
             <option value="en-GB-SoniaNeural">Sonia (female)</option>
@@ -296,7 +285,6 @@
             <option value="en-GB-MaisieNeural">Maisie (female, youngest)</option>
             <option value="en-GB-RyanNeural">Ryan (male)</option>
             <option value="en-GB-ThomasNeural">Thomas (male)</option>
-            <option value="en-GB-OllieMultilingualNeural">Ollie Multilingual (male)</option>
           </optgroup>
           <optgroup label="en-AU / en-CA / en-IE / en-IN">
             <option value="en-AU-NatashaNeural">Natasha (AU female)</option>
@@ -307,15 +295,6 @@
             <option value="en-IE-ConnorNeural">Connor (IE male)</option>
             <option value="en-IN-NeerjaNeural">Neerja (IN female)</option>
             <option value="en-IN-PrabhatNeural">Prabhat (IN male)</option>
-          </optgroup>
-          <optgroup label="Multilingual — other locales (speaks English via SSML)">
-            <option value="de-DE-FlorianMultilingualNeural">Florian (DE male, en-capable)</option>
-            <option value="fr-FR-RemyMultilingualNeural">Remy (FR male, en-capable)</option>
-            <option value="it-IT-AlessioMultilingualNeural">Alessio (IT male, en-capable)</option>
-            <option value="it-IT-IsabellaMultilingualNeural">Isabella (IT female, en-capable)</option>
-            <option value="it-IT-GiuseppeMultilingualNeural">Giuseppe (IT male, en-capable)</option>
-            <option value="ja-JP-MasaruMultilingualNeural">Masaru (JP male, en-capable)</option>
-            <option value="pt-BR-ThalitaMultilingualNeural">Thalita (BR female, en-capable)</option>
           </optgroup>
         </select>
       </div>
@@ -486,34 +465,39 @@
     // so the Edge TTS path doesn't hit its 60s synthesis timeout.
     const TXT_CHAPTER_HEADING = /^[ \t]*((?:chapter|part|book)\s+(?:[ivxlcdm]+|\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\b[^\n]*|prologue\b[^\n]*|epilogue\b[^\n]*|introduction\b[^\n]*|foreword\b[^\n]*|preface\b[^\n]*)[ \t]*$/gim;
     const TXT_ALLCAPS_HEADING = /^[ \t]*([A-Z][A-Z0-9 ,'\-]{3,60})[ \t]*$/gm;
-    const TXT_MAX_CHAPTER_CHARS = 12000;  // anything over this gets split
-    const TXT_PART_TARGET_CHARS = 6000;   // target size per Part
+    const TXT_MAX_CHAPTER_CHARS = 12000;  // .txt threshold (no natural structure)
+    const TXT_PART_TARGET_CHARS = 6000;
+    // EPUB chapters can legitimately be much longer; only split if they
+    // approach the worker's 200K /synthesize cap. Below this, single-chapter
+    // Edge TTS rendering is fine.
+    const EPUB_MAX_CHAPTER_CHARS = 150000;
+    const EPUB_PART_TARGET_CHARS = 100000;
 
-    function splitOversizedChapter(label, text) {
-      if (text.length <= TXT_MAX_CHAPTER_CHARS) return [{ title: label, text }];
+    function splitOversizedChapter(label, text, maxChars = TXT_MAX_CHAPTER_CHARS, partTarget = TXT_PART_TARGET_CHARS) {
+      if (text.length <= maxChars) return [{ title: label, text }];
       const parts = [];
       let buf = "";
       const flush = () => { if (buf) { parts.push(buf); buf = ""; } };
       for (const para of text.split(/\n{2,}/)) {
         const p = para.trim();
         if (!p) continue;
-        if (buf.length + p.length + 2 <= TXT_PART_TARGET_CHARS) {
+        if (buf.length + p.length + 2 <= partTarget) {
           buf = buf ? buf + "\n\n" + p : p;
           continue;
         }
         flush();
-        if (p.length <= TXT_PART_TARGET_CHARS) { buf = p; continue; }
+        if (p.length <= partTarget) { buf = p; continue; }
         // Paragraph itself too big — split on sentence boundaries.
         let sBuf = "";
         for (const s of p.split(/(?<=[.!?])\s+/)) {
-          if (sBuf.length + s.length + 1 <= TXT_PART_TARGET_CHARS) {
+          if (sBuf.length + s.length + 1 <= partTarget) {
             sBuf = sBuf ? sBuf + " " + s : s;
           } else {
             if (sBuf) parts.push(sBuf);
             // If a single sentence is still over the limit, hard-slice on chars.
-            if (s.length > TXT_PART_TARGET_CHARS) {
-              for (let i = 0; i < s.length; i += TXT_PART_TARGET_CHARS) {
-                parts.push(s.slice(i, i + TXT_PART_TARGET_CHARS));
+            if (s.length > partTarget) {
+              for (let i = 0; i < s.length; i += partTarget) {
+                parts.push(s.slice(i, i + partTarget));
               }
               sBuf = "";
             } else {
@@ -528,6 +512,48 @@
         title: `${label} — Part ${i + 1} of ${parts.length}`,
         text: t,
       }));
+    }
+
+    // Heuristic chapter detection inside a single body of text. Used by both
+    // .txt parsing AND EPUB parsing (for books packaged as one giant XHTML).
+    // Returns [] if confidence is too low; caller falls back to size splitter.
+    function detectChaptersInBody(text) {
+      let matches = [...text.matchAll(TXT_CHAPTER_HEADING)];
+      if (matches.length < 2) {
+        matches = [...text.matchAll(TXT_ALLCAPS_HEADING)].filter(m =>
+          m.index === 0 || text.slice(Math.max(0, m.index - 2), m.index) === "\n\n"
+        );
+      }
+      if (matches.length < 3) return [];
+      const out = [];
+      if (matches[0].index > 0) {
+        const pre = text.slice(0, matches[0].index).trim();
+        if (pre) out.push({ title: "Front Matter", text: pre });
+      }
+      for (let i = 0; i < matches.length; i++) {
+        const m = matches[i];
+        const start = m.index + m[0].length;
+        const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+        const body = text.slice(start, end).trim();
+        const label = m[1].replace(/\s+/g, " ").trim();
+        if (body) out.push({ title: label, text: body });
+      }
+      return out;
+    }
+
+    // For an EPUB spine item: if it's normal-sized, return as-is. If oversized,
+    // first try heuristic chapter detection (catches books packaged as one big
+    // file with Chapter headings inside). Otherwise fall back to size splitting.
+    function subdivideEpubChapter(label, text) {
+      if (text.length <= EPUB_MAX_CHAPTER_CHARS) return [{ title: label, text }];
+      const detected = detectChaptersInBody(text);
+      if (detected.length >= 3) {
+        // Apply size splitter as final safety net on any monster sub-chapter.
+        return detected.flatMap(c =>
+          splitOversizedChapter(c.title, c.text, EPUB_MAX_CHAPTER_CHARS, EPUB_PART_TARGET_CHARS)
+        );
+      }
+      return splitOversizedChapter(label, text, EPUB_MAX_CHAPTER_CHARS, EPUB_PART_TARGET_CHARS);
     }
 
     function decodeTxt(buf) {
@@ -548,16 +574,6 @@
         .trim();
       const title = filename.replace(/\.txt$/i, "").replace(/_/g, " ").trim();
 
-      // (1) explicit chapter headings
-      let matches = [...text.matchAll(TXT_CHAPTER_HEADING)];
-
-      // (2) all-caps headings preceded by a blank line
-      if (matches.length < 2) {
-        matches = [...text.matchAll(TXT_ALLCAPS_HEADING)].filter(m =>
-          m.index === 0 || text.slice(Math.max(0, m.index - 2), m.index) === "\n\n"
-        );
-      }
-
       const chaptersOut = [];
       const pushChapter = (label, body) => {
         for (const part of splitOversizedChapter(label, body)) {
@@ -572,6 +588,14 @@
         }
       };
 
+      // .txt uses the lower chapter-count threshold (2+) since plain text rarely
+      // has TOCs and we want to detect chapters even when only a few are tagged.
+      let matches = [...text.matchAll(TXT_CHAPTER_HEADING)];
+      if (matches.length < 2) {
+        matches = [...text.matchAll(TXT_ALLCAPS_HEADING)].filter(m =>
+          m.index === 0 || text.slice(Math.max(0, m.index - 2), m.index) === "\n\n"
+        );
+      }
       if (matches.length >= 2) {
         if (matches[0].index > 0) {
           const pre = text.slice(0, matches[0].index).trim();
@@ -699,17 +723,33 @@
           err = e.message;
         }
         const label = tocByHref[item.href] || `Section ${i + 1}`;
-        const charCount = text.length;
-        chaptersOut.push({
-          index: i,
-          title: label,
-          text,
-          charCount,
-          selected: defaultSelected(label, charCount),
-          status: err ? "error" : "pending",
-          error: err,
-          pageId: null,
-        });
+        if (err || !text) {
+          chaptersOut.push({
+            index: chaptersOut.length,
+            title: label,
+            text,
+            charCount: text.length,
+            selected: defaultSelected(label, text.length),
+            status: "error",
+            error: err,
+            pageId: null,
+          });
+          continue;
+        }
+        // Subdivide oversized spine items (books packaged as one giant file
+        // with internal chapter headings, or unstructured monoliths).
+        for (const part of subdivideEpubChapter(label, text)) {
+          chaptersOut.push({
+            index: chaptersOut.length,
+            title: part.title,
+            text: part.text,
+            charCount: part.text.length,
+            selected: defaultSelected(part.title, part.text.length),
+            status: "pending",
+            error: null,
+            pageId: null,
+          });
+        }
       }
 
       return { title, author, chapters: chaptersOut };
