@@ -257,26 +257,44 @@
       <div class="form-row">
         <label for="voice-select">Voice</label>
         <select id="voice-select">
-          <optgroup label="en-US — Novel-tagged">
-            <option value="en-US-ChristopherNeural">Christopher (Authoritative)</option>
-            <option value="en-US-SteffanNeural" selected>Steffan (Rational)</option>
-            <option value="en-US-EricNeural">Eric (Rational)</option>
-            <option value="en-US-RogerNeural">Roger (Lively)</option>
-            <option value="en-US-GuyNeural">Guy (Passion)</option>
-            <option value="en-US-MichelleNeural">Michelle (Pleasant)</option>
-            <option value="en-US-AriaNeural">Aria (Confident)</option>
+          <optgroup label="en-US Multilingual (best quality, recommended)">
+            <option value="en-US-AndrewMultilingualNeural">Andrew (warm male, mid-range)</option>
+            <option value="en-US-BrianMultilingualNeural">Brian (warm male, deeper)</option>
+            <option value="en-US-AvaMultilingualNeural">Ava (warm female, expressive)</option>
+            <option value="en-US-EmmaMultilingualNeural">Emma (warm female, lighter)</option>
           </optgroup>
-          <optgroup label="en-US Multilingual">
-            <option value="en-US-AndrewMultilingualNeural">Andrew (Warm)</option>
-            <option value="en-US-BrianMultilingualNeural">Brian</option>
-            <option value="en-US-AvaMultilingualNeural">Ava</option>
-            <option value="en-US-EmmaMultilingualNeural">Emma</option>
+          <optgroup label="en-US — Novel-tagged (best for fiction)">
+            <option value="en-US-ChristopherNeural">Christopher (authoritative male)</option>
+            <option value="en-US-SteffanNeural" selected>Steffan (rational male)</option>
+            <option value="en-US-EricNeural">Eric (rational male)</option>
+            <option value="en-US-RogerNeural">Roger (lively male)</option>
+            <option value="en-US-GuyNeural">Guy (passionate male)</option>
+            <option value="en-US-TonyNeural">Tony (gritty male)</option>
+            <option value="en-US-DavisNeural">Davis (casual male)</option>
+            <option value="en-US-JasonNeural">Jason (chill male)</option>
+            <option value="en-US-MichelleNeural">Michelle (pleasant female)</option>
+            <option value="en-US-AriaNeural">Aria (confident female)</option>
+            <option value="en-US-JennyNeural">Jenny (friendly female)</option>
+            <option value="en-US-NancyNeural">Nancy (warm female)</option>
+            <option value="en-US-SaraNeural">Sara (cheerful female)</option>
+            <option value="en-US-JaneNeural">Jane (gentle female)</option>
           </optgroup>
           <optgroup label="en-GB">
-            <option value="en-GB-SoniaNeural">Sonia</option>
-            <option value="en-GB-RyanNeural">Ryan</option>
-            <option value="en-GB-ThomasNeural">Thomas</option>
-            <option value="en-GB-LibbyNeural">Libby</option>
+            <option value="en-GB-SoniaNeural">Sonia (female)</option>
+            <option value="en-GB-LibbyNeural">Libby (female, younger)</option>
+            <option value="en-GB-MaisieNeural">Maisie (female, youngest)</option>
+            <option value="en-GB-RyanNeural">Ryan (male)</option>
+            <option value="en-GB-ThomasNeural">Thomas (male)</option>
+          </optgroup>
+          <optgroup label="en-AU / en-CA / en-IE / en-IN">
+            <option value="en-AU-NatashaNeural">Natasha (AU female)</option>
+            <option value="en-AU-WilliamNeural">William (AU male)</option>
+            <option value="en-CA-ClaraNeural">Clara (CA female)</option>
+            <option value="en-CA-LiamNeural">Liam (CA male)</option>
+            <option value="en-IE-EmilyNeural">Emily (IE female)</option>
+            <option value="en-IE-ConnorNeural">Connor (IE male)</option>
+            <option value="en-IN-NeerjaNeural">Neerja (IN female)</option>
+            <option value="en-IN-PrabhatNeural">Prabhat (IN male)</option>
           </optgroup>
         </select>
       </div>
@@ -765,7 +783,14 @@
       flashSelectionMsg(`Deselected ${n} chapters.`);
     });
     // -------- Voice audition --------
-    const AUDITION_WORDS = 500;
+    // ~80 words ≈ 25-30s of audio, ~1-2s to synthesize. Trades length for
+    // turnaround so voice comparison feels instant. Old default was 500 words.
+    const AUDITION_WORDS = 80;
+    // In-memory cache: re-selecting an already-auditioned voice replays the
+    // same blob with zero network. Keyed by `${voice}::${sampleText}` so a
+    // different book / chapter / sample triggers a fresh render.
+    const auditionCache = new Map();
+    function auditionCacheKey(voice, sample) { return `${voice}::${sample}`; }
     function isPreliminaryTitle(title) {
       const t = (title || "").trim();
       return ALWAYS_INCLUDE_TITLES.some(re => re.test(t))   // Title / Title Page
@@ -787,7 +812,7 @@
     function updateAuditionSourceLabel() {
       const ch = firstAuditionChapter();
       els.auditionSource.textContent = ch
-        ? `Sample: first ${AUDITION_WORDS} words of "${ch.title}"`
+        ? `Sample: first ~${AUDITION_WORDS} words of "${ch.title}" (~25-30s of audio)`
         : "No chapter content available to audition.";
       els.auditionBtn.disabled = !ch;
     }
@@ -798,26 +823,45 @@
         return;
       }
       const sample = buildSample(ch.text, AUDITION_WORDS);
+      const voice = els.voiceSelect.value;
+      const wordCount = sample.split(/\s+/).filter(Boolean).length;
+
+      // Cache hit: replay instantly, skip network.
+      const cacheKey = auditionCacheKey(voice, sample);
+      const cached = auditionCache.get(cacheKey);
+      if (cached) {
+        els.auditionAudio.src = cached;
+        els.auditionAudio.hidden = false;
+        els.auditionAudio.play().catch(() => {});
+        setStatus(els.auditionStatus, `Cached · ${voice} · ${wordCount} words`, "success");
+        rememberVoiceForBook();
+        return;
+      }
+
       els.auditionBtn.disabled = true;
-      setStatus(els.auditionStatus, `Synthesizing ~${AUDITION_WORDS}-word sample with ${els.voiceSelect.value}…`, "info");
+      setStatus(els.auditionStatus, `Synthesizing ~${AUDITION_WORDS}-word sample with ${voice}…`, "info");
       els.auditionAudio.hidden = true;
       els.auditionAudio.removeAttribute("src");
+      const t0 = performance.now();
       try {
         const resp = await fetch(`${TTS_BASE}/api/tts/synthesize`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: sample, voice: els.voiceSelect.value, rate: 0 }),
+          credentials: "include",
+          body: JSON.stringify({ text: sample, voice, rate: 0 }),
         });
         if (!resp.ok) {
           const errTxt = await resp.text();
           throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
         }
         const blob = await resp.blob();
-        els.auditionAudio.src = URL.createObjectURL(blob);
+        const blobUrl = URL.createObjectURL(blob);
+        auditionCache.set(cacheKey, blobUrl);
+        els.auditionAudio.src = blobUrl;
         els.auditionAudio.hidden = false;
         els.auditionAudio.play().catch(() => {}); // browser may block autoplay; user can press play
-        const wordCount = sample.split(/\s+/).filter(Boolean).length;
-        setStatus(els.auditionStatus, `Ready · ${els.voiceSelect.value} · ${wordCount} words / ${sample.length.toLocaleString()} chars`, "success");
+        const elapsed = Math.round(performance.now() - t0);
+        setStatus(els.auditionStatus, `Ready · ${voice} · ${wordCount} words · ${elapsed}ms`, "success");
         rememberVoiceForBook();
       } catch (err) {
         setStatus(els.auditionStatus, `Error: ${err.message}`, "error");

@@ -35,8 +35,11 @@ const ALLOWED_ORIGINS = new Set([
   "https://wellness-os.vercel.app",
   "https://wellness-os-psi.vercel.app",
   "https://liz-wellness-os.vercel.app",
+  "https://my-wellness-os.com",
+  "https://www.my-wellness-os.com",
   "http://127.0.0.1:4173",
-  "http://localhost:4173"
+  "http://localhost:4173",
+  "http://localhost:5175"
 ]);
 
 const WELLNESS_PREVIEW_ORIGIN =
