@@ -221,23 +221,18 @@
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="dashboard.html">Wellness OS</a>
-    <nav class="topnav">
-      <a href="reading.html">Reading</a>
-      <a href="audio-pilot.html">Voice Pilot</a>
-      <a href="dashboard.html">Dashboard</a>
-    </nav>
-  </header>
-
   <main class="page">
+    <nav class="topbar" aria-label="Page">
+      <a class="home-link" href="/">Home</a>
+    </nav>
+
     <section class="module-section">
-      <h2>EPUB → Audio library</h2>
-      <p class="section-sub">Drop a .epub file. We'll extract chapters, you pick which to render, and each becomes an audio entry in your library via Microsoft Edge TTS.</p>
+      <h2>Book → Audio library</h2>
+      <p class="section-sub">Drop a .epub or .txt file. We'll extract chapters, you pick which to render, and each becomes an audio entry in your library via Microsoft Edge TTS.</p>
 
       <label class="drop-zone" id="drop-zone">
-        <div id="drop-zone-text">Click or drag an .epub file here</div>
-        <input id="file-input" type="file" accept=".epub,application/epub+zip">
+        <div id="drop-zone-text">Click or drag a .epub or .txt file here</div>
+        <input id="file-input" type="file" accept=".epub,application/epub+zip,.txt,text/plain">
       </label>
       <div id="parse-status" class="status"></div>
     </section>
@@ -413,7 +408,7 @@
       els.bookSection.hidden = true;
       try {
         const buf = await file.arrayBuffer();
-        const { title, author, chapters: parsed } = await parseEpub(buf, file.name);
+        const { title, author, chapters: parsed } = await parseBook(buf, file.name);
 
         els.bookTitle.textContent = title;
         els.bookAuthor.textContent = author;
@@ -432,6 +427,131 @@
         console.error(err);
         setStatus(els.parseStatus, `Failed to parse: ${err.message}`, "error");
       }
+    }
+
+    // ---- Dispatcher ----
+    async function parseBook(buf, filename) {
+      const ext = (filename.split(".").pop() || "").toLowerCase();
+      if (ext === "epub") return parseEpub(buf, filename);
+      if (ext === "txt")  return parseTxt(buf, filename);
+      throw new Error(`Unsupported file type: .${ext} (expected .epub or .txt)`);
+    }
+
+    // ---- Plain-text parsing ----
+    // Chapter splitting strategy:
+    //   1. Lines matching ^(Chapter|Part|Book) <num/word>, Prologue, Epilogue, etc.
+    //   2. Fallback: all-caps heading lines preceded by a blank line.
+    //   3. Fallback: whole document as one chapter.
+    // After splitting, any single chapter > TXT_MAX_CHAPTER_CHARS gets sliced
+    // into TXT_PART_TARGET_CHARS-sized parts at paragraph/sentence boundaries
+    // so the Edge TTS path doesn't hit its 60s synthesis timeout.
+    const TXT_CHAPTER_HEADING = /^[ \t]*((?:chapter|part|book)\s+(?:[ivxlcdm]+|\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)\b[^\n]*|prologue\b[^\n]*|epilogue\b[^\n]*|introduction\b[^\n]*|foreword\b[^\n]*|preface\b[^\n]*)[ \t]*$/gim;
+    const TXT_ALLCAPS_HEADING = /^[ \t]*([A-Z][A-Z0-9 ,'\-]{3,60})[ \t]*$/gm;
+    const TXT_MAX_CHAPTER_CHARS = 12000;  // anything over this gets split
+    const TXT_PART_TARGET_CHARS = 6000;   // target size per Part
+
+    function splitOversizedChapter(label, text) {
+      if (text.length <= TXT_MAX_CHAPTER_CHARS) return [{ title: label, text }];
+      const parts = [];
+      let buf = "";
+      const flush = () => { if (buf) { parts.push(buf); buf = ""; } };
+      for (const para of text.split(/\n{2,}/)) {
+        const p = para.trim();
+        if (!p) continue;
+        if (buf.length + p.length + 2 <= TXT_PART_TARGET_CHARS) {
+          buf = buf ? buf + "\n\n" + p : p;
+          continue;
+        }
+        flush();
+        if (p.length <= TXT_PART_TARGET_CHARS) { buf = p; continue; }
+        // Paragraph itself too big — split on sentence boundaries.
+        let sBuf = "";
+        for (const s of p.split(/(?<=[.!?])\s+/)) {
+          if (sBuf.length + s.length + 1 <= TXT_PART_TARGET_CHARS) {
+            sBuf = sBuf ? sBuf + " " + s : s;
+          } else {
+            if (sBuf) parts.push(sBuf);
+            // If a single sentence is still over the limit, hard-slice on chars.
+            if (s.length > TXT_PART_TARGET_CHARS) {
+              for (let i = 0; i < s.length; i += TXT_PART_TARGET_CHARS) {
+                parts.push(s.slice(i, i + TXT_PART_TARGET_CHARS));
+              }
+              sBuf = "";
+            } else {
+              sBuf = s;
+            }
+          }
+        }
+        buf = sBuf;
+      }
+      flush();
+      return parts.map((t, i) => ({
+        title: `${label} — Part ${i + 1} of ${parts.length}`,
+        text: t,
+      }));
+    }
+
+    function decodeTxt(buf) {
+      // Try UTF-8 first (with BOM strip), fall back to latin-1 if it has bad sequences.
+      try {
+        const utf8 = new TextDecoder("utf-8", { fatal: true }).decode(buf);
+        return utf8.replace(/^\uFEFF/, "");
+      } catch {
+        return new TextDecoder("latin1").decode(buf);
+      }
+    }
+
+    async function parseTxt(buf, filename) {
+      let text = decodeTxt(buf)
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+      const title = filename.replace(/\.txt$/i, "").replace(/_/g, " ").trim();
+
+      // (1) explicit chapter headings
+      let matches = [...text.matchAll(TXT_CHAPTER_HEADING)];
+
+      // (2) all-caps headings preceded by a blank line
+      if (matches.length < 2) {
+        matches = [...text.matchAll(TXT_ALLCAPS_HEADING)].filter(m =>
+          m.index === 0 || text.slice(Math.max(0, m.index - 2), m.index) === "\n\n"
+        );
+      }
+
+      const chaptersOut = [];
+      const pushChapter = (label, body) => {
+        for (const part of splitOversizedChapter(label, body)) {
+          chaptersOut.push({
+            index: chaptersOut.length,
+            title: part.title,
+            text: part.text,
+            charCount: part.text.length,
+            selected: defaultSelected(part.title, part.text.length),
+            status: "pending", error: null, pageId: null,
+          });
+        }
+      };
+
+      if (matches.length >= 2) {
+        if (matches[0].index > 0) {
+          const pre = text.slice(0, matches[0].index).trim();
+          if (pre) pushChapter("Front Matter", pre);
+        }
+        for (let i = 0; i < matches.length; i++) {
+          const m = matches[i];
+          const start = m.index + m[0].length;
+          const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+          const body = text.slice(start, end).trim();
+          const label = m[1].replace(/\s+/g, " ").trim();
+          pushChapter(label, body);
+        }
+      } else {
+        // No headings — split the whole document into Sections so Edge TTS doesn't choke.
+        pushChapter(title, text);
+      }
+
+      return { title, author: "(unknown author)", chapters: chaptersOut };
     }
 
     // ---- EPUB parsing (pure JSZip; no epub.js). ----

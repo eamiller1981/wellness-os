@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5eae3">
+  <title>Audio Library | Wellness OS</title>
+  <link rel="stylesheet" href="space.css">
+  <link rel="icon" href="assets/favicons/reading.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicons/reading-32.png" sizes="32x32" type="image/png">
+  <link rel="apple-touch-icon" href="assets/favicons/reading-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <script src="app-auth.js"></script>
+  <style>
+    .page { gap: 24px; }
+
+    .page-header {
+      padding: 20px 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .page-header h1 {
+      margin: 0 0 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.9rem;
+      font-weight: 400;
+      color: var(--ink);
+    }
+    .page-header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .toolbar input,
+    .toolbar select {
+      padding: 7px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.65);
+      color: var(--ink);
+      font: inherit;
+    }
+    .toolbar select {
+      padding-right: 30px;
+      background-image: linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+                        linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+      background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .toolbar input { flex: 1; min-width: 180px; }
+    .toolbar-meta {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-left: auto;
+    }
+
+    .shelf {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .audiobook-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .audiobook-card:hover { border-color: #5f514a; }
+
+    .ab-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .ab-title {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.18rem;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+    .ab-author {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .ab-rating {
+      flex-shrink: 0;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      background: rgba(120, 130, 170, 0.18);
+      color: #3f4878;
+      white-space: nowrap;
+    }
+    .ab-rating.tier-loved   { background: rgba(170, 95, 180, 0.18); color: #6e3a78; }
+    .ab-rating.tier-vg      { background: rgba(95, 140, 95, 0.18); color: #3f6238; }
+    .ab-rating.tier-okay    { background: rgba(180, 150, 90, 0.18); color: #715a26; }
+    .ab-rating.tier-notgood { background: rgba(180, 110, 80, 0.18); color: #794327; }
+    .ab-rating.tier-dnf     { background: rgba(180, 70, 70, 0.18); color: #7a2828; }
+
+    .ab-status {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .ab-status.Reading  { background: rgba(120, 130, 170, 0.18); color: #3f4878; }
+    .ab-status.TBR      { background: rgba(180, 150, 90, 0.18); color: #715a26; }
+    .ab-status.Finished { background: rgba(95, 140, 95, 0.18); color: #3f6238; }
+    .ab-status.DNF      { background: rgba(180, 70, 70, 0.18); color: #7a2828; }
+    .ab-status.Unknown  { background: rgba(120, 110, 100, 0.18); color: #5f514a; }
+
+    .ab-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .ab-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ab-tag {
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 0.72rem;
+      background: rgba(255, 255, 255, 0.45);
+      color: var(--ink);
+    }
+
+    .ab-summary {
+      margin: 0;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: var(--ink);
+      opacity: 0.85;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .ab-summary.expanded {
+      -webkit-line-clamp: unset;
+      overflow: visible;
+    }
+    .ab-summary-toggle {
+      align-self: flex-start;
+      padding: 0;
+      background: none;
+      border: 0;
+      color: #5f514a;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.78rem;
+      text-decoration: underline dotted;
+    }
+
+    .ab-footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+    .ab-footer .spacer { flex: 1; }
+
+    .ab-toggle {
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .ab-toggle:hover { border-color: #5f514a; }
+
+    .ab-chapters {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+    .ab-card.open .ab-chapters { display: flex; }
+
+    .ab-chapter {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 4px 12px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.5);
+    }
+    .ab-chapter-title {
+      font-size: 0.9rem;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ab-chapter-duration {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .ab-chapter audio {
+      grid-column: 1 / -1;
+      width: 100%;
+      height: 32px;
+    }
+
+    .empty {
+      padding: 30px;
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      text-align: center;
+      color: var(--muted);
+    }
+    .empty a { color: var(--ink); }
+
+    .loading {
+      padding: 20px;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    .error {
+      padding: 14px 18px;
+      border: 1px solid rgba(180, 70, 70, 0.35);
+      border-radius: var(--radius);
+      background: rgba(180, 70, 70, 0.08);
+      color: #7a2828;
+      white-space: pre-wrap;
+    }
+
+    @media (max-width: 720px) {
+      .shelf { grid-template-columns: 1fr; }
+      .toolbar-meta { margin-left: 0; flex-basis: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="topbar" aria-label="Page">
+      <a class="home-link" href="/">Home</a>
+    </nav>
+
+    <header class="page-header">
+      <h1>Audio Library</h1>
+      <p>EPUB → MP3 renders from the Colab pipeline. Each book inherits its status, rating, and tags from your reading log.</p>
+    </header>
+
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Search title or author…" autocomplete="off">
+      <select id="statusFilter" aria-label="Filter by status">
+        <option value="">All statuses</option>
+        <option value="Reading">Reading</option>
+        <option value="TBR">To Be Read</option>
+        <option value="Finished">Finished</option>
+        <option value="DNF">DNF</option>
+        <option value="Unknown">Unmatched</option>
+      </select>
+      <span class="toolbar-meta" id="meta">Loading…</span>
+    </div>
+
+    <section id="shelf" class="shelf" aria-live="polite"></section>
+  </main>
+
+  <script>
+    const NOTION_WORKER = "https://notion-budget-manager.eamiller1981.workers.dev";
+    const TTS_WORKER    = "https://tts.eamiller1981.workers.dev";
+    const BOOKS_DB_ID   = "f75e04e67a7047408a6448f8879f0c29";
+
+    const state = {
+      books: new Map(),    // titleKey → reading-log book
+      audio: new Map(),    // book name → { titleKey, chapters: [...] }
+      open: new Set(),     // book names currently expanded
+    };
+
+    function escapeHtml(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, m => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+      }[m]));
+    }
+
+    function titleKey(t) {
+      return String(t || "")
+        .normalize("NFKD")
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[^a-z0-9]+/gi, "")
+        .toLowerCase();
+    }
+
+    function plain(arr) {
+      if (!Array.isArray(arr)) return "";
+      return arr.map(t => t.plain_text || "").join("");
+    }
+
+    function ratingLabel(r) {
+      if (r == null) return { text: "—", cls: "" };
+      if (r >= 5)   return { text: "Loved · 5", cls: "tier-loved" };
+      if (r >= 4)   return { text: "Very good · 4", cls: "tier-vg" };
+      if (r >= 3)   return { text: "Okay · 3", cls: "tier-okay" };
+      if (r >= 2)   return { text: "Not good · 2", cls: "tier-notgood" };
+      return { text: "DNF · " + r, cls: "tier-dnf" };
+    }
+
+    function fmtDuration(sec) {
+      const s = Math.max(0, Math.round(Number(sec) || 0));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const ss = s % 60;
+      if (h) return `${h}h ${m}m`;
+      if (m) return `${m}m ${ss}s`;
+      return `${ss}s`;
+    }
+
+    async function notionQuery(dbId) {
+      const all = [];
+      let cursor;
+      do {
+        const body = { page_size: 100 };
+        if (cursor) body.start_cursor = cursor;
+        const resp = await fetch(`${NOTION_WORKER}/notion/databases/${dbId}/query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!resp.ok) {
+          throw new Error(`Notion query ${dbId} → ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+        }
+        const data = await resp.json();
+        all.push(...(data.results || []));
+        cursor = data.has_more ? data.next_cursor : undefined;
+      } while (cursor);
+      return all;
+    }
+
+    async function loadBooks() {
+      const pages = await notionQuery(BOOKS_DB_ID);
+      const out = new Map();
+      for (const page of pages) {
+        const p = page.properties || {};
+        const title = plain(p.Title?.title) || "(untitled)";
+        out.set(titleKey(title), {
+          id: page.id,
+          title,
+          author: plain(p.Author?.rich_text) || "",
+          status: p.Status?.select?.name || "",
+          rating: typeof p.Rating?.number === "number" ? p.Rating.number : null,
+          tags: (p.Tags?.multi_select || []).map(t => t.name),
+          reflection: plain(p.Reflection?.rich_text),
+          whyItFits: plain(p["Why It Fits"]?.rich_text),
+          liked: plain(p.Liked?.rich_text),
+        });
+      }
+      return out;
+    }
+
+    async function loadAudioLibrary() {
+      // The worker's GET /api/tts/library is capped at 50. Query Notion directly
+      // via the same proxy so we get the full list with pagination.
+      const AUDIO_DB = "1a3a051608e8457d82042e05eb44fc84";
+      const pages = await notionQuery(AUDIO_DB);
+      // Dedupe by (book + section) keeping the most recent ready entry.
+      // Different render runs (browser vs Colab) may leave duplicate rows;
+      // we don't want to display the same chapter twice.
+      const dedup = new Map(); // `${book}::${section || title}` → entry
+      for (const page of pages) {
+        const p = page.properties || {};
+        const book = plain(p.Book?.rich_text) || "(unknown)";
+        const status = p.Status?.select?.name || "";
+        if (status !== "ready") continue;
+        const sectionRaw = plain(p.Section?.rich_text) || "";
+        const titleRaw = plain(p.Title?.title) || sectionRaw || "Untitled";
+        const entry = {
+          id: page.id,
+          title: titleRaw,
+          section: sectionRaw,
+          voice: p.Voice?.select?.name || "",
+          speed: p["Speed"]?.number ?? 0,
+          durationSec: p["Duration sec"]?.number ?? 0,
+          fileUrl: p["File URL"]?.url || "",
+          created: page.created_time,
+        };
+        if (!entry.fileUrl) continue;
+        const dedupKey = `${book}::${sectionRaw || titleRaw}`;
+        const existing = dedup.get(dedupKey);
+        if (!existing || String(entry.created).localeCompare(String(existing.created)) > 0) {
+          dedup.set(dedupKey, { ...entry, book });
+        }
+      }
+      // Group surviving entries by book.
+      const byBook = new Map();
+      for (const entry of dedup.values()) {
+        const book = entry.book;
+        if (!byBook.has(book)) {
+          byBook.set(book, { titleKey: titleKey(book), name: book, chapters: [] });
+        }
+        byBook.get(book).chapters.push(entry);
+      }
+      // Sort chapters within each book by extracted index, then by created time.
+      for (const entry of byBook.values()) {
+        entry.chapters.sort((a, b) => {
+          const na = Number((a.section.match(/(\d+)/) || [])[1]);
+          const nb = Number((b.section.match(/(\d+)/) || [])[1]);
+          if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+          return String(a.created).localeCompare(String(b.created));
+        });
+        // Renumber sequentially based on render order. If the EPUB TOC stored
+        // a meaningful chapter name (anything other than "Section N"), prefer it.
+        entry.chapters.forEach((c, idx) => {
+          const isGenericSection = /^\s*section\s*\d+\s*$/i.test(c.section);
+          if (c.section && !isGenericSection) {
+            c.displayTitle = c.section;
+          } else {
+            c.displayTitle = `Chapter ${idx + 1}`;
+          }
+        });
+      }
+      return byBook;
+    }
+
+    function bookCardHtml(audioEntry) {
+      const reading = state.books.get(audioEntry.titleKey);
+      const status = reading?.status || "Unknown";
+      const author = reading?.author || "";
+      const rating = ratingLabel(reading?.rating);
+      const tags = reading?.tags || [];
+      const summary = (reading?.reflection || reading?.whyItFits || reading?.liked || "").trim();
+
+      const totalSec = audioEntry.chapters.reduce((s, c) => s + (Number(c.durationSec) || 0), 0);
+      const isOpen = state.open.has(audioEntry.name);
+
+      const tagsHtml = tags.length
+        ? `<div class="ab-tags">${tags.slice(0, 6).map(t => `<span class="ab-tag">${escapeHtml(t)}</span>`).join("")}</div>`
+        : "";
+
+      const chaptersHtml = audioEntry.chapters.map((c, idx) => `
+        <div class="ab-chapter" data-chapter-index="${idx}">
+          <div class="ab-chapter-title">${escapeHtml(c.displayTitle)}</div>
+          <div class="ab-chapter-duration">${fmtDuration(c.durationSec)}</div>
+          <audio controls preload="none" src="${escapeHtml(c.fileUrl)}" data-chapter-key="${escapeHtml(c.id)}"></audio>
+        </div>
+      `).join("");
+
+      return `
+        <article class="audiobook-card ab-card ${isOpen ? "open" : ""}" data-book="${escapeHtml(audioEntry.name)}">
+          <div class="ab-head">
+            <div>
+              <h3 class="ab-title">${escapeHtml(audioEntry.name)}</h3>
+              ${author ? `<div class="ab-author">${escapeHtml(author)}</div>` : ""}
+            </div>
+            <div class="ab-rating ${rating.cls}">${escapeHtml(rating.text)}</div>
+          </div>
+          <div class="ab-meta">
+            <span class="ab-status ${escapeHtml(status)}">${escapeHtml(status === "Unknown" ? "Not in log" : status)}</span>
+            ${tagsHtml}
+          </div>
+          ${summary ? `
+            <p class="ab-summary" data-summary>${escapeHtml(summary)}</p>
+            <button type="button" class="ab-summary-toggle" data-action="toggle-summary" hidden>Show more</button>
+          ` : ""}
+          <div class="ab-footer">
+            <span>${audioEntry.chapters.length} chapter${audioEntry.chapters.length === 1 ? "" : "s"} · ${fmtDuration(totalSec)}</span>
+            <span class="spacer"></span>
+            <button type="button" class="ab-toggle" data-action="toggle-chapters">${isOpen ? "Hide chapters" : "Show chapters"}</button>
+          </div>
+          <div class="ab-chapters">${chaptersHtml}</div>
+        </article>
+      `;
+    }
+
+    function render() {
+      const search = document.getElementById("search").value.trim().toLowerCase();
+      const statusFilter = document.getElementById("statusFilter").value;
+      const shelf = document.getElementById("shelf");
+      const meta = document.getElementById("meta");
+
+      const all = [...state.audio.values()];
+      const filtered = all.filter(entry => {
+        const reading = state.books.get(entry.titleKey);
+        const status = reading?.status || "Unknown";
+        if (statusFilter && statusFilter !== status) return false;
+        if (search) {
+          const hay = `${entry.name} ${reading?.author || ""}`.toLowerCase();
+          if (!hay.includes(search)) return false;
+        }
+        return true;
+      });
+
+      filtered.sort((a, b) => {
+        const aMatched = state.books.has(a.titleKey) ? 0 : 1;
+        const bMatched = state.books.has(b.titleKey) ? 0 : 1;
+        if (aMatched !== bMatched) return aMatched - bMatched;
+        return a.name.localeCompare(b.name);
+      });
+
+      if (filtered.length === 0) {
+        shelf.innerHTML = `<div class="empty">No audiobooks match. Render one in <a href="/audio-render">EPUB to MP3</a>.</div>`;
+      } else {
+        shelf.innerHTML = filtered.map(bookCardHtml).join("");
+        // After render, hide the show-more button for summaries that don't overflow.
+        shelf.querySelectorAll(".audiobook-card").forEach(card => {
+          const summary = card.querySelector("[data-summary]");
+          const toggle = card.querySelector("[data-action='toggle-summary']");
+          if (!summary || !toggle) return;
+          if (summary.scrollHeight > summary.clientHeight + 2) {
+            toggle.hidden = false;
+          }
+        });
+      }
+
+      meta.textContent = `${filtered.length} of ${all.length} book${all.length === 1 ? "" : "s"}`;
+    }
+
+    // ------------------------------------------------------------------
+    // Player position persistence + autoplay-next
+    // ------------------------------------------------------------------
+    const POSITION_KEY = "audioLibrary.positions"; // map of chapterKey → seconds
+    const POSITION_SAVE_THROTTLE_MS = 1500;
+    let positions = {};
+    try { positions = JSON.parse(localStorage.getItem(POSITION_KEY) || "{}"); }
+    catch { positions = {}; }
+    const lastSaveAt = new WeakMap();
+
+    function persistPositions() {
+      try { localStorage.setItem(POSITION_KEY, JSON.stringify(positions)); }
+      catch (err) { console.warn("position save failed", err); }
+    }
+
+    function restorePosition(audio) {
+      const key = audio.dataset.chapterKey;
+      const saved = key && Number(positions[key]);
+      if (!Number.isFinite(saved) || saved <= 0) return;
+      const dur = audio.duration;
+      if (!Number.isFinite(dur)) return;
+      // Don't restore if we're within 5s of the end — treat as finished.
+      if (saved >= dur - 5) return;
+      try { audio.currentTime = saved; }
+      catch (err) { console.warn("currentTime restore failed", err); }
+    }
+
+    function attachEventDelegation() {
+      const shelf = document.getElementById("shelf");
+
+      shelf.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-action]");
+        if (!btn) return;
+        const card = btn.closest(".audiobook-card");
+        if (!card) return;
+        const book = card.dataset.book;
+        if (btn.dataset.action === "toggle-chapters") {
+          if (state.open.has(book)) state.open.delete(book);
+          else state.open.add(book);
+          card.classList.toggle("open");
+          btn.textContent = state.open.has(book) ? "Hide chapters" : "Show chapters";
+        } else if (btn.dataset.action === "toggle-summary") {
+          const summary = card.querySelector("[data-summary]");
+          if (!summary) return;
+          const expanded = summary.classList.toggle("expanded");
+          btn.textContent = expanded ? "Show less" : "Show more";
+        }
+      });
+
+      // Audio events use capture phase because <audio> doesn't bubble these.
+      shelf.addEventListener("loadedmetadata", (e) => {
+        const audio = e.target;
+        if (audio.tagName !== "AUDIO") return;
+        restorePosition(audio);
+      }, true);
+
+      shelf.addEventListener("timeupdate", (e) => {
+        const audio = e.target;
+        if (audio.tagName !== "AUDIO") return;
+        const key = audio.dataset.chapterKey;
+        if (!key) return;
+        const now = Date.now();
+        const last = lastSaveAt.get(audio) || 0;
+        if (now - last < POSITION_SAVE_THROTTLE_MS) return;
+        lastSaveAt.set(audio, now);
+        positions[key] = audio.currentTime;
+        persistPositions();
+      }, true);
+
+      shelf.addEventListener("ended", (e) => {
+        const audio = e.target;
+        if (audio.tagName !== "AUDIO") return;
+        const key = audio.dataset.chapterKey;
+        if (key) {
+          // Mark this chapter as finished so a future visit doesn't re-seek.
+          delete positions[key];
+          persistPositions();
+        }
+        const card = audio.closest(".audiobook-card");
+        if (!card) return;
+        const audios = [...card.querySelectorAll("audio")];
+        const idx = audios.indexOf(audio);
+        const next = audios[idx + 1];
+        if (next) {
+          // Ensure the source is loaded, then play.
+          next.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          next.play().catch(err => console.warn("autoplay next failed", err));
+        }
+      }, true);
+
+      // Pause every other audio when one starts — only one chapter plays at a time.
+      shelf.addEventListener("play", (e) => {
+        const audio = e.target;
+        if (audio.tagName !== "AUDIO") return;
+        document.querySelectorAll("audio").forEach(other => {
+          if (other !== audio && !other.paused) other.pause();
+        });
+      }, true);
+
+      document.getElementById("search").addEventListener("input", render);
+      document.getElementById("statusFilter").addEventListener("change", render);
+    }
+
+    async function init() {
+      const shelf = document.getElementById("shelf");
+      shelf.innerHTML = `<div class="loading">Loading your audio library…</div>`;
+      try {
+        const [books, audio] = await Promise.all([loadBooks(), loadAudioLibrary()]);
+        state.books = books;
+        state.audio = audio;
+        render();
+      } catch (err) {
+        shelf.innerHTML = `<div class="error">Failed to load: ${escapeHtml(err.message)}</div>`;
+        document.getElementById("meta").textContent = "Error";
+        console.error(err);
+      }
+    }
+
+    let initStarted = false;
+    function safeInit() {
+      if (initStarted) return;
+      initStarted = true;
+      init();
+    }
+
+    attachEventDelegation();
+    window.addEventListener("wellness-auth-ready", safeInit, { once: true });
+    // If auth was already ready before the listener attached, kick off anyway.
+    if (window.localStorage.getItem("wellnessAuthToken")) {
+      setTimeout(safeInit, 0);
+    }
+  </script>
+</body>
+</html>
