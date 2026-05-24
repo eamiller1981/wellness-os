@@ -382,16 +382,6 @@
       padding: 0 10px;
       font-size: 0.78rem;
     }
-    .btn-danger {
-      background: rgba(180, 70, 70, 0.10);
-      color: #7a2828;
-      border-color: rgba(180, 70, 70, 0.35);
-    }
-    .btn-danger:hover, .btn-danger:focus-visible {
-      background: rgba(180, 70, 70, 0.18);
-      border-color: rgba(180, 70, 70, 0.55);
-      color: #7a2828;
-    }
 
     .section-heading {
       display: flex;
@@ -1957,7 +1947,7 @@
               ${book.status === "TBR" ? `<button class="btn btn-small" data-action="start">Reading Now</button>` : ""}
               ${showEdit ? `<button class="btn btn-small" data-action="edit">Edit</button>` : ""}
               <button class="btn btn-small" data-action="why">Discuss <span class="ai-badge">Book Buddy</span></button>
-              ${book.status === "TBR" ? `<button class="btn btn-small btn-danger" data-action="delete" aria-label="Delete from TBR">Delete</button>` : ""}
+              ${book.status === "TBR" ? `<button class="btn btn-small" data-action="delete" aria-label="Delete from TBR">Delete</button>` : ""}
             </div>
             ${dateHtml}
           </div>
