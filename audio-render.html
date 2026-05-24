@@ -467,11 +467,12 @@
     const TXT_ALLCAPS_HEADING = /^[ \t]*([A-Z][A-Z0-9 ,'\-]{3,60})[ \t]*$/gm;
     const TXT_MAX_CHAPTER_CHARS = 12000;  // .txt threshold (no natural structure)
     const TXT_PART_TARGET_CHARS = 6000;
-    // EPUB chapters can legitimately be much longer; only split if they
-    // approach the worker's 200K /synthesize cap. Below this, single-chapter
-    // Edge TTS rendering is fine.
-    const EPUB_MAX_CHAPTER_CHARS = 150000;
-    const EPUB_PART_TARGET_CHARS = 100000;
+    // Each part must finish synthesis inside Cloudflare Workers' ~30s
+    // wall-clock budget. Above ~60K chars we hit "Edge TTS synthesis timed
+    // out after 60s" errors and the row gets stuck pending. 60K ≈ 20 chunks
+    // @ 3000 chars with 2-way concurrency = ~10 sequential round-trips.
+    const EPUB_MAX_CHAPTER_CHARS = 60000;
+    const EPUB_PART_TARGET_CHARS = 45000;
 
     function splitOversizedChapter(label, text, maxChars = TXT_MAX_CHAPTER_CHARS, partTarget = TXT_PART_TARGET_CHARS) {
       if (text.length <= maxChars) return [{ title: label, text }];
