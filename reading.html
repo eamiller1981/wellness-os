@@ -382,6 +382,16 @@
       padding: 0 10px;
       font-size: 0.78rem;
     }
+    .btn-danger {
+      background: rgba(180, 70, 70, 0.10);
+      color: #7a2828;
+      border-color: rgba(180, 70, 70, 0.35);
+    }
+    .btn-danger:hover, .btn-danger:focus-visible {
+      background: rgba(180, 70, 70, 0.18);
+      border-color: rgba(180, 70, 70, 0.55);
+      color: #7a2828;
+    }
 
     .section-heading {
       display: flex;
@@ -1947,6 +1957,7 @@
               ${book.status === "TBR" ? `<button class="btn btn-small" data-action="start">Reading Now</button>` : ""}
               ${showEdit ? `<button class="btn btn-small" data-action="edit">Edit</button>` : ""}
               <button class="btn btn-small" data-action="why">Discuss <span class="ai-badge">Book Buddy</span></button>
+              ${book.status === "TBR" ? `<button class="btn btn-small btn-danger" data-action="delete" aria-label="Delete from TBR">Delete</button>` : ""}
             </div>
             ${dateHtml}
           </div>
@@ -3213,6 +3224,18 @@ ${applyPacketInstructions()}`;
           ? `Tell me, spoiler-free, why "${book.title}" by ${book.author || "Unknown"} fits my taste. Include why it might work, any risk, and whether it belongs in the normal TBR or wildcard lane.`
           : `Let's discuss "${book.title}" by ${book.author || "Unknown"}. I rated it ${book.rating ?? "?"} (${ratingLabel(book.rating)}). What does this rating signal about my taste, current appetite, and next reads?`;
         openBookBuddy("discuss-book", { prompt: msg });
+      } else if (action === "delete") {
+        if (!confirm(`Delete "${book.title}" from your TBR?\n\nThis archives the page in Notion (recoverable from Trash for 30 days).`)) return;
+        btn.disabled = true;
+        notion(`/pages/${book.id}`, "PATCH", { archived: true })
+          .then(async () => {
+            toast(`Deleted "${book.title}" from TBR`);
+            await refresh();
+          })
+          .catch(err => {
+            btn.disabled = false;
+            toast("Could not delete: " + err.message, 4200);
+          });
       }
     });
 
