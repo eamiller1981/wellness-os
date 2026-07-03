@@ -53,6 +53,9 @@
     <!-- BILLS DETAIL MODAL -->
     <div>{{ billsModal }}</div>
 
+    <!-- ADDITIONAL ACCOUNTS MODAL -->
+    <div>{{ othersModal }}</div>
+
     <!-- STAT TILES -->
     <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:11px">{{ tiles }}</div>
 
@@ -155,6 +158,8 @@ class Component extends DCLogic {
     billsOpen: false,
     billsLoading: false,
     billsRows: null,
+    // ---- additional accounts (formerly "Others") modal ----
+    othersOpen: false,
     // which allocation input is being typed in (keeps raw text so it isn't
     // reformatted mid-keystroke while the other two inputs update live)
     editing: null, // { key, field:'pct'|'dollar', text }
@@ -482,6 +487,8 @@ class Component extends DCLogic {
     });
   }
   closeBills(){ this.setState({ billsOpen:false }); }
+  openOthers(){ this.setState({ othersOpen:true }); }
+  closeOthers(){ this.setState({ othersOpen:false }); }
 
   renderVals(){
     const el = React.createElement;
@@ -528,10 +535,10 @@ class Component extends DCLogic {
       rows.push(el('div',{key:'__t',style:{marginTop:bottomAlign?'auto':'10px',paddingTop:'12px',borderTop:'1px solid '+accent}},...totalBlock));
       return rows;
     };
-    const othersRow = el('div',{key:'__others',style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderTop:'1px solid '+C.line}},
+    const othersRow = el('div',{key:'__others',className:'bills-box',role:'button',tabIndex:0,onClick:()=>this.openOthers(),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.openOthers();}},style:{display:'flex',alignItems:'center',gap:'10px',padding:'11px 12px',marginTop:'8px'}},
       el('div',{style:{flex:1,minWidth:0}},
-        el('div',{style:{fontSize:'13px',color:C.text,lineHeight:1.2}},'Others'),
-        el('div',{className:'num',style:{fontSize:'10.5px',color:C.muted}},'*7889 · *9168 · *0466 · *3195')),
+        el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600,lineHeight:1.2}},'Additional Accounts'),
+        el('div',{className:'num',style:{fontSize:'10.5px',color:C.midL}},'*7889 · *9168 · *0466 · *3195 \u00b7 tap to edit')),
       el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
       el('span',{className:'num',style:{fontSize:'15px',color:C.cream,padding:'8px 9px'}}, othersSum.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})));
     const bankRows = rowList('bank', C.sage, totalBank, 'Total in bank', null, false, [othersRow]);
@@ -629,53 +636,62 @@ class Component extends DCLogic {
       el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'20px',color:C.cream}},money(balance)));
 
     // ---- money map: comprehensive end-state allocation of Total Assets.
-    // Every dollar of Total Assets is assigned a home. The target column is the
-    // amount each account should hold after the waterfall; targets sum to Total
-    // Assets (when balanced). Move = target − current balance (∑ moves = 0).
-    //   Main *7419 holds the bills reserve + daily spending + USAA buffer.
-    //   Savings/Emergency/Schwab/Logan/Mom&Papa each hold their envelope.
-    //   All other cash accounts sweep to $0 into Main.
-    const mapPlan = [
-      ['7419','Main', bills + daily + dBuf, 'Bills + daily + buffer', C.midL],
-      ['7397','Savings', dSav, 'Savings allocation', C.sage],
-      ['0741','Emergency Fund', dEmg, 'Emergency allocation', C.midL],
-      ['8568','Schwab', schwabSpend, 'Spending reserve', C.sage],
-      ['6374','Logan', logan, 'Family', C.mauve],
-      ['3536','Mom & Papa', momPapa, 'Family', C.mauve],
-      ['9176','Liz COH', 0, 'Sweep to Main', C.muted],
-      ['0458','Matt COH', 0, 'Sweep to Main', C.muted],
-      ['7889','Logan COH', 0, 'Sweep to Main', C.muted],
-      ['9168','Liz COH Svgs', 0, 'Sweep to Main', C.muted],
-      ['0466','Matt COH Svgs', 0, 'Sweep to Main', C.muted],
-      ['3195','Logan COH Svgs', 0, 'Sweep to Main', C.muted],
+    // Main *7419 is the hub: every inflow lands there and it funds each earmark.
+    // Each earmark row shows the transfer direction (Main → X to fund it, or
+    // X → Main to sweep an excess). Main's target is the residual plug, so the
+    // targets always sum to Total Assets. The four *COH / *Svgs accounts are not
+    // reallocated — their money stays put (target = current, move = 0); they are
+    // shown grayed at the bottom only so the total ties out to Total Assets.
+    const parkedIds = ['7889','9168','0466','3195'];
+    const parkedSum = parkedIds.reduce((a,id)=>a+(balById[id]||0),0);
+    const mainTarget = income - (dSav + dEmg + schwabSpend + logan + momPapa) - parkedSum;
+    const earmarks = [
+      ['7419','Main', mainTarget, C.midL, 'hub'],
+      ['7397','Savings', dSav, C.sage],
+      ['0741','Emergency Fund', dEmg, C.midL],
+      ['8568','Schwab', schwabSpend, C.sage],
+      ['6374','Logan', logan, C.mauve],
+      ['3536','Mom & Papa', momPapa, C.mauve],
     ];
-    const mapTargetSum = mapPlan.reduce((a,r)=>a+r[2],0);
-    const mapItems = mapPlan
-      .map(([id,name,target,note,color])=>({id,name,target,note,color,current:balById[id]||0}))
-      .filter(r=>r.current>0.005 || r.target>0.005)
-      .map((r,i)=>{
-        const move = r.target - r.current;
-        const moveUp = move >= 0.005, moveDown = move <= -0.005;
-        const moveColor = moveUp ? C.sage : (moveDown ? C.mauve : C.muted);
-        const moveTxt = (moveUp?'+':moveDown?'\u2212':'') + money(Math.abs(move));
-        return el('div',{key:r.id,style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px 14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px'}},
-          el('div',{style:{flex:'1 1 150px',minWidth:0}},
-            el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600}},r.name),
-            el('div',{style:{fontSize:'10px',color:r.color,fontWeight:600}},r.note)),
-          el('div',{style:{textAlign:'right',minWidth:'78px'}},
-            el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Now'),
-            el('div',{className:'num',style:{fontSize:'13px',color:C.muted}},money(r.current))),
-          el('div',{style:{textAlign:'right',minWidth:'88px'}},
-            el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.midL,fontWeight:700}},'Target'),
-            el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}},money(r.target))),
-          el('div',{style:{textAlign:'right',minWidth:'86px'}},
-            el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Move'),
-            el('div',{className:'num',style:{fontSize:'13px',fontWeight:600,color:moveColor}}, move===0?'—':moveTxt)));
-      });
-    // Totals: allocated targets must equal Total Assets.
-    const mapOk = Math.abs(mapTargetSum - income) < 0.005;
-    mapItems.push(el('div',{key:'__mt',style:{marginTop:'auto',paddingTop:'12px',borderTop:'1px solid '+(mapOk?C.sage:C.mauveD),display:'flex',flexWrap:'wrap',justifyContent:'space-between',alignItems:'baseline',gap:'6px 14px'}},
-      el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:mapOk?C.sage:C.mauve,fontWeight:700}}, mapOk?'Allocated = Total Assets':'Allocated \u2260 Total Assets'),
+    const parked = [
+      ['7889','Logan COH'], ['9168','Liz COH Svgs'],
+      ['0466','Matt COH Svgs'], ['3195','Logan COH Svgs'],
+    ];
+    const renderMapRow = (id,name,target,accent,note,gray)=>{
+      const current = balById[id]||0;
+      const move = target - current;
+      const moveUp = move >= 0.005, moveDown = move <= -0.005;
+      const moveColor = gray ? C.muted : (moveUp ? C.sage : (moveDown ? C.mauve : C.muted));
+      const moveTxt = (!moveUp && !moveDown) ? '\u2014' : (moveUp?'+':'\u2212') + money(Math.abs(move));
+      const dir = gray ? 'Parked \u00b7 stays put'
+        : note==='hub' ? 'Hub \u00b7 bills + daily + buffer'
+        : moveUp ? 'Main \u2192 '+name
+        : moveDown ? name+' \u2192 Main'
+        : 'On target';
+      return el('div',{key:id,style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px 14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:gray?0.5:1}},
+        el('div',{style:{flex:'1 1 150px',minWidth:0}},
+          el('div',{style:{fontSize:'13px',color:gray?C.muted:C.cream,fontWeight:600}},name),
+          el('div',{style:{fontSize:'10px',color:gray?C.muted:accent,fontWeight:600}},dir)),
+        el('div',{style:{textAlign:'right',minWidth:'78px'}},
+          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Now'),
+          el('div',{className:'num',style:{fontSize:'13px',color:C.muted}},money(current))),
+        el('div',{style:{textAlign:'right',minWidth:'88px'}},
+          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.midL,fontWeight:700}},'Target'),
+          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:gray?C.muted:C.cream}},money(target))),
+        el('div',{style:{textAlign:'right',minWidth:'86px'}},
+          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Move'),
+          el('div',{className:'num',style:{fontSize:'13px',fontWeight:600,color:moveColor}}, moveTxt)));
+    };
+    const mapItems = [];
+    earmarks.forEach(([id,name,target,accent,note])=> mapItems.push(renderMapRow(id,name,target,accent,note,false)));
+    parked.forEach(([id,name])=> mapItems.push(renderMapRow(id,name,balById[id]||0,C.muted,null,true)));
+    const mapTargetSum = earmarks.reduce((a,r)=>a+r[2],0) + parkedSum;
+    // Allocated ties to Total Assets by construction (Main is the plug); the
+    // check reflects whether the waterfall balance is clean ($0 unassigned).
+    mapItems.push(el('div',{key:'__mt',style:{marginTop:'auto',paddingTop:'12px',borderTop:'1px solid '+(balOk?C.sage:C.mauveD),display:'flex',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center',gap:'6px 14px'}},
+      el('span',{style:{display:'flex',alignItems:'center',gap:'8px',fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:balOk?C.sage:C.mauve,fontWeight:700}},
+        el('span',{style:{fontSize:'16px',lineHeight:1}}, balOk?'\u2713':'\u2717'),
+        'Allocated = Total Assets'),
       el('div',{style:{display:'flex',alignItems:'baseline',gap:'12px'}},
         el('span',{className:'num',style:{fontSize:'12px',color:C.muted}}, 'of '+money(income)),
         el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(mapTargetSum)))));
@@ -739,12 +755,39 @@ class Component extends DCLogic {
             el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(billsSum))) : null)));
     }
 
+    // ---- additional accounts modal (view + edit the four hold accounts) ----
+    let othersModal = null;
+    if(S.othersOpen){
+      const th = { fontSize:'10px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700,textAlign:'left',padding:'0 10px 8px' };
+      const bodyRows = S.others.map((r,i)=>el('tr',{key:r[0],style:{borderTop:i?'1px solid '+C.line:'none'}},
+        el('td',{style:{padding:'12px 10px'}},
+          el('div',{style:{fontSize:'13px',color:C.text,lineHeight:1.2}},r[1]),
+          el('div',{className:'num',style:{fontSize:'10.5px',color:C.muted}},'*'+r[0])),
+        el('td',{style:{padding:'8px 10px',textAlign:'right',whiteSpace:'nowrap'}},
+          el('span',{style:{color:C.muted,fontSize:'12px',marginRight:'4px'}},'$'),
+          el('input',{value:r[2],inputMode:'decimal',onChange:e=>this.setNum('others',i,e.target.value),style:inpStyle}))));
+      othersModal = el('div',{onClick:()=>this.closeOthers(),style:{position:'fixed',inset:0,zIndex:50,background:'rgba(15,20,14,.62)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}},
+        el('div',{onClick:e=>e.stopPropagation(),style:{width:'min(520px,100%)',maxHeight:'80vh',overflow:'auto',background:C.panel,borderRadius:'16px',padding:'20px 20px 18px',boxShadow:'0 30px 70px -20px rgba(0,0,0,.6)'}},
+          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}},
+            el('div',{style:{fontFamily:"'Newsreader',serif",fontSize:'21px',color:C.cream}},'Additional Accounts'),
+            el('button',{type:'button',onClick:()=>this.closeOthers(),style:{background:'none',border:'none',color:C.muted,fontSize:'22px',lineHeight:1,cursor:'pointer',padding:'0 4px'}},'\u00D7')),
+          el('table',{style:{width:'100%',borderCollapse:'collapse'}},
+            el('thead',null,el('tr',null,
+              el('th',{style:th},'Account'),
+              el('th',{style:{...th,textAlign:'right'}},'Balance'))),
+            el('tbody',null, ...bodyRows)),
+          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:'12px',paddingTop:'12px',borderTop:'1px solid '+C.sage}},
+            el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:C.sage,fontWeight:700}},'Total'),
+            el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(othersSum)))));
+    }
+
     return {
       onRun: () => this.onRun(),
       pieChart,
       runControls,
       pasteBox,
       billsModal,
+      othersModal,
       commitBar,
       payPeriodStr: S.payPeriodStr || '—',
       totalAssetsStr: money(S.totalAssets!=null ? S.totalAssets : totalBank),
