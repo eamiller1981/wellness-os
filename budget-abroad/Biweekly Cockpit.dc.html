@@ -32,7 +32,7 @@
     <span style="color:#B7B1A0;font-size:12px">/</span>
     <a href="Forecast Planner.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Forecast</a>
     <span style="flex:1"></span>
-    <a href="/finances.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">← Finances</a>
+    <a href="/archive/finances-2026-07.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Domestic (archived)</a>
   </nav>
   <div style="background:#232820;border-radius:clamp(16px,4vw,22px);padding:clamp(16px,4vw,26px) clamp(15px,4vw,26px) 30px;box-shadow:0 30px 70px -34px rgba(20,30,22,.55)">
 
@@ -217,16 +217,56 @@ class Component extends DCLogic {
 
   setRunDate(val){ this.setState({ runDate: val, payPeriodStr: this.payPeriodLabel(val), committed:false }); }
 
+  // Static prompt pasted into the finance chat. It targets the newest
+  // Balances-Pending row itself, so it needs no per-run data and can be copied
+  // synchronously inside the click gesture.
+  buildBalancePrompt(){
+    return [
+      'You are updating my abroad budget in Notion. Do these steps in order and report each one:',
+      '',
+      '1) Using the finance/Plaid connector, read my CURRENT balance for each account (identified by the last 4 digits of the account number):',
+      '   Banks — 7419, 7397, 0741, 9176, 0458, 7889, and 8568 (Schwab Investor Checking; use mask 8568 ONLY \u2014 ignore any Equity Awards / Beneficiary accounts).',
+      '   Credit cards — 0074 (Venture), 9722 (Altitude Connect), 1375 (USAA Credit), 9379 (Ulta), 3611 (Prime Visa).',
+      '',
+      '2) In the Notion database "\uD83D\uDCB8 Budget Run", find the one row whose "Balances Pending" checkbox is TRUE (if several, use the newest by Paydate). If none exists yet, wait ~10 seconds and re-check \u2014 the web app is creating it. Read that row\u2019s Paydate; the pay period is Paydate (inclusive) through Paydate + 14 days (exclusive).',
+      '',
+      '3) Compute the Schwab period spend = sum of posted, positive (outgoing) transactions on the Schwab account (mask 8568) dated inside that pay-period window (start inclusive, end exclusive). Include transfers.',
+      '',
+      '4) Write these NUMBER properties on that Budget Run row (use these EXACT names, plain numbers \u2014 no $ or commas, and do not touch any other property):',
+      '   7419 Main, 7397 Savings, 0741 Special Svgs, 9176 Liz COH, 0458 Matt COH, 7889 Logan COH, 8568 Schwab (= current Schwab balance), 0074 Venture, 9722 Altitude Connect, 1375 USAA Credit, 9379 Ulta, 3611 Prime Visa, and 8568 Schwab Spend (= the Schwab period spend from step 3).',
+      '',
+      '5) Read the row back and confirm all 13 numbers were written correctly.',
+      '',
+      '6) FINAL step: set that row\u2019s "Balances Pending" checkbox to FALSE. This tells the web app you are done.'
+    ].join('\n');
+  }
+
   onRun(){
     if(this.state.running) return;
     const rd = this.state.runDate;
     if(!rd){ this.setState({ status:'Enter a run date first.', statusErr:true }); return; }
     if(!window.BudgetAbroad){ this.setState({ status:'Notion unavailable.', statusErr:true }); return; }
-    this.setState({ running:true, committed:false, status:'Creating pay period in Notion…', statusErr:false });
+
+    // Synchronous (inside the click gesture): copy the prompt + open the finance chat.
+    // Both clipboard writes and window.open need an active user gesture, so they must
+    // run before any await. The prompt is static, so no Notion round-trip is needed here.
+    const CHATGPT_FINANCE_URL = 'https://chatgpt.com/c/6a4823b7-825c-83ea-9798-9bd5c620cfb1';
+    const prompt = this.buildBalancePrompt();
+    let copied = false;
+    try { if(navigator.clipboard){ navigator.clipboard.writeText(prompt).catch(()=>{}); copied = true; } } catch(_e){}
+    const win = window.open(CHATGPT_FINANCE_URL + '?q=' + encodeURIComponent(prompt), '_blank');
+
+    this.setState({
+      running:true, committed:false, statusErr:false,
+      status: (win ? 'Opened your finance chat. ' : 'Popup blocked \u2014 open your finance chat manually. ') +
+              (copied ? 'The prompt is on your clipboard; paste (Ctrl+V) and send if it didn\u2019t auto-fill.' : 'Copy the prompt into that chat manually.')
+    });
+
+    // Async (after the gesture): prep the pending run in Notion, then poll for balances.
     window.BudgetAbroad.createPendingRun(rd).then(({pageId, requestId})=>{
-      this.setState({ currentRunId:pageId, requestId, status:'Waiting for balances from ChatGPT/Plaid…' });
+      this.setState({ currentRunId:pageId, requestId });
       return window.BudgetAbroad.pollBalances(pageId, (n)=>{
-        this.setState({ status:'Waiting for balances… (check '+(n+1)+')' });
+        this.setState({ status:'Waiting for ChatGPT to write balances to Notion… (check '+(n+1)+')' });
       });
     }).then((pg)=>{
       if(!pg){ this.setState({ running:false, status:'Timed out waiting for balances. Try again once the finance chat has run.', statusErr:true }); return; }
