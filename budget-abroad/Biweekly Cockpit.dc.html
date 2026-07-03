@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="../app-auth.js"></script>
+<script src="./notion.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#E7E0D2;font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+  input:focus{outline:none;border-color:#64926F !important}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:#3A4436}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#F6E8D6;cursor:pointer;border:3px solid #64926F}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#F6E8D6;cursor:pointer;border:3px solid #64926F}
+</style>
+</helmet>
+
+<div style="max-width:1020px;margin:0 auto;padding:clamp(10px,3.5vw,26px) clamp(8px,3vw,18px) 52px">
+  <nav style="display:flex;align-items:center;gap:6px;margin-bottom:14px;padding:0 2px">
+    <a href="Dashboard.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Dashboard</a>
+    <span style="color:#B7B1A0;font-size:12px">/</span>
+    <span style="font-size:13px;font-weight:700;color:#F6E8D6;background:#232820;padding:7px 13px;border-radius:9px">Biweekly</span>
+    <span style="color:#B7B1A0;font-size:12px">/</span>
+    <a href="Forecast Planner.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Forecast</a>
+    <span style="flex:1"></span>
+    <a href="/finances.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">← Finances</a>
+  </nav>
+  <div style="background:#232820;border-radius:clamp(16px,4vw,22px);padding:clamp(16px,4vw,26px) clamp(15px,4vw,26px) 30px;box-shadow:0 30px 70px -34px rgba(20,30,22,.55)">
+
+    <!-- HEADER: Pay Period + Run Date + Total Assets -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px 26px;padding-bottom:20px;border-bottom:1px solid #3A4436">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px 22px">{{ runControls }}</div>
+      <div style="text-align:right">
+        <div style="font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#9DA394;font-weight:600">Total Assets</div>
+        <div class="num" style="font-family:'Newsreader',serif;font-size:clamp(26px,7vw,33px);color:#F6E8D6;margin-top:1px">{{ totalAssetsStr }}</div>
+        <div style="font-size:11px;color:#9DA394;margin-top:5px">Pay Period <span class="num" style="color:#C6CBBC;font-weight:600">{{ payPeriodStr }}</span></div>
+      </div>
+    </div>
+
+    <!-- STAT TILES -->
+    <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:11px">{{ tiles }}</div>
+
+    <!-- ACCOUNT BALANCES + CREDIT CARDS -->
+    <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+      <div style="background:#2C332A;border-radius:14px;padding:17px 18px 14px;display:flex;flex-direction:column">
+        <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500;color:#F6E8D6;margin-bottom:8px">Account Balances</div>
+        {{ bankRows }}
+      </div>
+      <div style="background:#2C332A;border-radius:14px;padding:17px 18px 14px;display:flex;flex-direction:column">
+        <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500;color:#F6E8D6;margin-bottom:8px">Balances Owed</div>
+        {{ cardRows }}
+      </div>
+    </div>
+
+    <!-- FAMILY EXPENSES + BREAKDOWN -->
+    <div style="margin-top:16px;background:#2C332A;border-radius:14px;padding:17px 18px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:18px 28px">
+      <div style="display:flex;flex-direction:column">
+        <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500;color:#F6E8D6;margin-bottom:8px">Family Expenses</div>
+        {{ familyRows }}
+      </div>
+      <div style="display:flex;flex-direction:column">
+        <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500;color:#F6E8D6;margin-bottom:8px">This Pay Period Distribution</div>
+        {{ pieChart }}
+      </div>
+    </div>
+
+    <!-- SAVINGS ALLOCATIONS (sliders) -->
+    <div style="margin-top:16px;background:#2C332A;border-radius:14px;padding:18px 18px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500;color:#F6E8D6">Savings Allocations</div>
+        <div style="display:flex;align-items:center;gap:10px;background:#64926F;border-radius:999px;padding:8px 16px">
+          <span style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#DCE9DE;font-weight:600">Remainder</span>
+          <span class="num" style="font-family:'Newsreader',serif;font-size:19px;color:#F6E8D6">{{ remainderStr }}</span>
+        </div>
+      </div>
+      {{ allocSliders }}
+      {{ balancePill }}
+      {{ commitBar }}
+    </div>
+
+    <!-- MONEY MAP -->
+    <div style="margin-top:16px;background:#2C332A;border-radius:14px;padding:18px 18px 16px;display:flex;flex-direction:column">
+      <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500;color:#F6E8D6;margin-bottom:14px">Money Map</div>
+      {{ mapRows }}
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1020,&quot;height&quot;:1500}}">
+class Component extends DCLogic {
+  state = {
+    bank: [
+      ['7419','Main','4173.31'],
+      ['7397','Savings','1500.00'],
+      ['0741','Emergency Fund','1700.00'],
+      ['9176','Liz COH (Lodging)','0.01'],
+      ['0458','Matt COH (Transit)','0.01'],
+      ['7889','Logan COH','300.00'],
+      ['8568','Schwab','2450.00'],
+    ],
+    cards: [
+      ['0074','Venture','842.15'],
+      ['9722','Altitude Connect','1203.60'],
+      ['1375','USAA Credit','456.90'],
+      ['9379','Ulta','78.44'],
+      ['3611','Prime Visa','312.08'],
+    ],
+    family: [
+      ['7419','Daily Expenses','500.00'],
+      ['8568','Schwab','200.00'],
+      ['6374','Logan','300.00'],
+      ['3536','Mom and Papa','150.00'],
+    ],
+    bills: '1499.51',
+    alloc: { savings:40, emergency:40, buffer:20 },
+    // ---- live-wiring state ----
+    loaded: false,
+    currentRunId: null,
+    requestId: null,
+    runDate: new Date().toISOString().split('T')[0],
+    payPeriodStr: '—',
+    totalAssets: null,
+    status: '',
+    statusErr: false,
+    running: false,
+    committing: false,
+    committed: false,
+  };
+
+  componentDidMount(){
+    if(!window.BudgetAbroad) return;
+    Promise.all([
+      window.BudgetAbroad.loadCurrentRun().catch(()=>null),
+      window.BudgetAbroad.loadForecastBase().catch(()=>null),
+      window.BudgetAbroad.loadAllocPercents().catch(()=>null),
+    ]).then(([run, base, pct])=>{
+      const patch = { loaded:true };
+      if(pct) patch.alloc = pct;
+      if(run){
+        patch.currentRunId = run.pageId;
+        patch.totalAssets = run.totalAssets;
+        if(run.paydate) patch.runDate = run.paydate;
+        patch.bills = (run.billsLive!=null ? run.billsLive : 0).toFixed(2);
+        patch.bank = [
+          ['7419','Main', (run.bank['7419']||0).toFixed(2)],
+          ['7397','Savings', (run.bank['7397']||0).toFixed(2)],
+          ['0741','Emergency Fund', (run.bank['0741']||0).toFixed(2)],
+          ['9176','Liz COH (Lodging)', (run.bank['9176']||0).toFixed(2)],
+          ['0458','Matt COH (Transit)', (run.bank['0458']||0).toFixed(2)],
+          ['7889','Logan COH', (run.bank['7889']||0).toFixed(2)],
+          ['8568','Schwab', (run.bank['8568']||0).toFixed(2)],
+        ];
+        patch.cards = [
+          ['0074','Venture', (run.cards['0074']||0).toFixed(2)],
+          ['9722','Altitude Connect', (run.cards['9722']||0).toFixed(2)],
+          ['1375','USAA Credit', (run.cards['1375']||0).toFixed(2)],
+          ['9379','Ulta', (run.cards['9379']||0).toFixed(2)],
+          ['3611','Prime Visa', (run.cards['3611']||0).toFixed(2)],
+        ];
+      }
+      // planned daily/travel/family for the period matching the run date
+      const rd = patch.runDate || this.state.runDate;
+      const planned = this.matchPlanned(base, rd);
+      if(planned){
+        patch.family = [
+          ['7419','Daily Expenses', planned.daily.toFixed(2)],
+          ['8568','Schwab', (run && run.schwabSpend ? run.schwabSpend : 0).toFixed(2)],
+          ['6374','Logan', (run && run.family['6374'] ? run.family['6374'] : planned.familyLogan).toFixed(2)],
+          ['3536','Mom and Papa', (run && run.family['3536'] ? run.family['3536'] : planned.familyMomPapa).toFixed(2)],
+        ];
+        patch.payPeriodStr = planned.periodLabel;
+      } else {
+        patch.payPeriodStr = this.payPeriodLabel(rd);
+      }
+      this.setState(patch);
+    }).catch((e)=>{ console.warn('[budget-abroad] cockpit load failed', e); this.setState({ loaded:true }); });
+  }
+
+  // find the forecast period whose window contains (or is nearest) the run date
+  matchPlanned(base, runDate){
+    if(!base || !base.length || !runDate) return null;
+    const rd = new Date(runDate.slice(0,10).replace(/-/g,'/'));
+    let best=null, bestDiff=Infinity;
+    base.forEach((r)=>{
+      if(!r.start) return;
+      const diff = Math.abs(r.start.getTime() - rd.getTime());
+      if(diff < bestDiff){ bestDiff=diff; best=r; }
+    });
+    if(!best) return null;
+    return {
+      daily: best.daily||0,
+      travel: best.travel||0,
+      familyLogan: (best.family||0) * 0.5,   // split family evenly if not separately tracked
+      familyMomPapa: (best.family||0) * 0.5,
+      periodLabel: this.payPeriodLabel(best.start)
+    };
+  }
+
+  payPeriodLabel(d){
+    if(!d) return '—';
+    const s = (d instanceof Date) ? d : new Date(String(d).slice(0,10).replace(/-/g,'/'));
+    if(isNaN(s.getTime())) return '—';
+    const e = new Date(s.getTime() + 13*864e5);
+    const f = x => x.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    return f(s) + ' – ' + e.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  }
+
+  setRunDate(val){ this.setState({ runDate: val, payPeriodStr: this.payPeriodLabel(val), committed:false }); }
+
+  onRun(){
+    if(this.state.running) return;
+    const rd = this.state.runDate;
+    if(!rd){ this.setState({ status:'Enter a run date first.', statusErr:true }); return; }
+    if(!window.BudgetAbroad){ this.setState({ status:'Notion unavailable.', statusErr:true }); return; }
+    this.setState({ running:true, committed:false, status:'Creating pay period in Notion…', statusErr:false });
+    window.BudgetAbroad.createPendingRun(rd).then(({pageId, requestId})=>{
+      this.setState({ currentRunId:pageId, requestId, status:'Waiting for balances from ChatGPT/Plaid…' });
+      return window.BudgetAbroad.pollBalances(pageId, (n)=>{
+        this.setState({ status:'Waiting for balances… (check '+(n+1)+')' });
+      });
+    }).then((pg)=>{
+      if(!pg){ this.setState({ running:false, status:'Timed out waiting for balances. Try again once the finance chat has run.', statusErr:true }); return; }
+      // reload the freshly-populated run
+      return window.BudgetAbroad.loadCurrentRun().then((run)=>{
+        const patch = { running:false, status:'✔ Balances received. Review and Commit.', statusErr:false };
+        if(run){
+          patch.currentRunId = run.pageId;
+          patch.totalAssets = run.totalAssets;
+          patch.bills = (run.billsLive!=null ? run.billsLive : 0).toFixed(2);
+          patch.bank = [
+            ['7419','Main', (run.bank['7419']||0).toFixed(2)],
+            ['7397','Savings', (run.bank['7397']||0).toFixed(2)],
+            ['0741','Emergency Fund', (run.bank['0741']||0).toFixed(2)],
+            ['9176','Liz COH (Lodging)', (run.bank['9176']||0).toFixed(2)],
+            ['0458','Matt COH (Transit)', (run.bank['0458']||0).toFixed(2)],
+            ['7889','Logan COH', (run.bank['7889']||0).toFixed(2)],
+            ['8568','Schwab', (run.bank['8568']||0).toFixed(2)],
+          ];
+          patch.cards = [
+            ['0074','Venture', (run.cards['0074']||0).toFixed(2)],
+            ['9722','Altitude Connect', (run.cards['9722']||0).toFixed(2)],
+            ['1375','USAA Credit', (run.cards['1375']||0).toFixed(2)],
+            ['9379','Ulta', (run.cards['9379']||0).toFixed(2)],
+            ['3611','Prime Visa', (run.cards['3611']||0).toFixed(2)],
+          ];
+        }
+        this.setState(patch);
+      });
+    }).catch((err)=>{
+      this.setState({ running:false, status:'Error: '+err.message, statusErr:true });
+    });
+  }
+
+  // Commit: PATCH dollar amounts from ALL editable fields to the current run, then lock.
+  onCommit(ctx){
+    if(this.state.committing) return;
+    if(!this.state.currentRunId){ this.setState({ status:'Run a pay period first (no current run).', statusErr:true }); return; }
+    if(!ctx.balOk){ this.setState({ status:'⚠ Balance must be $0.00 before committing. Currently '+ctx.balanceStr, statusErr:true }); return; }
+    const S = this.state, n = s => parseFloat(s)||0;
+    const props = {
+      '7397 Savings':      { number: ctx.dSav },
+      '0741 Special Svgs': { number: ctx.dEmg },
+      '7419 Main':         { number: n(S.bank[0][2]) },
+      'Less Bills':        { number: n(S.bills) },
+      '6374 Logan':        { number: n(S.family[2][2]) },
+      '3536 Mom and Papa': { number: n(S.family[3][2]) },
+      '8568 Schwab Spend': { number: n(S.family[1][2]) },
+    };
+    this.setState({ committing:true, status:'Committing to Notion…', statusErr:false });
+    window.BudgetAbroad.commitRun(this.state.currentRunId, props).then(()=>{
+      this.setState({ committing:false, committed:true, status:'✔ Committed and locked.', statusErr:false });
+    }).catch((err)=>{
+      this.setState({ committing:false, status:'Commit failed: '+err.message, statusErr:true });
+    });
+  }
+
+  setNum(section,i,val){
+    const arr = this.state[section].map(r=>r.slice());
+    arr[i][2] = val;
+    this.setState({ [section]: arr, committed:false });
+  }
+  setPct(key,val){
+    let p = parseFloat(val); if(isNaN(p)) p=0; p=Math.max(0,Math.min(100,p));
+    this.setState({ alloc: { ...this.state.alloc, [key]: p }, committed:false });
+  }
+  setDollar(key,val,remainder){
+    const d = parseFloat(val)||0;
+    const p = remainder>0 ? Math.max(0,Math.min(100,(d/remainder)*100)) : 0;
+    this.setState({ alloc: { ...this.state.alloc, [key]: p }, committed:false });
+  }
+
+  renderVals(){
+    const el = React.createElement;
+    const n = s => parseFloat(s)||0;
+    const money = v => (v<0?'-$':'$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const C = { panel:'#2C332A', line:'rgba(255,255,255,.07)', cream:'#F6E8D6', text:'#E7E3D8', muted:'#9DA394', mid:'#64926F', midL:'#8FB39C', sage:'#ABC49C', mauve:'#C39AA0', mauveD:'#875C62' };
+    const S = this.state;
+    const balById = {}; S.bank.forEach(r=>balById[r[0]]=n(r[2]));
+
+    // ---- totals
+    const totalBank = S.bank.reduce((a,r)=>a+n(r[2]),0);
+    const totalCards = S.cards.reduce((a,r)=>a+n(r[2]),0);
+    const daily = n(S.family[0][2]), schwabSpend = n(S.family[1][2]), logan = n(S.family[2][2]), momPapa = n(S.family[3][2]);
+    const familyTile = logan + momPapa;
+    const spendTile = daily + schwabSpend;
+    const income = totalBank, bills = n(S.bills);
+    const free = income - bills - familyTile - spendTile;
+    const remainder = free;
+    const dSav = remainder * S.alloc.savings/100;
+    const dEmg = remainder * S.alloc.emergency/100;
+    const dBuf = remainder * S.alloc.buffer/100;
+    const balance = remainder - (dSav+dEmg+dBuf);
+
+    const runDateStr = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const inpStyle = { width:'92px', background:'#1D221B', border:'1px solid #445040', borderRadius:'7px', color:C.cream, fontSize:'15px', fontFamily:'inherit', padding:'8px 9px', textAlign:'right', fontVariantNumeric:'tabular-nums' };
+
+    // ---- account rows factory
+    const rowList = (section, accent, total, totalLabel, extra, bottomAlign, preTotalRows) => {
+      const rows = S[section].map((r,i)=>el('div',{key:r[0],style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderTop:i?'1px solid '+C.line:'none'}},
+        el('div',{style:{flex:1,minWidth:0}},
+          el('div',{style:{fontSize:'13px',color:C.text,lineHeight:1.2}},r[1]),
+          el('div',{className:'num',style:{fontSize:'10.5px',color:C.muted}},'*'+r[0])),
+        el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
+        el('input',{value:r[2],inputMode:'decimal',onChange:e=>this.setNum(section,i,e.target.value),style:inpStyle})));
+      const totalBlock = [el('div',{key:'tl',style:{display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
+        el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:accent,fontWeight:700}},totalLabel),
+        el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(total)))];
+      if(extra) totalBlock.push(el('div',{key:'ex',style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:'9px'}},
+        el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:C.sage,fontWeight:700}},extra[0]),
+        el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(extra[1]))));
+      if(preTotalRows) preTotalRows.forEach(pr=>rows.push(pr));
+      rows.push(el('div',{key:'__t',style:{marginTop:bottomAlign?'auto':'10px',paddingTop:'12px',borderTop:'1px solid '+accent}},...totalBlock));
+      return rows;
+    };
+    const bankRows = rowList('bank', C.sage, totalBank, 'Total in bank');
+    const billsRow = el('div',{key:'__bills',style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderTop:'1px solid '+C.line}},
+      el('div',{style:{flex:1,minWidth:0}},
+        el('div',{style:{fontSize:'13px',color:C.text,lineHeight:1.2}},'Bills'),
+        el('div',{style:{fontSize:'10.5px',color:C.muted}},'due this period')),
+      el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
+      el('input',{value:S.bills,inputMode:'decimal',onChange:e=>this.setState({bills:e.target.value}),style:inpStyle}));
+    const totalOwed = totalCards + bills;
+    const cardRows = rowList('cards', C.mauve, totalOwed, 'Total owed', ['Total remainder', totalBank-totalOwed], true, [billsRow]);
+
+    // ---- family rows
+    const familyRows = S.family.map((r,i)=>el('div',{key:r[0],style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderTop:i?'1px solid '+C.line:'none'}},
+      el('div',{style:{flex:1,minWidth:0}},
+        el('div',{style:{fontSize:'13px',color:C.text,lineHeight:1.2}},r[1]),
+        el('div',{className:'num',style:{fontSize:'10.5px',color:C.muted}},'*'+r[0])),
+      el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
+      el('input',{value:r[2],inputMode:'decimal',onChange:e=>this.setNum('family',i,e.target.value),style:inpStyle})));
+    const famTotal = daily + logan + momPapa + schwabSpend;
+    familyRows.push(el('div',{key:'__ft',style:{marginTop:'10px',paddingTop:'12px',borderTop:'1px solid '+C.mauve}},
+      el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
+        el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:C.mauve,fontWeight:700}},'Total Allocated'),
+        el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(famTotal))),
+      el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:'9px'}},
+        el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:C.sage,fontWeight:700}},'Total remaining'),
+        el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(free)))));
+
+    // ---- breakdown donut
+    const slices = [
+      {label:'Savings', short:'Svgs', val: dSav+dEmg+dBuf, color:C.sage},
+      {label:'Bills', short:'Bills', val: bills, color:C.mauve},
+      {label:'Family', short:'Family', val: familyTile, color:C.mid},
+      {label:'Spending', short:'Spend', val: daily + schwabSpend, color:C.cream},
+    ].filter(s=>s.val>0.005);
+    const pieTotal = slices.reduce((a,s)=>a+s.val,0) || 1;
+    let acc = 0;
+    const stops = slices.map(s=>{ const start=acc/pieTotal*100; acc+=s.val; const end=acc/pieTotal*100; return `${s.color} ${start}% ${end}%`; }).join(',');
+    const donut = el('div',{'data-om-raster':true,style:{position:'relative',width:'200px',height:'200px',flex:'none',borderRadius:'50%',background:`conic-gradient(${stops})`}},
+      el('div',{style:{position:'absolute',inset:'42px',borderRadius:'50%',background:C.panel,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}},
+        el('div',{style:{fontSize:'9px',letterSpacing:'.1em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Total'),
+        el('div',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'21px',color:C.cream}},money(pieTotal))));
+    // col 1: donut + horizontal legend beneath
+    const hLegend = el('div',{style:{display:'flex',flexWrap:'nowrap',justifyContent:'center',gap:'10px'}},
+      ...slices.map((s,i)=>el('div',{key:i,style:{display:'flex',alignItems:'center',gap:'5px'}},
+        el('span',{style:{width:'8px',height:'8px',borderRadius:'2px',background:s.color,flex:'none'}}),
+        el('span',{style:{fontSize:'11px',color:C.text,whiteSpace:'nowrap'}},s.short))));
+    const pieCol = el('div',{style:{flex:'1 1 200px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'16px'}}, donut, hLegend);
+    // col 2: percentage (bold, first) + dollars
+    const valCol = el('div',{style:{flex:'1 1 150px',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'12px'}},
+      ...slices.map((s,i)=>el('div',{key:i,style:{width:'100%',maxWidth:'210px',display:'flex',alignItems:'baseline',gap:'10px',borderBottom:i<slices.length-1?'1px solid '+C.line:'none',paddingBottom:i<slices.length-1?'11px':'0'}},
+        el('span',{style:{width:'9px',height:'9px',borderRadius:'2px',background:s.color,flex:'none',alignSelf:'center'}}),
+        el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'21px',fontWeight:600,color:C.cream,minWidth:'52px'}},(s.val/pieTotal*100).toFixed(0)+'%'),
+        el('span',{className:'num',style:{fontSize:'13px',color:C.muted,marginLeft:'auto'}},money(s.val)))));
+    const pieChart = el('div',{style:{flex:1,display:'flex',flexWrap:'wrap',alignItems:'center',gap:'20px 26px',paddingTop:'6px'}}, pieCol, valCol);
+
+    // ---- tiles
+    const tile = (label,val,accent,hl) => el('div',{key:label,style:{background:hl?'#37402F':C.panel,borderRadius:'12px',padding:'13px 14px',outline:hl?'1px solid #6B8760':'none'}},
+      el('div',{style:{fontSize:'9.5px',letterSpacing:'.09em',textTransform:'uppercase',color:accent,fontWeight:700}},label),
+      el('div',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'clamp(17px,4.6vw,22px)',whiteSpace:'nowrap',color:hl?C.cream:C.text,marginTop:'4px'}},val));
+    const tiles = [
+      tile('Total Assets', money(income), C.midL),
+      tile('Bills', '– '+money(bills), C.mauve),
+      tile('Family', '– '+money(daily + logan + momPapa + schwabSpend), C.mauve),
+      tile('Credit Cards', '– '+money(totalOwed - bills), C.mauve),
+      tile('Savings', '– '+money(dSav+dEmg+dBuf), C.mauve),
+    ];
+
+    // ---- allocation sliders (sub-label = destination account id only)
+    const cats = [
+      ['savings','Savings','7397', C.sage, dSav],
+      ['emergency','Emergency Fund','0741', C.midL, dEmg],
+      ['buffer','USAA Buffer','7419', C.mauve, dBuf],
+    ];
+    const allocSliders = cats.map(([key,title,acctId,accent,dollars])=>el('div',{key,style:{background:'#242A22',border:'1px solid '+C.line,borderRadius:'12px',padding:'11px 14px',marginBottom:'8px',display:'flex',alignItems:'center',flexWrap:'wrap',gap:'8px 14px'}},
+      el('div',{style:{flex:'1 1 130px',minWidth:0}},
+        el('div',{style:{fontSize:'14px',color:C.cream,fontWeight:600}},title),
+        el('div',{className:'num',style:{fontSize:'11px',letterSpacing:'.06em',color:C.muted}},'*'+acctId)),
+      el('input',{type:'range',min:0,max:100,value:S.alloc[key],onChange:e=>this.setPct(key,e.target.value),style:{flex:'1 1 120px',accentColor:accent}}),
+      el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}},
+        el('input',{value:Math.round(S.alloc[key]),inputMode:'decimal',onChange:e=>this.setPct(key,e.target.value),style:{...inpStyle,width:'52px'}}),
+        el('span',{style:{color:C.muted,fontSize:'12px'}},'%')),
+      el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}},
+        el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
+        el('input',{value:dollars.toFixed(2),inputMode:'decimal',onChange:e=>this.setDollar(key,e.target.value,remainder),style:{...inpStyle,width:'88px'}}))));
+
+    const balOk = Math.abs(balance) < 0.005;
+    const balancePill = el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px',background:balOk?'#2E3A2C':'#3A2C2E',border:'1px solid '+(balOk?C.mid:C.mauveD),borderRadius:'999px',padding:'11px 18px'}},
+      el('span',{style:{fontSize:'11px',letterSpacing:'.1em',textTransform:'uppercase',color:balOk?C.sage:C.mauve,fontWeight:700}},balOk?'Fully allocated':'Balance unassigned'),
+      el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'20px',color:C.cream}},money(balance)));
+
+    // ---- money map: from varies per row (backend-determined); target = dest balance after transfer.
+    // Same-account moves are omitted (buffer stays put; daily spending stays in Main).
+    const rawMap = [
+      {fromId:'7419',fromName:'Main', toId:'7397',toName:'Savings', amt:dSav, tag:'Savings', color:C.sage, external:false},
+      {fromId:'7419',fromName:'Main', toId:'0741',toName:'Emergency Fund', amt:dEmg, tag:'Emergency', color:C.midL, external:false},
+      {fromId:'7419',fromName:'Main', toId:'7889',toName:'Logan COH', amt:logan, tag:'Family', color:C.mauve, external:true},
+      {fromId:'7419',fromName:'Main', toId:'3536',toName:'Mom & Papa', amt:momPapa, tag:'Family', color:C.mauve, external:true},
+      {fromId:'7419',fromName:'Main', toId:'8568',toName:'Schwab', amt:schwabSpend, tag:'Spending', color:C.sage, external:false},
+    ].filter(m=>m.fromId!==m.toId && m.amt>0.005);
+
+    let mapMoved = 0;
+    const mapItems = rawMap.map((m,i)=>{
+      mapMoved += m.amt;
+      const target = (balById[m.toId]||0) + m.amt;
+      return el('div',{key:i,style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'10px 14px',background:'#242A22',borderRadius:'10px',padding:'12px 14px',marginBottom:'8px'}},
+        el('div',{style:{flex:'1 1 190px',minWidth:0,display:'flex',alignItems:'center',gap:'9px'}},
+          el('div',{style:{minWidth:0}},
+            el('div',{style:{fontSize:'12.5px',color:C.text}},m.fromName),
+            el('div',{className:'num',style:{fontSize:'10px',color:C.muted}},'*'+m.fromId)),
+          el('span',{style:{color:m.external?C.mauve:C.mid,fontSize:'16px',flex:'none'}},'→'),
+          el('div',{style:{minWidth:0}},
+            el('div',{style:{fontSize:'12.5px',color:C.cream,fontWeight:600}},m.toName),
+            el('div',{className:'num',style:{fontSize:'10px',color:C.muted}},'*'+m.toId))),
+        el('div',{style:{textAlign:'right',minWidth:'88px'}},
+          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.mauve,fontWeight:700}},'Transfer'),
+          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}},money(m.amt))),
+        el('div',{style:{textAlign:'right',minWidth:'88px'}},
+          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Target'),
+          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.text}},money(target))));
+    });
+    // Unallocated = after-bills pool minus every destination (transferred OR kept in place).
+    const mapRemaining = (income - bills) - (familyTile + spendTile + dSav + dEmg + dBuf);
+    const mapOk = Math.abs(mapRemaining) < 0.005;
+    mapItems.push(el('div',{key:'__mt',style:{marginTop:'auto',paddingTop:'12px',borderTop:'1px solid '+(mapOk?C.sage:C.mauveD),display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
+      el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:mapOk?C.sage:C.mauve,fontWeight:700}},'Unallocated'),
+      el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(mapRemaining))));
+    const mapRows = mapItems;
+
+    // ---- run controls (Run button + editable date + status) ----
+    const runBtnStyle = { flex:'none',background:'#875C62',color:'#F6E8D6',border:'none',borderRadius:'12px',padding:'14px 22px',fontFamily:'inherit',fontSize:'14px',fontWeight:600,letterSpacing:'.03em',cursor:S.running?'default':'pointer',opacity:S.running?0.6:1,boxShadow:'0 6px 16px -8px rgba(135,92,98,.9)' };
+    const dateInputStyle = { background:'#1D221B',border:'1px solid #445040',borderRadius:'10px',color:C.cream,fontSize:'20px',fontFamily:"'Newsreader',serif",padding:'8px 10px',marginTop:'4px',colorScheme:'dark' };
+    const runControls = el('div',{style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'16px 22px'}},
+      el('button',{type:'button',disabled:S.running,onClick:()=>this.onRun(),style:runBtnStyle}, S.running?'Running…':'Run'),
+      el('div',null,
+        el('div',{style:{fontSize:'10.5px',letterSpacing:'.16em',textTransform:'uppercase',color:C.muted,fontWeight:600}},'Run Date'),
+        el('input',{type:'date',value:S.runDate||'',onChange:e=>this.setRunDate(e.target.value),style:dateInputStyle})),
+      S.status ? el('div',{style:{fontSize:'11.5px',maxWidth:'240px',color:S.statusErr?C.mauve:C.sage}}, S.status) : null);
+
+    // ---- commit bar (single explicit writer; locks on commit) ----
+    const ctx = { balOk, dSav, dEmg, dBuf, balanceStr: money(balance) };
+    const commitDisabled = S.committing || !balOk;
+    const commitBtnStyle = { flex:'none',background:balOk?'#64926F':'#3A4436',color:'#F6E8D6',border:'none',borderRadius:'12px',padding:'13px 26px',fontFamily:'inherit',fontSize:'14px',fontWeight:700,letterSpacing:'.03em',cursor:commitDisabled?'default':'pointer',opacity:commitDisabled?0.55:1 };
+    const commitBar = el('div',{style:{display:'flex',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:'10px 16px',marginTop:'12px'}},
+      el('div',{style:{fontSize:'11.5px',color:S.committed?C.sage:(balOk?C.muted:C.mauve)}},
+        S.committed ? '✔ Committed — values locked to the current Budget Run.'
+                    : (balOk ? 'Ready to commit. Writes savings, emergency, buffer + edited daily/travel/family to Notion.'
+                             : 'Balance must be $0.00 before committing.')),
+      el('button',{type:'button',disabled:commitDisabled,onClick:()=>this.onCommit(ctx),style:commitBtnStyle}, S.committing?'Committing…':(S.committed?'Committed':'Commit')));
+
+    return {
+      onRun: () => this.onRun(),
+      pieChart,
+      runControls,
+      commitBar,
+      payPeriodStr: S.payPeriodStr || '—',
+      totalAssetsStr: money(S.totalAssets!=null ? S.totalAssets : totalBank),
+      totalCardsStr: money(totalCards),
+      remainderStr: money(remainder),
+      tiles, bankRows, cardRows, familyRows, allocSliders, balancePill, mapRows,
+    };
+  }
+}
+</script>
+</body>
+</html>

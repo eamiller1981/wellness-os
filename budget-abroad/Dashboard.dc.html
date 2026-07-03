@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="../app-auth.js"></script>
+<script src="./notion.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#E7E0D2;font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+</style>
+</helmet>
+
+<div style="max-width:1020px;margin:0 auto;padding:clamp(10px,3.5vw,26px) clamp(8px,3vw,18px) 52px">
+  <nav style="display:flex;align-items:center;gap:6px;margin-bottom:14px;padding:0 2px">
+    <span style="font-size:13px;font-weight:700;color:#F6E8D6;background:#232820;padding:7px 13px;border-radius:9px">Dashboard</span>
+    <span style="color:#B7B1A0;font-size:12px">/</span>
+    <a href="Biweekly Cockpit.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Biweekly</a>
+    <span style="color:#B7B1A0;font-size:12px">/</span>
+    <a href="Forecast Planner.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Forecast</a>
+    <span style="flex:1"></span>
+    <a href="/finances.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">← Finances</a>
+  </nav>
+
+  <div style="background:#232820;border-radius:clamp(16px,4vw,22px);padding:clamp(16px,4vw,26px) clamp(15px,4vw,26px) 30px;box-shadow:0 30px 70px -34px rgba(20,30,22,.55)">
+
+    <!-- HEADER -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;padding-bottom:20px;border-bottom:1px solid #3A4436">
+      <div>
+        <div style="font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#9DA394;font-weight:600">Miller Budget</div>
+        <div style="font-family:'Newsreader',serif;font-size:clamp(24px,6vw,30px);color:#F6E8D6;margin-top:3px">Dashboard</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#9DA394;font-weight:600">Horizon</div>
+        <div class="num" style="font-family:'Newsreader',serif;font-size:clamp(19px,4.5vw,23px);color:#F6E8D6;margin-top:2px">{{ horizonStr }}</div>
+      </div>
+    </div>
+
+    <!-- FORECAST CHARTS -->
+    <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px">
+      <div style="background:#2C332A;border-radius:14px;padding:18px 18px 12px">
+        <div style="font-family:'Newsreader',serif;font-size:18px;font-weight:500;color:#F6E8D6;margin-bottom:10px">Savings Forecast</div>
+        <div style="display:flex;gap:22px;margin-bottom:10px">
+          <div><div style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#9DA394;font-weight:700;display:flex;align-items:center;gap:5px"><span style="width:12px;height:0;border-top:2.5px solid #8FB39C"></span>Planned</div><div class="num" style="font-family:'Newsreader',serif;font-size:22px;color:#8FB39C;margin-top:2px">{{ endSavStr }}</div></div>
+          <div><div style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#9DA394;font-weight:700;display:flex;align-items:center;gap:5px"><span style="width:12px;height:0;border-top:2px dashed #F6E8D6"></span>Actual to date</div><div class="num" style="font-family:'Newsreader',serif;font-size:22px;color:#F6E8D6;margin-top:2px">{{ savActualStr }}</div></div>
+        </div>
+        {{ savChart }}
+      </div>
+      <div style="background:#2C332A;border-radius:14px;padding:18px 18px 12px">
+        <div style="font-family:'Newsreader',serif;font-size:18px;font-weight:500;color:#F6E8D6;margin-bottom:10px">Emergency Fund Forecast</div>
+        <div style="display:flex;gap:22px;margin-bottom:10px">
+          <div><div style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#9DA394;font-weight:700;display:flex;align-items:center;gap:5px"><span style="width:12px;height:0;border-top:2.5px solid #C39AA0"></span>Planned</div><div class="num" style="font-family:'Newsreader',serif;font-size:22px;color:#C39AA0;margin-top:2px">{{ endEmgStr }}</div></div>
+          <div><div style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#9DA394;font-weight:700;display:flex;align-items:center;gap:5px"><span style="width:12px;height:0;border-top:2px dashed #F6E8D6"></span>Actual to date</div><div class="num" style="font-family:'Newsreader',serif;font-size:22px;color:#F6E8D6;margin-top:2px">{{ emgActualStr }}</div></div>
+        </div>
+        {{ emgChart }}
+      </div>
+    </div>
+
+    <!-- PERIOD-DRIVEN COMPARISONS -->
+    <div style="margin-top:14px;background:#2C332A;border-radius:14px;padding:18px 18px 20px">
+      <div style="font-family:'Newsreader',serif;font-size:18px;font-weight:500;color:#F6E8D6;margin-bottom:4px">Pay Period Stats</div>
+      <div style="font-size:10.5px;color:#9DA394;margin-bottom:12px;display:none"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px">{{ periodChips }}</div>
+
+      <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9DA394;font-weight:700;margin-bottom:11px">Planned vs Actual</div>
+      {{ pva }}
+
+      <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#9DA394;font-weight:700;margin:22px 0 11px">Saved vs Spent</div>
+      {{ svs }}
+    </div>
+
+    <!-- REFLECTION -->
+    <div style="margin-top:14px;background:#2C332A;border-radius:14px;padding:18px 18px 20px">
+      <div style="font-family:'Newsreader',serif;font-size:18px;font-weight:500;color:#F6E8D6;margin-bottom:14px">Trends</div>
+      {{ reflection }}
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1020,&quot;height&quot;:1000}}">
+class Component extends DCLogic {
+  state = { period: 0, base: null, actuals: null, loaded: false };
+  componentDidMount(){
+    if(!window.BudgetAbroad) return;
+    window.BudgetAbroad.loadForecastBase().then((base)=>{
+      if(!base || !base.length){ this.setState({ loaded:true }); return; }
+      this.setState({ base });
+      window.BudgetAbroad.loadActuals(base).then((actuals)=>{
+        this.setState({ actuals, loaded:true });
+      }).catch(()=>this.setState({ actuals:{}, loaded:true }));
+    }).catch((e)=>{ console.warn('[budget-abroad] forecast load failed', e); this.setState({ loaded:true }); });
+  }
+  renderVals(){
+    const el = React.createElement;
+    const money = v => (v<0?'-$':'$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+    const money2 = v => (v<0?'-$':'$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const C = { paper:'#232820', panel:'#2C332A', panel2:'#242A22', line:'rgba(255,255,255,.08)', cream:'#F6E8D6', text:'#E7E3D8', muted:'#9DA394', mid:'#64926F', midL:'#8FB39C', sage:'#ABC49C', mauve:'#C39AA0', mauveD:'#875C62', gold:'#C9B267', slate:'#6E8AA0', plan:'#4A5348' };
+
+    // planned (forecast) per period · six categories — live from Notion, mock fallback
+    const mockBase = [
+      {income:5827, bills:1500, daily:700, travel:200, family:300, rmdr:2926.97},
+      {income:4927, bills:236,  daily:700, travel:200, family:300, rmdr:3576.36},
+      {income:6727, bills:1622, daily:700, travel:2100, family:450, rmdr:2570.27},
+      {income:5827, bills:152,  daily:700, travel:200, family:450, rmdr:4839.05},
+      {income:6727, bills:795,  daily:700, travel:2600, family:450, rmdr:3149.81},
+      {income:5827, bills:951,  daily:700, travel:0, family:450, rmdr:4355.96},
+      {income:6727, bills:839,  daily:700, travel:2670, family:450, rmdr:2939.19},
+      {income:5827, bills:983,  daily:700, travel:200, family:450, rmdr:4081.84},
+      {income:6727, bills:526,  daily:700, travel:2575, family:450, rmdr:3292.37},
+      {income:5827, bills:1261, daily:700, travel:200, family:450, rmdr:3874.47},
+      {income:6727, bills:589,  daily:700, travel:3400, family:450, rmdr:2362.89},
+      {income:5827, bills:1230, daily:700, travel:200, family:450, rmdr:3719.58},
+      {income:6727, bills:191,  daily:700, travel:200, family:450, rmdr:5929.92},
+      {income:5827, bills:1622, daily:700, travel:2200, family:450, rmdr:2040.98},
+    ];
+    const live = this.state.base;
+    const base = (live && live.length) ? live : mockBase;
+    const startDate = i => (base[i] && base[i].start) ? base[i].start : new Date(2026, 5, 18 + i*14);
+    const fmtLong = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const fmtShort = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+    let cumSav=1500, cumEmg=1700;
+    const savSeries=[], emgSeries=[];
+    const rows = base.map((r,i)=>{
+      const sav=r.rmdr*0.4, emg=r.rmdr*0.4;
+      cumSav+=sav; cumEmg+=emg; savSeries.push(cumSav); emgSeries.push(cumEmg);
+      return {...r, i, sav, emg, start:startDate(i), pnum:(r.period||('P'+(i+2)))};
+    });
+    const endSav=cumSav, endEmg=cumEmg;
+    const horizonStr = fmtLong(startDate(0))+' – '+fmtLong(new Date(startDate(rows.length-1).getTime()+13*864e5));
+
+    // actuals from biweekly budget — recorded for elapsed periods only.
+    // Live from Notion once loaded; mock shown only during initial load.
+    const mockActuals = {
+      0:{bills:1499.51, daily:700, travel:200, family:300, sav:1170.79, emg:1170.79},
+      1:{bills:255.40,  daily:640, travel:180, family:300, sav:1402.00, emg:1402.00},
+      2:{bills:1588.00, daily:735, travel:1980, family:450, sav:1010.00, emg:1028.11},
+    };
+    const actuals = this.state.loaded ? (this.state.actuals || {}) : mockActuals;
+
+    // actual cumulative (recorded periods only)
+    let cumSavA=1500, cumEmgA=1700; const savActual=[], emgActual=[];
+    for(let i=0;i<rows.length;i++){ if(actuals[i]==null) break; cumSavA+=actuals[i].sav; cumEmgA+=actuals[i].emg; savActual.push(cumSavA); emgActual.push(cumEmgA); }
+
+    // ===== forecast area chart =====
+    const areaChart = (series,color,shade,actualSeries)=>{
+      shade = shade||color;
+      const w=300,h=150,pad={l:34,r:8,t:12,b:20},n=series.length,max=Math.max(...series,...(actualSeries||[0]));
+      const X=i=>pad.l+(i/(n-1))*(w-pad.l-pad.r), Y=v=>h-pad.b-(v/max)*(h-pad.t-pad.b);
+      const line=series.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+      const area=`${line} L${X(n-1).toFixed(1)},${h-pad.b} L${X(0).toFixed(1)},${h-pad.b} Z`;
+      const gid='g'+color.slice(1)+shade.slice(1);
+      const grid=[0,0.5,1].map(f=>{const v=max*f,y=Y(v);return el('g',{key:f},
+        el('line',{x1:pad.l,y1:y,x2:w-pad.r,y2:y,stroke:C.line,strokeWidth:1}),
+        el('text',{x:pad.l-6,y:y+3,textAnchor:'end',fontSize:8.5,fill:C.muted,className:'num'},'$'+Math.round(v/1000)+'k'));});
+      const xl=series.map((v,i)=>((i%3===0 && i<=n-3)||i===n-1)?el('text',{key:i,x:X(i),y:h-pad.b+13,textAnchor:i===0?'start':(i===n-1?'end':'middle'),fontSize:7.5,fill:C.muted},fmtShort(rows[i].start)):null);
+      const aLine = (actualSeries&&actualSeries.length>1) ? actualSeries.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ') : null;
+      return el('svg',{width:'100%',viewBox:`0 0 ${w} ${h}`,style:{display:'block'},'data-om-raster':true},
+        el('defs',null,el('linearGradient',{id:gid,x1:0,y1:0,x2:0,y2:1},
+          el('stop',{offset:'0%',stopColor:shade,stopOpacity:.5}), el('stop',{offset:'100%',stopColor:shade,stopOpacity:.04}))),
+        ...grid,
+        el('path',{d:area,fill:`url(#${gid})`}),
+        el('path',{d:line,fill:'none',stroke:color,strokeWidth:2.5,strokeLinejoin:'round'}),
+        ...series.map((v,i)=>el('circle',{key:'d'+i,cx:X(i),cy:Y(v),r:2,fill:color})),
+        aLine?el('path',{key:'al',d:aLine,fill:'none',stroke:C.cream,strokeWidth:2,strokeDasharray:'4 3',strokeLinejoin:'round'}):null,
+        ...(actualSeries||[]).map((v,i)=>el('circle',{key:'ad'+i,cx:X(i),cy:Y(v),r:2.4,fill:C.cream})), ...xl);
+    };
+    const savChart=areaChart(savSeries,C.midL,C.midL,savActual);
+    const emgChart=areaChart(emgSeries,C.mauve,C.mauve,emgActual);
+
+    // ===== period chips =====
+    const sel=this.state.period;
+    const periodChips=rows.map((r,i)=>{
+      const hasAct=actuals[i]!=null; const on=i===sel;
+      return el('button',{key:i,onClick:()=>this.setState({period:i}),style:{border:'none',cursor:'pointer',fontFamily:'inherit',borderRadius:'8px',padding:'6px 10px',background:on?C.gold:C.panel2,color:on?'#232820':(hasAct?C.text:C.muted),fontSize:'11px',fontWeight:on?700:500,position:'relative'}},
+        fmtShort(r.start),
+        hasAct?el('span',{style:{display:'inline-block',width:'5px',height:'5px',borderRadius:'50%',background:on?'#232820':C.gold,marginLeft:'5px',verticalAlign:'middle'}}):null);
+    });
+
+    // ===== planned vs actual =====
+    const cats=[['Bills','bills',C.mauve],['Daily','daily',C.mauveD],['Travel','travel',C.slate],['Family','family',C.mid],['Savings','sav',C.gold],['Emergency','emg',C.midL]];
+    const r=rows[sel]; const act=actuals[sel];
+    const planOf=k=>k==='sav'?r.sav:(k==='emg'?r.emg:r[k]);
+    const maxVal=Math.max(...cats.map(([l,k])=>Math.max(planOf(k), act?act[k]:0)))||1;
+    const rowsPVA=cats.map(([lab,key,col],i)=>{
+      const p=planOf(key), a=act?act[key]:null;
+      const dv=a==null?null:(Math.abs(p-a)<0.005?0:p-a);
+      const barP=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+        el('div',{style:{flex:1,height:'9px',background:'#1E241C',borderRadius:'5px',overflow:'hidden'}},
+          el('div',{style:{width:(p/maxVal*100)+'%',height:'100%',background:C.plan,borderRadius:'5px'}})),
+        el('span',{className:'num',style:{fontSize:'11px',color:C.muted,width:'62px',textAlign:'right'}},money(p)));
+      const barA=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+        el('div',{style:{flex:1,height:'9px',background:'#1E241C',borderRadius:'5px',overflow:'hidden'}},
+          a==null?null:el('div',{style:{width:(a/maxVal*100)+'%',height:'100%',background:col,borderRadius:'5px'}})),
+        el('span',{className:'num',style:{fontSize:'11px',color:a==null?C.muted:C.cream,width:'62px',textAlign:'right',fontWeight:a==null?400:600}},a==null?'—':money(a)));
+      const dChip=dv==null?el('span',{style:{fontSize:'10.5px',color:C.muted}},'not recorded'):
+        el('span',{style:{fontSize:'11px',fontWeight:700,padding:'3px 9px',borderRadius:'6px',color:dv<0?C.mauve:C.midL,background:dv<0?'rgba(195,154,160,.15)':'rgba(143,179,156,.15)'}},(dv>0?'+':'')+money2(dv));
+      return el('div',{key:i,style:{background:C.panel2,borderRadius:'11px',padding:'12px 13px'}},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'7px'}},
+          el('span',{style:{display:'flex',alignItems:'center',gap:'7px',fontSize:'12.5px',color:C.text,fontWeight:600}},
+            el('span',{style:{width:'9px',height:'9px',borderRadius:'2px',background:col}}), lab),
+          dChip),
+        el('div',{style:{display:'flex',flexDirection:'column',gap:'5px'}}, barP, barA));
+    });
+    // actuals pie (col 3)
+    const pieParts=cats.map(([lab,key,col])=>({lab,col,val:act?act[key]:0})).filter(p=>p.val>0.005);
+    const pieTot=pieParts.reduce((a,p)=>a+p.val,0);
+    let pieInner;
+    if(!act||pieTot<=0){ pieInner=el('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'150px',color:C.muted,fontSize:'11.5px',textAlign:'center',padding:'12px'}},'No actuals recorded for this period'); }
+    else {
+      const R=52,cx=70,cy=70,circ=2*Math.PI*R; let off=0;
+      const segs=pieParts.map((p,i)=>{const len=(p.val/pieTot)*circ,dash=len.toFixed(2)+' '+(circ-len).toFixed(2),doff=(-off).toFixed(2);off+=len;return el('circle',{key:i,cx,cy,r:R,fill:'none',stroke:p.col,strokeWidth:16,strokeDasharray:dash,strokeDashoffset:doff,transform:'rotate(-90 '+cx+' '+cy+')'});});
+      const ring=el('svg',{width:140,height:140,viewBox:'0 0 140 140','data-om-raster':true,style:{flex:'none'}}, ...segs,
+        el('text',{x:cx,y:cy-2,textAnchor:'middle',fontSize:8.5,fill:C.muted,style:{letterSpacing:'.5px'}},'ACTUAL'),
+        el('text',{x:cx,y:cy+14,textAnchor:'middle',fontSize:15,fill:C.cream,fontFamily:"'Newsreader',serif",className:'num'},money(pieTot)));
+      const leg=el('div',{style:{width:'100%',display:'flex',flexDirection:'column',gap:'5px'}}, ...pieParts.map((p,i)=>el('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px'}},
+        el('span',{style:{width:'8px',height:'8px',borderRadius:'2px',background:p.col,flex:'none'}}),
+        el('span',{style:{fontSize:'10.5px',color:C.text,flex:1}},p.lab),
+        el('span',{className:'num',style:{fontSize:'10.5px',color:C.cream,fontWeight:600}},money(p.val)),
+        el('span',{className:'num',style:{fontSize:'10px',color:C.muted,width:'34px',textAlign:'right'}},(p.val/pieTot*100).toFixed(0)+'%'))));
+      pieInner=el('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:'12px'}}, ring, leg);
+    }
+    const col1=el('div',{style:{display:'flex',flexDirection:'column',justifyContent:'space-between',gap:'11px'}}, rowsPVA[0],rowsPVA[1],rowsPVA[2]);
+    const col2=el('div',{style:{display:'flex',flexDirection:'column',justifyContent:'space-between',gap:'11px'}}, rowsPVA[3],rowsPVA[4],rowsPVA[5]);
+    const col3=el('div',{style:{background:C.panel2,borderRadius:'11px',padding:'14px',display:'flex',flexDirection:'column',justifyContent:'center'}},
+      el('div',{style:{fontSize:'10px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700,marginBottom:'10px',textAlign:'center'}},fmtShort(r.start)+' Actual'), pieInner);
+    const pva=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))',gap:'11px',alignItems:'stretch'}}, col1, col2, col3);
+
+    // ===== saved vs spent (rolled up from same period) =====
+    const ssData=[
+      ['Saved', C.gold, r.sav+r.emg, act?(act.sav+act.emg):null],
+      ['Spent', C.mauve, r.bills+r.daily+r.travel+r.family, act?(act.bills+act.daily+act.travel+act.family):null],
+    ];
+    const maxSS=Math.max(...ssData.map(d=>Math.max(d[2], d[3]||0)))||1;
+    const ssCells=ssData.map(([lab,col,p,a],i)=>{
+      const dv=a==null?null:(Math.abs(p-a)<0.005?0:p-a);
+      const barP=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+        el('div',{style:{flex:1,height:'11px',background:'#1E241C',borderRadius:'6px',overflow:'hidden'}},
+          el('div',{style:{width:(p/maxSS*100)+'%',height:'100%',background:C.plan,borderRadius:'6px'}})),
+        el('span',{className:'num',style:{fontSize:'12px',color:C.muted,width:'70px',textAlign:'right'}},money(p)));
+      const barA=el('div',{style:{display:'flex',alignItems:'center',gap:'8px'}},
+        el('div',{style:{flex:1,height:'11px',background:'#1E241C',borderRadius:'6px',overflow:'hidden'}},
+          a==null?null:el('div',{style:{width:(a/maxSS*100)+'%',height:'100%',background:col,borderRadius:'6px'}})),
+        el('span',{className:'num',style:{fontSize:'12px',color:a==null?C.muted:C.cream,width:'70px',textAlign:'right',fontWeight:a==null?400:600}},a==null?'—':money(a)));
+      const dChip=dv==null?el('span',{style:{fontSize:'10.5px',color:C.muted}},'not recorded'):
+        el('span',{style:{fontSize:'11px',fontWeight:700,padding:'3px 9px',borderRadius:'6px',color:dv<0?C.mauve:C.midL,background:dv<0?'rgba(195,154,160,.15)':'rgba(143,179,156,.15)'}},(dv>0?'+':'')+money2(dv));
+      return el('div',{key:i,style:{background:C.panel2,borderRadius:'11px',padding:'14px 15px'}},
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'9px'}},
+          el('span',{style:{display:'flex',alignItems:'center',gap:'8px',fontSize:'14px',color:C.cream,fontWeight:600}},
+            el('span',{style:{width:'10px',height:'10px',borderRadius:'2px',background:col}}), lab),
+          dChip),
+        el('div',{style:{display:'flex',flexDirection:'column',gap:'6px'}}, barP, barA));
+    });
+    const svs=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:'11px'}}, ...ssCells);
+
+    // ===== reflection: last month (2 periods) vs last 3 months (6 periods) =====
+    const sumF=(arr,fn)=>arr.reduce((a,x)=>a+fn(x),0);
+    const last1=rows.slice(0,2), last3=rows.slice(0,6);
+    const metricDefs=[
+      ['Average bills', sumF(last1,r=>r.bills)/last1.length, sumF(last3,r=>r.bills)/last3.length],
+      ['Average spending', 681, 724],
+      ['Average travel', 842, 1180],
+      ['Total saved', sumF(last1,r=>r.sav+r.emg+r.rmdr*0.2), sumF(last3,r=>r.sav+r.emg+r.rmdr*0.2)],
+      ['Savings to date', 1500+sumF(last1,r=>r.sav), 1500+sumF(last3,r=>r.sav)],
+    ];
+    const reflCol=(title,idx,accent)=>el('div',{style:{background:C.panel2,borderRadius:'11px',padding:'15px 16px'}},
+      el('div',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:accent,fontWeight:700,marginBottom:'12px'}},title),
+      ...metricDefs.map((m,i)=>el('div',{key:i,style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',padding:'9px 0',borderTop:i?'1px solid '+C.line:'none'}},
+        el('span',{style:{fontSize:'12.5px',color:C.text}},m[0]),
+        el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'18px',color:C.cream}},money(m[idx])))));
+    const reflection=el('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:'11px'}},
+      reflCol('Last Month',1,C.midL), reflCol('Last 3 Months',2,C.gold));
+
+    return { horizonStr, endSavStr:money(endSav), endEmgStr:money(endEmg), savActualStr:money(savActual.length?savActual[savActual.length-1]:1500), emgActualStr:money(emgActual.length?emgActual[emgActual.length-1]:1700), savChart, emgChart, periodChips, pva, svs, reflection };
+  }
+}
+</script>
+</body>
+</html>

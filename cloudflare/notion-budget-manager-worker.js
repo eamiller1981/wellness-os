@@ -378,6 +378,125 @@ async function handleSynthesisTrigger(request, env, origin) {
   }
 }
 
+/* ════════════════════════════════════════════════════════════════
+ * Budget-abroad Plaid "mailbox" endpoints
+ * GET  /notion/budget-runs/pending        → the current run awaiting balances
+ * POST /notion/budget-runs/apply-balances  → ChatGPT writes fetched balances
+ * ════════════════════════════════════════════════════════════════ */
+const BUDGET_RUN_DB_ID = "311627ee81db80b8ae51c5b7c8ed83bb";
+
+// 4-digit mask → Budget Run number column
+const MASK_TO_COLUMN = {
+  "7419": "7419 Main",
+  "7397": "7397 Savings",
+  "0741": "0741 Special Svgs",
+  "9176": "9176 Liz COH",
+  "0458": "0458 Matt COH",
+  "7889": "7889 Logan COH",
+  "8568": "8568 Schwab",
+  "0074": "0074 Venture",
+  "9722": "9722 Altitude Connect",
+  "1375": "1375 USAA Credit",
+  "9379": "9379 Ulta",
+  "3611": "3611 Prime Visa"
+};
+const ALL_MASKS = Object.keys(MASK_TO_COLUMN);
+
+function budgetRunRequestId(props) {
+  return plain(props["Balance Request ID"]?.rich_text) || "";
+}
+
+function addDaysISO(iso, days) {
+  const d = new Date(String(iso).slice(0, 10) + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function handlePendingBudgetRun(env, origin) {
+  const data = await notionFetch(env, `/databases/${BUDGET_RUN_DB_ID}/query`, "POST", {
+    filter: { property: "Balances Pending", checkbox: { equals: true } },
+    sorts: [{ property: "Paydate", direction: "descending" }],
+    page_size: 1
+  });
+  const page = (data.results || [])[0];
+  if (!page) return jsonResponse({ pending: null }, 200, origin);
+
+  const p = page.properties || {};
+  const paydate = p.Paydate?.date?.start || null;
+  const startDate = paydate;
+  const endDate = paydate ? addDaysISO(paydate, 14) : null; // EXCLUSIVE end (14-day window)
+  const label = paydate ? `${paydate} → ${endDate}` : "";
+
+  return jsonResponse({
+    pending: true,
+    pageId: page.id,
+    requestId: budgetRunRequestId(p),
+    paydate,
+    pay_period: {
+      start_date: startDate,
+      end_date: endDate,
+      date_inclusive_policy: "start inclusive, end EXCLUSIVE (14-day window)"
+    },
+    label,
+    needs: ALL_MASKS
+  }, 200, origin);
+}
+
+async function handleApplyBalances(request, env, origin) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Invalid JSON body" }, 400, origin);
+  }
+
+  const { pageId, requestId, balances, computed } = body || {};
+  if (!pageId) return jsonResponse({ error: "Missing pageId" }, 400, origin);
+  if (!balances || typeof balances !== "object") {
+    return jsonResponse({ error: "Missing balances object (keyed by 4-digit mask)" }, 400, origin);
+  }
+
+  // Fetch the target page and validate it is the pending row with a matching requestId.
+  const page = await notionFetch(env, `/pages/${pageId}`, "GET");
+  const props = page.properties || {};
+  const storedRequestId = budgetRunRequestId(props);
+  const stillPending = Boolean(props["Balances Pending"]?.checkbox);
+
+  if (requestId && storedRequestId && requestId !== storedRequestId) {
+    return jsonResponse({ error: "requestId mismatch — stale or duplicate request", expected: storedRequestId }, 409, origin);
+  }
+  if (!stillPending) {
+    // Idempotent: already applied for this run.
+    return jsonResponse({ ok: true, applied: false, note: "Balances already applied (run not pending)", pageId }, 200, origin);
+  }
+
+  // Validate all 12 masks present and numeric.
+  const missing = ALL_MASKS.filter(m => typeof balances[m] !== "number" || Number.isNaN(balances[m]));
+  if (missing.length) {
+    return jsonResponse({ error: "balances must include all 12 masks as numbers", missing }, 400, origin);
+  }
+
+  const patchProps = {};
+  for (const mask of ALL_MASKS) {
+    patchProps[MASK_TO_COLUMN[mask]] = { number: balances[mask] };
+  }
+  const schwabSpend = computed?.["8568_schwab_period_spend"]?.amount;
+  if (typeof schwabSpend === "number" && !Number.isNaN(schwabSpend)) {
+    patchProps["8568 Schwab Spend"] = { number: schwabSpend };
+  }
+  patchProps["Balances Pending"] = { checkbox: false };
+
+  await notionFetch(env, `/pages/${pageId}`, "PATCH", { properties: patchProps });
+
+  return jsonResponse({
+    ok: true,
+    applied: true,
+    pageId,
+    appliedMasks: ALL_MASKS,
+    schwabSpendApplied: typeof schwabSpend === "number"
+  }, 200, origin);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -420,6 +539,28 @@ export default {
         return jsonResponse({ error: "Method not allowed" }, 405, origin);
       }
       return handleSynthesisTrigger(request, env, origin);
+    }
+
+    if (url.pathname === "/notion/budget-runs/pending") {
+      if (request.method !== "GET") {
+        return jsonResponse({ error: "Method not allowed" }, 405, origin);
+      }
+      try {
+        return await handlePendingBudgetRun(env, origin);
+      } catch (error) {
+        return jsonResponse({ error: error.message || "Pending lookup failed" }, 502, origin);
+      }
+    }
+
+    if (url.pathname === "/notion/budget-runs/apply-balances") {
+      if (request.method !== "POST") {
+        return jsonResponse({ error: "Method not allowed" }, 405, origin);
+      }
+      try {
+        return await handleApplyBalances(request, env, origin);
+      } catch (error) {
+        return jsonResponse({ error: error.message || "Apply balances failed" }, 502, origin);
+      }
     }
 
     if (!url.pathname.startsWith("/notion/")) {

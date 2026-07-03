@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="../app-auth.js"></script>
+<script src="./notion.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#E7E0D2;font-family:'Hanken Grotesk',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  *{box-sizing:border-box}
+  .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+</style>
+</helmet>
+
+<div style="max-width:1020px;margin:0 auto;padding:clamp(10px,3.5vw,26px) clamp(8px,3vw,18px) 52px">
+  <nav style="display:flex;align-items:center;gap:6px;margin-bottom:14px;padding:0 2px">
+    <a href="Dashboard.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Dashboard</a>
+    <span style="color:#B7B1A0;font-size:12px">/</span>
+    <a href="Biweekly Cockpit.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Biweekly</a>
+    <span style="color:#B7B1A0;font-size:12px">/</span>
+    <span style="font-size:13px;font-weight:700;color:#F6E8D6;background:#232820;padding:7px 13px;border-radius:9px">Forecast</span>
+    <span style="flex:1"></span>
+    <a href="/finances.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">← Finances</a>
+  </nav>
+
+  <div style="background:#232820;border-radius:clamp(16px,4vw,22px);padding:clamp(16px,4vw,26px) clamp(15px,4vw,26px) 30px;box-shadow:0 30px 70px -34px rgba(20,30,22,.55)">
+
+    <!-- HEADER -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;padding-bottom:20px;border-bottom:1px solid #3A4436">
+      <div>
+        <div style="font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#9DA394;font-weight:600">Miller Budget</div>
+        <div style="font-family:'Newsreader',serif;font-size:clamp(24px,6vw,30px);color:#F6E8D6;margin-top:3px">Forecast</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:#9DA394;font-weight:600">Horizon</div>
+        <div class="num" style="font-family:'Newsreader',serif;font-size:clamp(19px,4.5vw,23px);color:#F6E8D6;margin-top:2px">{{ endDateStr }}</div>
+      </div>
+    </div>
+
+    <!-- KPI TILES -->
+    <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:11px">{{ kpis }}</div>
+
+    <!-- CONTRIBUTION BAR CHART -->
+    <div style="margin-top:16px;background:#2C332A;border-radius:14px;padding:18px 18px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+        <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500;color:#F6E8D6">Pay Period Distribution</div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:#9DA394">{{ legend }}</div>
+      </div>
+      {{ barChart }}
+    </div>
+
+    <!-- TIMELINE LEDGER CARDS -->
+    <div style="margin-top:16px">
+      <div style="font-family:'Newsreader',serif;font-size:19px;font-weight:500;color:#F6E8D6;margin-bottom:12px">Pay Period Snapshot</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">{{ cards }}</div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1020,&quot;height&quot;:1600}}">
+class Component extends DCLogic {
+  state = { flipped:{}, base:null, loaded:false };
+  componentDidMount(){
+    if(!window.BudgetAbroad) return;
+    window.BudgetAbroad.loadForecastBase().then((base)=>{
+      this.setState({ base:(base&&base.length)?base:null, loaded:true });
+    }).catch((e)=>{ console.warn('[budget-abroad] forecast load failed', e); this.setState({ loaded:true }); });
+  }
+  toggle(i){ const f={...this.state.flipped}; f[i]=!f[i]; this.setState({flipped:f}); }
+  renderVals(){
+    const el = React.createElement;
+    const money = v => (v<0?'-$':'$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+    const money2 = v => '$' + v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const C = { paper:'#232820', panel:'#2C332A', panel2:'#242A22', line:'rgba(255,255,255,.07)', cream:'#F6E8D6', text:'#E7E3D8', muted:'#9DA394', mid:'#64926F', midL:'#8FB39C', sage:'#ABC49C', mauve:'#C39AA0', mauveD:'#875C62', gold:'#C9B267', slate:'#6E8AA0' };
+
+    // real projection · six rollup categories per period — live from Notion, mock fallback
+    // Bills=I+Q · Daily=LizCOH+Spending+TravelCash · Travel=MattCOH+Lodging+Flights · Family=LoganCOH+MomPapa+Logan · Savings=Z · Emergency=col AA
+    const mockBase = [
+      {loc:'United States', leg:'Pre-departure', income:5827, bills:1500, daily:700, travel:200, family:300, rmdr:2926.97},
+      {loc:'United States', leg:'Pre-departure', income:4927, bills:236,  daily:700, travel:200, family:300, rmdr:3576.36},
+      {loc:'Lima', leg:'Arrive Peru', income:6727, bills:1622, daily:700, travel:2100, family:450, rmdr:2570.27},
+      {loc:'Lima → Atlanta', leg:'Transit', income:5827, bills:152, daily:700, travel:200, family:450, rmdr:4839.05},
+      {loc:'Atlanta → Valencia', leg:'Transit', income:6727, bills:795, daily:700, travel:2600, family:450, rmdr:3149.81},
+      {loc:'Valencia', leg:'Spain', income:5827, bills:951, daily:700, travel:0, family:450, rmdr:4355.96},
+      {loc:'Valencia → Athens', leg:'Transit', income:6727, bills:839, daily:700, travel:2670, family:450, rmdr:2939.19},
+      {loc:'Athens', leg:'Greece', income:5827, bills:983, daily:700, travel:200, family:450, rmdr:4081.84},
+      {loc:'Athens → Istanbul', leg:'Transit', income:6727, bills:526, daily:700, travel:2575, family:450, rmdr:3292.37},
+      {loc:'Istanbul', leg:'Türkiye', income:5827, bills:1261, daily:700, travel:200, family:450, rmdr:3874.47},
+      {loc:'Istanbul → Rome', leg:'Transit', income:6727, bills:589, daily:700, travel:3400, family:450, rmdr:2362.89},
+      {loc:'Rome', leg:'Italy', income:5827, bills:1230, daily:700, travel:200, family:450, rmdr:3719.58},
+      {loc:'Rome → Fairhope', leg:'Homeward', income:6727, bills:191, daily:700, travel:200, family:450, rmdr:5929.92},
+      {loc:'Jacksonville → London', leg:'Next leg', income:5827, bills:1622, daily:700, travel:2200, family:450, rmdr:2040.98},
+    ];
+    const live = this.state.base;
+    const base = (live && live.length) ? live : mockBase;
+    const startDate = i => (base[i] && base[i].start) ? base[i].start : new Date(2026, 5, 18 + i*14);
+    const fmtLong = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const fmtShort = d => d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+    let cumSav=1500, cumEmg=1700, cumBuf=0;
+    const rows = base.map((r,i)=>{
+      const sav = r.rmdr*0.4, emg = r.rmdr*0.4, buf = r.rmdr*0.2;
+      cumSav += sav; cumEmg += emg; cumBuf += buf;
+      const sd = startDate(i);
+      return {...r, i, sav, emg, buf, cumSav, cumEmg, cumBuf, nest:cumSav+cumEmg, start:sd, startStr:fmtLong(sd), pnum:(r.period||('P'+(i+2)))};
+    });
+    const endSav = rows[rows.length-1].cumSav;
+    const endEmg = rows[rows.length-1].cumEmg;
+    const totalContrib = rows.reduce((a,r)=>a+r.sav+r.emg,0);
+    const endDate = new Date(startDate(rows.length-1).getTime() + 13*864e5);
+    const endDateStr = fmtLong(startDate(0)) + ' – ' + fmtLong(endDate);
+
+    // KPIs
+    const kpi = (label,val,accent)=>el('div',{key:label,style:{background:C.panel,borderRadius:'12px',padding:'14px 15px'}},
+      el('div',{style:{fontSize:'9.5px',letterSpacing:'.09em',textTransform:'uppercase',color:accent,fontWeight:700}},label),
+      el('div',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'24px',color:C.cream,marginTop:'4px'}},val));
+    const avgBills = base.reduce((a,r)=>a+r.bills,0)/base.length;
+    const kpis = [
+      kpi('Average bills', money(avgBills), C.mauve),
+      kpi('Projected savings', money(endSav), C.midL),
+      kpi('Projected emergency fund', money(endEmg), C.midL),
+    ];
+
+    // legend — six categories in order
+    const catDefs = [['Bills','bills',C.mauve],['Daily','daily',C.mauveD],['Travel','travel',C.slate],['Family','family',C.mid],['Savings','sav',C.gold],['Emergency','emg',C.midL]];
+    const legend = catDefs.map(([lab,key,col],i)=>el('span',{key:i,style:{display:'flex',alignItems:'center',gap:'5px'}},
+      el('span',{style:{width:'9px',height:'9px',borderRadius:'2px',background:col}}), lab));
+
+    // stacked bar chart: six categories
+    const stackMax = Math.max(...rows.map(r=>r.bills+r.daily+r.travel+r.family+r.sav+r.emg));
+    const seg = (val,col,round)=>el('div',{title:money(val),style:{height:((val/stackMax)*150)+'px',background:col,borderRadius:round?'2px 2px 0 0':'0'}});
+    const bars = el('div',{style:{display:'flex',alignItems:'flex-end',gap:'5px',height:'178px'}},
+      ...rows.map((r,i)=>el('div',{key:i,style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:'5px'}},
+        el('div',{style:{width:'100%',display:'flex',flexDirection:'column',justifyContent:'flex-end',height:'160px'}},
+          seg(r.emg,C.midL,true), seg(r.sav,C.gold), seg(r.family,C.mid), seg(r.travel,C.slate), seg(r.daily,C.mauveD), seg(r.bills,C.mauve)),
+        el('div',{style:{fontSize:'7.5px',color:C.muted,whiteSpace:'nowrap'}},fmtShort(r.start)))));
+    const barChart = bars;
+
+    // timeline flip cards — front: date/location/remainder · back: flow-bar breakdown
+    const legColor = leg => leg==='Transit'?C.mauve : leg==='Pre-departure'?C.muted : C.sage;
+    const face = {position:'absolute',inset:0,backfaceVisibility:'hidden',WebkitBackfaceVisibility:'hidden',background:C.panel,borderRadius:'14px',padding:'16px',display:'flex',flexDirection:'column'};
+    const flowSeg = [['Bills','bills',C.mauve],['Daily','daily',C.mauveD],['Travel','travel',C.slate],['Family','family',C.mid],['Savings','sav',C.gold],['Emergency','emg',C.midL]];
+    const cardHead = r => el('div',null,
+      el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:'8px'}},
+        el('div',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'20px',color:C.cream}},r.startStr),
+        el('div',{style:{fontSize:'10px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},r.pnum)),
+      el('div',{style:{display:'flex',alignItems:'center',gap:'7px',marginTop:'5px'}},
+        el('span',{style:{width:'8px',height:'8px',borderRadius:'50%',background:r.loc==='United States'?C.muted:C.midL,flex:'none'}}),
+        el('span',{style:{fontSize:'13px',color:C.text,fontWeight:600}},r.loc)));
+    const growthRow = r => el('div',{style:{display:'flex',flexWrap:'wrap',gap:'7px 10px',marginTop:'auto',paddingTop:'10px',borderTop:'1px solid '+C.line}},
+      ...[['Savings',r.cumSav,C.gold],['Emergency',r.cumEmg,C.midL],['Buffer',r.cumBuf,C.mauveD],['Total',r.cumSav+r.cumEmg+r.cumBuf,C.sage]].map((g,gi)=>
+        el('div',{key:gi,style:{flex:'1 1 40%'}},
+          el('div',{style:{fontSize:'8.5px',letterSpacing:'.06em',textTransform:'uppercase',color:g[2],fontWeight:700}},g[0]+' →'),
+          el('div',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'16px',color:C.cream}},money(g[1])))));
+    const cards = rows.map((r,i)=>{
+      const rr = r;
+      const isF = !!this.state.flipped[i];
+      const segs = flowSeg.map(([lab,key,cbl],si)=>el('div',{key:si,title:lab+' '+money(rr[key]),style:{width:(rr[key]/(rr.bills+rr.daily+rr.travel+rr.family+rr.sav+rr.emg)*100)+'%',background:cbl}}));
+      const chips = flowSeg.map(([lab,key,cbl],si)=>el('div',{key:si,style:{display:'flex',alignItems:'center',gap:'5px'}},
+        el('span',{style:{width:'8px',height:'8px',borderRadius:'2px',background:cbl,flex:'none'}}),
+        el('span',{style:{fontSize:'10px',color:C.text}},lab),
+        el('span',{className:'num',style:{fontSize:'10px',color:C.muted,marginLeft:'auto'}},money(rr[key]))));
+      const front = el('div',{style:{...face,justifyContent:'space-between'}},
+        cardHead(rr),
+        el('div',{style:{margin:'auto 0'}},
+          el('div',{style:{fontSize:'10px',letterSpacing:'.07em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Remainder Post Allocations'),
+          el('div',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'30px',color:C.cream,marginTop:'10px'}},money2(rr.rmdr))),
+        el('div',{style:{fontSize:'10.5px',color:C.muted}},'Pay Period: '+fmtShort(rr.start)+' to '+fmtShort(new Date(rr.start.getTime()+13*864e5))));
+      const back = el('div',{style:{...face,transform:'rotateY(180deg)',gap:'9px'}},
+        cardHead(rr),
+        el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
+          el('span',{style:{fontSize:'10px',letterSpacing:'.05em',color:C.muted}},'Income'),
+          el('span',{className:'num',style:{fontSize:'13px',color:C.midL,fontWeight:600}},'+ '+money2(rr.income))),
+        el('div',{style:{display:'flex',height:'20px',borderRadius:'6px',overflow:'hidden'}}, ...segs),
+        el('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'3px 14px'}}, ...chips),
+        growthRow(rr));
+      const inner = el('div',{style:{position:'relative',width:'100%',height:'100%',transition:'transform .55s cubic-bezier(.4,.15,.2,1)',transformStyle:'preserve-3d',transform:isF?'rotateY(180deg)':'none'}}, front, back);
+      return el('div',{key:i,onClick:()=>this.toggle(i),style:{height:'298px',perspective:'1400px',cursor:'pointer'}}, inner);
+    });
+
+    return { endDateStr, kpis, legend, barChart, cards };
+  }
+}
+</script>
+</body>
+</html>
