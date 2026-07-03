@@ -260,25 +260,27 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-   * loadRunBills(pageId) — bills related to a Budget Run row.
-   * Reads the 📉 Bills DB filtered by the 💸 Budget Run relation
-   * containing pageId. Returns [{merchant, amount, next}] sorted by
-   * next occurrence date.
+   * loadBillsDue() — bills due from today through this period's end.
+   * The per-bill formula "Reserve Needed Today (Bills only)" returns the
+   * bill's Amount when today→Period End overlaps its due window (and it's
+   * unpaid), else 0. That column rolls up to the run's "Less Bills (Live)"
+   * reserve, so filtering reserve>0 yields exactly the bills that make up
+   * that number. Returns [{merchant, amount, next}] sorted by next date.
    * ════════════════════════════════════════════════════════════════ */
   var BILLS_DB = 'dda95f92df7445fab2681ddc330e2b46'; // 📉 Bills
-  function loadRunBills(pageId) {
-    if (!pageId) return Promise.resolve([]);
+  function loadBillsDue() {
     return queryAll(BILLS_DB, {
-      filter: { property: '💸 Budget Run', relation: { contains: pageId } }
+      filter: { property: 'Paid', checkbox: { equals: false } }
     }).then(function (results) {
       var rows = results.map(function (pg) {
         var p = pg.properties || {};
+        var reserve = num(p['Reserve Needed Today (Bills only)']);
         return {
-          merchant: propText(p['Merchant']),
-          amount: num(p['Amount']),
+          merchant: propText(p['Merchant']).replace(/\s+/g, ' ').trim(),
+          amount: reserve,           // = bill Amount when in-window; ties to Less Bills (Live)
           next: propDate(p['Next Occurrence'])
         };
-      });
+      }).filter(function (b) { return b.amount > 0.005; });
       rows.sort(function (a, b) {
         var da = a.next ? parseISO(a.next).getTime() : Infinity;
         var db = b.next ? parseISO(b.next).getTime() : Infinity;
@@ -369,7 +371,7 @@
     loadForecastBase: loadForecastBase,
     loadActuals: loadActuals,
     loadCurrentRun: loadCurrentRun,
-    loadRunBills: loadRunBills,
+    loadBillsDue: loadBillsDue,
     loadAllocPercents: loadAllocPercents,
     createPendingRun: createPendingRun,
     pollBalances: pollBalances,

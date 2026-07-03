@@ -21,6 +21,9 @@
   input[type=range]{-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:#3A4436}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#F6E8D6;cursor:pointer;border:3px solid #64926F}
   input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#F6E8D6;cursor:pointer;border:3px solid #64926F}
+  .bills-box{cursor:pointer;border-radius:10px;border:1px solid rgba(255,255,255,.09);background:#242A22;transition:background .15s,border-color .15s}
+  .bills-box:hover{background:#2F372C;border-color:#6B8760}
+  .bills-box:focus-visible{outline:none;border-color:#6B8760;background:#2F372C}
 </style>
 </helmet>
 
@@ -450,13 +453,13 @@ class Component extends DCLogic {
     this.setState({ alloc: { ...this.state.alloc, [key]: p }, committed:false });
   }
 
-  // Bills detail — load the bills related to the current Budget Run on demand.
+  // Bills detail — load the bills due today→period end on demand.
   openBills(){
     this.setState({ billsOpen:true });
     if(this.state.billsRows || this.state.billsLoading) return;
-    if(!window.BudgetAbroad || !this.state.currentRunId){ this.setState({ billsRows:[] }); return; }
+    if(!window.BudgetAbroad){ this.setState({ billsRows:[] }); return; }
     this.setState({ billsLoading:true });
-    window.BudgetAbroad.loadRunBills(this.state.currentRunId).then((rows)=>{
+    window.BudgetAbroad.loadBillsDue().then((rows)=>{
       this.setState({ billsRows: rows||[], billsLoading:false });
     }).catch((e)=>{
       console.warn('[budget-abroad] bills load failed', e);
@@ -517,13 +520,12 @@ class Component extends DCLogic {
       el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
       el('span',{className:'num',style:{fontSize:'15px',color:C.cream,padding:'8px 9px'}}, othersSum.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})));
     const bankRows = rowList('bank', C.sage, totalBank, 'Total in bank', null, false, [othersRow]);
-    const billsRow = el('div',{key:'__bills',style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderTop:'1px solid '+C.line}},
-      el('div',{role:'button',tabIndex:0,onClick:()=>this.openBills(),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.openBills();}},style:{flex:1,minWidth:0,cursor:'pointer'}},
-        el('div',{style:{display:'flex',alignItems:'center',gap:'6px',fontSize:'13px',color:C.text,lineHeight:1.2}},'Bills',
-          el('span',{style:{fontSize:'11px',color:C.midL,textDecoration:'underline',textUnderlineOffset:'2px'}},'view')),
-        el('div',{style:{fontSize:'10.5px',color:C.muted}},'due this period')),
+    const billsRow = el('div',{key:'__bills',className:'bills-box',role:'button',tabIndex:0,onClick:()=>this.openBills(),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.openBills();}},style:{display:'flex',alignItems:'center',gap:'10px',padding:'11px 12px',marginTop:'10px'}},
+      el('div',{style:{flex:1,minWidth:0}},
+        el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600,lineHeight:1.2}},'Bills'),
+        el('div',{style:{fontSize:'10.5px',color:C.midL}},'due today \u2192 period end')),
       el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
-      el('input',{value:S.bills,inputMode:'decimal',onChange:e=>this.setState({bills:e.target.value}),style:inpStyle}));
+      el('input',{value:S.bills,inputMode:'decimal',onClick:e=>e.stopPropagation(),onChange:e=>this.setState({bills:e.target.value}),style:inpStyle}));
     const totalOwed = totalCards + bills;
     const cardRows = rowList('cards', C.mauve, totalOwed, 'Total owed', ['Total remainder', totalBank-totalOwed], true, [billsRow]);
 
@@ -681,7 +683,7 @@ class Component extends DCLogic {
       const billsSum = rows.reduce((a,b)=>a+(b.amount||0),0);
       let bodyRows;
       if(S.billsLoading) bodyRows = [el('tr',{key:'__l'},el('td',{colSpan:3,style:{padding:'16px 10px',color:C.muted,fontSize:'13px'}},'Loading bills…'))];
-      else if(!rows.length) bodyRows = [el('tr',{key:'__e'},el('td',{colSpan:3,style:{padding:'16px 10px',color:C.muted,fontSize:'13px'}},'No bills linked to this pay period.'))];
+      else if(!rows.length) bodyRows = [el('tr',{key:'__e'},el('td',{colSpan:3,style:{padding:'16px 10px',color:C.muted,fontSize:'13px'}},'No bills due through period end.'))];
       else bodyRows = rows.map((b,i)=>el('tr',{key:i,style:{borderTop:'1px solid '+C.line}},
         el('td',{style:{padding:'10px',fontSize:'13px',color:C.text}}, b.merchant||'—'),
         el('td',{className:'num',style:{padding:'10px',fontSize:'13px',color:C.cream,textAlign:'right',whiteSpace:'nowrap'}}, money(b.amount||0)),
@@ -689,7 +691,7 @@ class Component extends DCLogic {
       billsModal = el('div',{onClick:()=>this.closeBills(),style:{position:'fixed',inset:0,zIndex:50,background:'rgba(15,20,14,.62)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}},
         el('div',{onClick:e=>e.stopPropagation(),style:{width:'min(560px,100%)',maxHeight:'80vh',overflow:'auto',background:C.panel,borderRadius:'16px',padding:'20px 20px 18px',boxShadow:'0 30px 70px -20px rgba(0,0,0,.6)'}},
           el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}},
-            el('div',{style:{fontFamily:"'Newsreader',serif",fontSize:'21px',color:C.cream}},'Bills This Period'),
+            el('div',{style:{fontFamily:"'Newsreader',serif",fontSize:'21px',color:C.cream}},'Bills Due: Today to Period End'),
             el('button',{type:'button',onClick:()=>this.closeBills(),style:{background:'none',border:'none',color:C.muted,fontSize:'22px',lineHeight:1,cursor:'pointer',padding:'0 4px'}},'\u00D7')),
           el('table',{style:{width:'100%',borderCollapse:'collapse'}},
             el('thead',null,el('tr',null,
