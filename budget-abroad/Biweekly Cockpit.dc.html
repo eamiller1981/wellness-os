@@ -712,8 +712,7 @@ class Component extends DCLogic {
       let fromAcct = '\u2014', toAcct = '\u2014';
       if(note!=='hub' && moveUp){ fromAcct='Main'; toAcct=name; }
       else if(note!=='hub' && moveDown){ fromAcct=name; toAcct='Main'; }
-      const filled = fromAcct!=='\u2014' && toAcct!=='\u2014';
-      const dim = filled;                        // gray fully-mapped From→To transfers
+      const dim = fromAcct==='\u2014' && toAcct==='\u2014';   // gray rows with no From/To transfer
       const moveColor = !needsMove ? C.muted : (moveUp ? C.sage : C.mauve);
       const moveTxt = !needsMove ? '\u2014' : (moveUp?'+':'\u2212') + money(Math.abs(move));
       const pill = (txt,active)=> el('span',{style:{display:'inline-block',fontSize:'11px',fontWeight:600,color:active?C.cream:C.muted,background:active?'#2E3A2C':'transparent',border:'1px solid '+(active?C.mid:C.line),borderRadius:'999px',padding:'4px 10px',whiteSpace:'nowrap'}}, txt);
