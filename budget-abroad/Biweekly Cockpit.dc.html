@@ -46,6 +46,9 @@
       </div>
     </div>
 
+    <!-- PASTE BALANCES (shown after Run) -->
+    <div>{{ pasteBox }}</div>
+
     <!-- STAT TILES -->
     <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:11px">{{ tiles }}</div>
 
@@ -135,6 +138,10 @@ class Component extends DCLogic {
     running: false,
     committing: false,
     committed: false,
+    // ---- manual paste-back flow ----
+    showPaste: false,
+    pasteText: '',
+    applying: false,
   };
 
   componentDidMount(){
@@ -217,27 +224,39 @@ class Component extends DCLogic {
 
   setRunDate(val){ this.setState({ runDate: val, payPeriodStr: this.payPeriodLabel(val), committed:false }); }
 
-  // Static prompt pasted into the finance chat. It targets the newest
-  // Balances-Pending row itself, so it needs no per-run data and can be copied
-  // synchronously inside the click gesture.
-  buildBalancePrompt(){
+  // Prompt pasted into the finance chat. ChatGPT (Plaid connector ONLY) reads
+  // balances and replies with a single JSON block — it does NOT touch Notion
+  // (Plaid + Notion-write connectors can't coexist in one chat). The web app
+  // parses the reply and owns the Notion write. Embeds the pay-period window so
+  // the Schwab period-spend range is authoritative without a Notion read.
+  buildBalancePrompt(runDate){
+    const start = (runDate||'').slice(0,10);
+    let end = '';
+    const d = new Date(start.replace(/-/g,'/'));
+    if(!isNaN(d.getTime())){
+      const e = new Date(d.getTime() + 14*864e5);
+      const pad = x => String(x).padStart(2,'0');
+      end = e.getFullYear()+'-'+pad(e.getMonth()+1)+'-'+pad(e.getDate());
+    }
     return [
-      'You are updating my abroad budget in Notion. Do these steps in order and report each one:',
+      'Using the finance/Plaid connector ONLY (do NOT use Notion), read my CURRENT balances and reply with ONE JSON code block and nothing else.',
       '',
-      '1) Using the finance/Plaid connector, read my CURRENT balance for each account (identified by the last 4 digits of the account number):',
-      '   Banks — 7419, 7397, 0741, 9176, 0458, 7889, and 8568 (Schwab Investor Checking; use mask 8568 ONLY \u2014 ignore any Equity Awards / Beneficiary accounts).',
-      '   Credit cards — 0074 (Venture), 9722 (Altitude Connect), 1375 (USAA Credit), 9379 (Ulta), 3611 (Prime Visa).',
+      'Accounts by last-4 mask:',
+      '  Banks \u2014 7419, 7397, 0741, 9176, 0458, 7889, and 8568 (Schwab Investor Checking; use mask 8568 ONLY \u2014 ignore any Equity Awards / Beneficiary accounts).',
+      '  Credit cards \u2014 0074 (Venture), 9722 (Altitude Connect), 1375 (USAA Credit), 9379 (Ulta), 3611 (Prime Visa).',
       '',
-      '2) In the Notion database "\uD83D\uDCB8 Budget Run", find the one row whose "Balances Pending" checkbox is TRUE (if several, use the newest by Paydate). If none exists yet, wait ~10 seconds and re-check \u2014 the web app is creating it. Read that row\u2019s Paydate; the pay period is Paydate (inclusive) through Paydate + 14 days (exclusive).',
+      'Also compute schwab_period_spend = sum of posted, positive (outgoing) transactions on Schwab mask 8568 dated ' + (start||'the pay-period start') + ' (inclusive) through ' + (end||'start + 14 days') + ' (exclusive). Include transfers.',
       '',
-      '3) Compute the Schwab period spend = sum of posted, positive (outgoing) transactions on the Schwab account (mask 8568) dated inside that pay-period window (start inclusive, end exclusive). Include transfers.',
-      '',
-      '4) Write these NUMBER properties on that Budget Run row (use these EXACT names, plain numbers \u2014 no $ or commas, and do not touch any other property):',
-      '   7419 Main, 7397 Savings, 0741 Special Svgs, 9176 Liz COH, 0458 Matt COH, 7889 Logan COH, 8568 Schwab (= current Schwab balance), 0074 Venture, 9722 Altitude Connect, 1375 USAA Credit, 9379 Ulta, 3611 Prime Visa, and 8568 Schwab Spend (= the Schwab period spend from step 3).',
-      '',
-      '5) Read the row back and confirm all 13 numbers were written correctly.',
-      '',
-      '6) FINAL step: set that row\u2019s "Balances Pending" checkbox to FALSE. This tells the web app you are done.'
+      'Reply with EXACTLY this JSON (plain numbers, no $ or commas), filling in the real values:',
+      '```json',
+      '{',
+      '  "balances": {',
+      '    "7419": 0, "7397": 0, "0741": 0, "9176": 0, "0458": 0, "7889": 0, "8568": 0,',
+      '    "0074": 0, "9722": 0, "1375": 0, "9379": 0, "3611": 0',
+      '  },',
+      '  "schwab_period_spend": 0',
+      '}',
+      '```'
     ].join('\n');
   }
 
@@ -249,55 +268,105 @@ class Component extends DCLogic {
 
     // Synchronous (inside the click gesture): copy the prompt + open the finance chat.
     // Both clipboard writes and window.open need an active user gesture, so they must
-    // run before any await. The prompt is static, so no Notion round-trip is needed here.
+    // run before any await. (?q= prefill does not work on /c/ URLs, so we rely on paste.)
     const CHATGPT_FINANCE_URL = 'https://chatgpt.com/c/6a4823b7-825c-83ea-9798-9bd5c620cfb1';
-    const prompt = this.buildBalancePrompt();
+    const prompt = this.buildBalancePrompt(rd);
     let copied = false;
     try { if(navigator.clipboard){ navigator.clipboard.writeText(prompt).catch(()=>{}); copied = true; } } catch(_e){}
-    const win = window.open(CHATGPT_FINANCE_URL + '?q=' + encodeURIComponent(prompt), '_blank');
+    const win = window.open(CHATGPT_FINANCE_URL, '_blank');
 
     this.setState({
-      running:true, committed:false, statusErr:false,
+      running:true, committed:false, statusErr:false, showPaste:true,
       status: (win ? 'Opened your finance chat. ' : 'Popup blocked \u2014 open your finance chat manually. ') +
-              (copied ? 'The prompt is on your clipboard; paste (Ctrl+V) and send if it didn\u2019t auto-fill.' : 'Copy the prompt into that chat manually.')
+              (copied ? 'The prompt is on your clipboard \u2014 paste (Ctrl+V) and send it.' : 'Copy the prompt into that chat.') +
+              ' Then paste ChatGPT\u2019s JSON reply below and click Load.'
     });
 
-    // Async (after the gesture): prep the pending run in Notion, then poll for balances.
+    // Async (after the gesture): prep this pay period's Budget Run row so the
+    // pasted balances have a row to write to. No polling — the web app does the write.
     window.BudgetAbroad.createPendingRun(rd).then(({pageId, requestId})=>{
-      this.setState({ currentRunId:pageId, requestId });
-      return window.BudgetAbroad.pollBalances(pageId, (n)=>{
-        this.setState({ status:'Waiting for ChatGPT to write balances to Notion… (check '+(n+1)+')' });
-      });
-    }).then((pg)=>{
-      if(!pg){ this.setState({ running:false, status:'Timed out waiting for balances. Try again once the finance chat has run.', statusErr:true }); return; }
-      // reload the freshly-populated run
+      this.setState({ currentRunId:pageId, requestId, running:false });
+    }).catch((err)=>{
+      this.setState({ running:false, status:'Error preparing the Budget Run row: '+err.message, statusErr:true });
+    });
+  }
+
+  // Parse ChatGPT's JSON reply, populate the balance fields, and write the raw
+  // balances to Notion (the web app owns the Notion write — it has auth).
+  applyPastedBalances(){
+    if(this.state.applying) return;
+    const raw = (this.state.pasteText||'').trim();
+    if(!raw){ this.setState({ status:'Paste ChatGPT\u2019s JSON reply first.', statusErr:true }); return; }
+    let data;
+    try {
+      let t = raw;
+      const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+      if(fence) t = fence[1];
+      const a = t.indexOf('{'), b = t.lastIndexOf('}');
+      if(a<0 || b<0) throw new Error('no JSON object found');
+      data = JSON.parse(t.slice(a, b+1));
+    } catch(e){
+      this.setState({ status:'Could not parse that \u2014 paste the JSON block ChatGPT returned. ('+e.message+')', statusErr:true });
+      return;
+    }
+    const bal = data.balances || data;
+    const g = k => { const v = parseFloat(bal[k]); return isNaN(v)?0:v; };
+    const schwabSpend = (function(){ const v = parseFloat(data.schwab_period_spend); return isNaN(v)?0:v; })();
+
+    // populate fields client-side
+    const bank = [
+      ['7419','Main', g('7419').toFixed(2)],
+      ['7397','Savings', g('7397').toFixed(2)],
+      ['0741','Emergency Fund', g('0741').toFixed(2)],
+      ['9176','Liz COH (Lodging)', g('9176').toFixed(2)],
+      ['0458','Matt COH (Transit)', g('0458').toFixed(2)],
+      ['7889','Logan COH', g('7889').toFixed(2)],
+      ['8568','Schwab', g('8568').toFixed(2)],
+    ];
+    const cards = [
+      ['0074','Venture', g('0074').toFixed(2)],
+      ['9722','Altitude Connect', g('9722').toFixed(2)],
+      ['1375','USAA Credit', g('1375').toFixed(2)],
+      ['9379','Ulta', g('9379').toFixed(2)],
+      ['3611','Prime Visa', g('3611').toFixed(2)],
+    ];
+    const family = this.state.family.map(r=>r.slice());
+    family[1][2] = schwabSpend.toFixed(2); // Schwab period spend
+    this.setState({ bank, cards, family, committed:false });
+
+    if(!this.state.currentRunId){
+      this.setState({ status:'Balances loaded. Click Run first to create the Budget Run row, then Load again to save.', statusErr:true });
+      return;
+    }
+    // web app writes the raw Plaid balances to Notion + clears the pending flag
+    const props = {
+      '7419 Main':          { number: g('7419') },
+      '7397 Savings':       { number: g('7397') },
+      '0741 Special Svgs':  { number: g('0741') },
+      '9176 Liz COH':       { number: g('9176') },
+      '0458 Matt COH':      { number: g('0458') },
+      '7889 Logan COH':     { number: g('7889') },
+      '8568 Schwab':        { number: g('8568') },
+      '0074 Venture':       { number: g('0074') },
+      '9722 Altitude Connect': { number: g('9722') },
+      '1375 USAA Credit':   { number: g('1375') },
+      '9379 Ulta':          { number: g('9379') },
+      '3611 Prime Visa':    { number: g('3611') },
+      '8568 Schwab Spend':  { number: schwabSpend },
+      'Balances Pending':   { checkbox: false },
+    };
+    this.setState({ applying:true, status:'Saving balances to Notion…', statusErr:false });
+    window.BudgetAbroad.commitRun(this.state.currentRunId, props).then(()=>{
       return window.BudgetAbroad.loadCurrentRun().then((run)=>{
-        const patch = { running:false, status:'✔ Balances received. Review and Commit.', statusErr:false };
+        const patch = { applying:false, showPaste:false, statusErr:false, status:'\u2714 Balances saved. Review allocations and Commit.' };
         if(run){
-          patch.currentRunId = run.pageId;
           patch.totalAssets = run.totalAssets;
           patch.bills = (run.billsLive!=null ? run.billsLive : 0).toFixed(2);
-          patch.bank = [
-            ['7419','Main', (run.bank['7419']||0).toFixed(2)],
-            ['7397','Savings', (run.bank['7397']||0).toFixed(2)],
-            ['0741','Emergency Fund', (run.bank['0741']||0).toFixed(2)],
-            ['9176','Liz COH (Lodging)', (run.bank['9176']||0).toFixed(2)],
-            ['0458','Matt COH (Transit)', (run.bank['0458']||0).toFixed(2)],
-            ['7889','Logan COH', (run.bank['7889']||0).toFixed(2)],
-            ['8568','Schwab', (run.bank['8568']||0).toFixed(2)],
-          ];
-          patch.cards = [
-            ['0074','Venture', (run.cards['0074']||0).toFixed(2)],
-            ['9722','Altitude Connect', (run.cards['9722']||0).toFixed(2)],
-            ['1375','USAA Credit', (run.cards['1375']||0).toFixed(2)],
-            ['9379','Ulta', (run.cards['9379']||0).toFixed(2)],
-            ['3611','Prime Visa', (run.cards['3611']||0).toFixed(2)],
-          ];
         }
         this.setState(patch);
       });
     }).catch((err)=>{
-      this.setState({ running:false, status:'Error: '+err.message, statusErr:true });
+      this.setState({ applying:false, status:'Balances loaded locally, but Notion save failed: '+err.message, statusErr:true });
     });
   }
 
@@ -530,10 +599,21 @@ class Component extends DCLogic {
                              : 'Balance must be $0.00 before committing.')),
       el('button',{type:'button',disabled:commitDisabled,onClick:()=>this.onCommit(ctx),style:commitBtnStyle}, S.committing?'Committing…':(S.committed?'Committed':'Commit')));
 
+    // ---- paste-back box (ChatGPT JSON reply → fields + Notion write) ----
+    const taStyle = { width:'100%',background:'#1D221B',border:'1px solid #445040',borderRadius:'10px',color:C.cream,fontFamily:'ui-monospace,Menlo,Consolas,monospace',fontSize:'12px',lineHeight:1.5,padding:'10px 12px',resize:'vertical' };
+    const loadBtnStyle = { flex:'none',background:'#64926F',color:'#F6E8D6',border:'none',borderRadius:'10px',padding:'11px 24px',fontFamily:'inherit',fontSize:'13px',fontWeight:600,cursor:S.applying?'default':'pointer',opacity:S.applying?0.6:1 };
+    const pasteBox = S.showPaste ? el('div',{style:{marginTop:'16px',background:'#2C332A',borderRadius:'14px',padding:'17px 18px 16px'}},
+      el('div',{style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream,marginBottom:'4px'}},'Paste Balances'),
+      el('div',{style:{fontSize:'11.5px',color:C.muted,marginBottom:'11px'}},'Paste the JSON reply from your finance chat, then Load. Balances populate the fields and save to Notion automatically.'),
+      el('textarea',{value:S.pasteText,onChange:e=>this.setState({pasteText:e.target.value}),rows:6,placeholder:'{ "balances": { "7419": 0, ... }, "schwab_period_spend": 0 }',style:taStyle}),
+      el('div',{style:{display:'flex',justifyContent:'flex-end',marginTop:'11px'}},
+        el('button',{type:'button',disabled:S.applying,onClick:()=>this.applyPastedBalances(),style:loadBtnStyle}, S.applying?'Saving…':'Load'))) : null;
+
     return {
       onRun: () => this.onRun(),
       pieChart,
       runControls,
+      pasteBox,
       commitBar,
       payPeriodStr: S.payPeriodStr || '—',
       totalAssetsStr: money(S.totalAssets!=null ? S.totalAssets : totalBank),
