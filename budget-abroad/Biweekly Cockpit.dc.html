@@ -708,21 +708,21 @@ class Component extends DCLogic {
       const move = target - current;
       const moveUp = move >= 0.005, moveDown = move <= -0.005;
       const needsMove = moveUp || moveDown;
-      const dim = gray || !needsMove;           // gray rows that need no transfer work
-      const moveColor = dim ? C.muted : (moveUp ? C.sage : C.mauve);
-      const moveTxt = !needsMove ? '\u2014' : (moveUp?'+':'\u2212') + money(Math.abs(move));
       // From → To reflects the direction funds move to reach the target.
       let fromAcct = '\u2014', toAcct = '\u2014';
       if(note!=='hub' && moveUp){ fromAcct='Main'; toAcct=name; }
       else if(note!=='hub' && moveDown){ fromAcct=name; toAcct='Main'; }
+      const filled = fromAcct!=='\u2014' && toAcct!=='\u2014';
+      const dim = filled;                        // gray fully-mapped From→To transfers
+      const moveColor = !needsMove ? C.muted : (moveUp ? C.sage : C.mauve);
+      const moveTxt = !needsMove ? '\u2014' : (moveUp?'+':'\u2212') + money(Math.abs(move));
       const pill = (txt,active)=> el('span',{style:{display:'inline-block',fontSize:'11px',fontWeight:600,color:active?C.cream:C.muted,background:active?'#2E3A2C':'transparent',border:'1px solid '+(active?C.mid:C.line),borderRadius:'999px',padding:'4px 10px',whiteSpace:'nowrap'}}, txt);
-      const active = needsMove && !gray;
-      return el('div',{key:id,style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px 14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:dim?0.5:1}},
-        el('div',{style:{flex:'1 1 120px',minWidth:0}},
+      return el('div',{key:id,style:{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto auto auto',alignItems:'center',columnGap:'14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:dim?0.5:1}},
+        el('div',{style:{minWidth:0}},
           el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600}},name),
           el('div',{className:'num',style:{fontSize:'10px',color:C.muted,fontWeight:600}},'*'+id)),
-        el('div',{style:{minWidth:'70px'}}, colHead('From'), pill(fromAcct,active)),
-        el('div',{style:{minWidth:'70px'}}, colHead('To'), pill(toAcct,active)),
+        el('div',{style:{minWidth:0}}, colHead('From'), pill(fromAcct,fromAcct!=='\u2014')),
+        el('div',{style:{minWidth:0}}, colHead('To'), pill(toAcct,toAcct!=='\u2014')),
         el('div',{style:{textAlign:'right',minWidth:'84px'}}, colHead('Move','right'),
           el('div',{className:'num',style:{fontSize:'13px',fontWeight:600,color:moveColor}}, moveTxt)),
         el('div',{style:{textAlign:'right',minWidth:'76px'}}, colHead('Now','right'),
