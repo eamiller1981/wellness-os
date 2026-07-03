@@ -31,9 +31,10 @@
   <nav style="display:flex;align-items:center;gap:6px;margin-bottom:14px;padding:0 2px">
     <span style="font-size:13px;font-weight:700;color:#F6E8D6;background:#232820;padding:7px 13px;border-radius:9px">Biweekly</span>
     <span style="color:#B7B1A0;font-size:12px">/</span>
-    <a href="Dashboard.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Dashboard</a>
+    <a href="/budget-abroad/dashboard" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Dashboard</a>
     <span style="color:#B7B1A0;font-size:12px">/</span>
-    <a href="Forecast Planner.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Forecast</a>
+    <a href="/budget-abroad/forecast" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Forecast</a>
+    <a href="https://my-wellness-os.com" style="margin-left:auto;font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Home ↗</a>
   </nav>
   <div style="background:#232820;border-radius:clamp(16px,4vw,22px);padding:clamp(16px,4vw,26px) clamp(15px,4vw,26px) 30px;box-shadow:0 30px 70px -34px rgba(20,30,22,.55)">
 
@@ -215,6 +216,18 @@ class Component extends DCLogic {
       } else {
         patch.payPeriodStr = this.payPeriodLabel(rd);
       }
+      // Overlay any in-session edits for this run so navigating away and back
+      // preserves what was typed instead of snapping to the fresh Notion load.
+      const saved = this.loadPersisted(patch.currentRunId);
+      if(saved){
+        ['bank','others','cards','family','bills','alloc','runDate'].forEach(k=>{
+          if(saved[k] != null) patch[k] = saved[k];
+        });
+        if(saved.runDate){
+          const sp = this.matchPlanned(base, saved.runDate);
+          patch.payPeriodStr = sp ? sp.periodLabel : this.payPeriodLabel(saved.runDate);
+        }
+      }
       this.setState(patch);
     }).catch((e)=>{ console.warn('[budget-abroad] cockpit load failed', e); this.setState({ loaded:true }); });
   }
@@ -248,7 +261,7 @@ class Component extends DCLogic {
     return f(s) + ' – ' + e.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
   }
 
-  setRunDate(val){ this.setState({ runDate: val, payPeriodStr: this.payPeriodLabel(val), committed:false }); }
+  setRunDate(val){ this.persistEdits({ runDate: val }); this.setState({ runDate: val, payPeriodStr: this.payPeriodLabel(val), committed:false }); }
 
   // Prompt pasted into the finance chat. ChatGPT (Plaid connector ONLY) reads
   // balances and replies with a single JSON block — it does NOT touch Notion
@@ -446,27 +459,59 @@ class Component extends DCLogic {
     });
   }
 
+  // ---- edit persistence: keep user edits across in-session page navigation.
+  // Snapshots the editable fields to sessionStorage keyed by the current run so
+  // returning to this page restores what was typed instead of the fresh Notion
+  // load. Overrides let callers save the just-changed value without waiting for
+  // the async setState to flush.
+  persistKey(){ return 'ba_cockpit_' + (this.state.currentRunId || 'default'); }
+  editableSnapshot(overrides){
+    const S = this.state;
+    return Object.assign({
+      bank:S.bank, others:S.others, cards:S.cards, family:S.family,
+      bills:S.bills, alloc:S.alloc, runDate:S.runDate
+    }, overrides||{});
+  }
+  persistEdits(overrides){
+    try { sessionStorage.setItem(this.persistKey(), JSON.stringify(this.editableSnapshot(overrides))); }
+    catch(_e){}
+  }
+  loadPersisted(runId){
+    try {
+      const raw = sessionStorage.getItem('ba_cockpit_' + (runId || 'default'));
+      return raw ? JSON.parse(raw) : null;
+    } catch(_e){ return null; }
+  }
+
   setNum(section,i,val){
     const arr = this.state[section].map(r=>r.slice());
     arr[i][2] = val;
+    this.persistEdits({ [section]: arr });
     this.setState({ [section]: arr, committed:false });
   }
+  setBills(val){ this.persistEdits({ bills:val }); this.setState({ bills:val, committed:false }); }
   // The three inputs per row (slider, %, $) all resolve to alloc[key] (a %).
   // Editing any one updates the shared value, so the other two re-derive live.
   // The % and $ text fields stash their raw text in `editing` so they aren't
   // reformatted while you type; the slider clears it (its value is always numeric).
   setPct(key,val){
     let p = parseFloat(val); if(isNaN(p)) p=0; p=Math.max(0,Math.min(100,p));
-    this.setState({ alloc: { ...this.state.alloc, [key]: p }, editing:{key,field:'pct',text:String(val)}, committed:false });
+    const alloc = { ...this.state.alloc, [key]: p };
+    this.persistEdits({ alloc });
+    this.setState({ alloc, editing:{key,field:'pct',text:String(val)}, committed:false });
   }
   setDollar(key,val,remainder){
     const d = parseFloat(val)||0;
     const p = remainder>0 ? Math.max(0,Math.min(100,(d/remainder)*100)) : 0;
-    this.setState({ alloc: { ...this.state.alloc, [key]: p }, editing:{key,field:'dollar',text:String(val)}, committed:false });
+    const alloc = { ...this.state.alloc, [key]: p };
+    this.persistEdits({ alloc });
+    this.setState({ alloc, editing:{key,field:'dollar',text:String(val)}, committed:false });
   }
   setSlider(key,val){
     let p = parseFloat(val); if(isNaN(p)) p=0; p=Math.max(0,Math.min(100,p));
-    this.setState({ alloc: { ...this.state.alloc, [key]: p }, editing:null, committed:false });
+    const alloc = { ...this.state.alloc, [key]: p };
+    this.persistEdits({ alloc });
+    this.setState({ alloc, editing:null, committed:false });
   }
   clearEditing(){ if(this.state.editing) this.setState({ editing:null }); }
 
@@ -535,19 +580,19 @@ class Component extends DCLogic {
       rows.push(el('div',{key:'__t',style:{marginTop:bottomAlign?'auto':'10px',paddingTop:'12px',borderTop:'1px solid '+accent}},...totalBlock));
       return rows;
     };
-    const othersRow = el('div',{key:'__others',className:'bills-box',role:'button',tabIndex:0,onClick:()=>this.openOthers(),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.openOthers();}},style:{display:'flex',alignItems:'center',gap:'10px',padding:'11px 12px',marginTop:'8px'}},
+    const othersRow = el('div',{key:'__others',className:'bills-box',role:'button',tabIndex:0,onClick:()=>this.openOthers(),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.openOthers();}},style:{display:'flex',alignItems:'center',gap:'10px',padding:'11px 12px',marginTop:'8px',marginBottom:'14px'}},
       el('div',{style:{flex:1,minWidth:0}},
         el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600,lineHeight:1.2}},'Additional Accounts'),
-        el('div',{className:'num',style:{fontSize:'10.5px',color:C.midL}},'*7889 · *9168 · *0466 · *3195 \u00b7 tap to edit')),
+        el('div',{className:'num',style:{fontSize:'10.5px',color:C.midL}},'*7889 · *9168 · *0466 · *3195')),
       el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
       el('span',{className:'num',style:{fontSize:'15px',color:C.cream,padding:'8px 9px'}}, othersSum.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})));
     const bankRows = rowList('bank', C.sage, totalBank, 'Total in bank', null, false, [othersRow]);
     const billsRow = el('div',{key:'__bills',className:'bills-box',role:'button',tabIndex:0,onClick:()=>this.openBills(),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.openBills();}},style:{display:'flex',alignItems:'center',gap:'10px',padding:'11px 12px',marginTop:'10px'}},
       el('div',{style:{flex:1,minWidth:0}},
         el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600,lineHeight:1.2}},'Bills'),
-        el('div',{style:{fontSize:'10.5px',color:C.midL}},'due today \u2192 period end')),
+        el('div',{style:{fontSize:'10.5px',color:C.midL}},'due today')),
       el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
-      el('input',{value:S.bills,inputMode:'decimal',onClick:e=>e.stopPropagation(),onChange:e=>this.setState({bills:e.target.value}),style:inpStyle}));
+      el('input',{value:S.bills,inputMode:'decimal',onClick:e=>e.stopPropagation(),onChange:e=>this.setBills(e.target.value),style:inpStyle}));
     const totalOwed = totalCards + bills;
     const cardRows = rowList('cards', C.mauve, totalOwed, 'Total owed', ['Total remainder', totalBank-totalOwed], true, [billsRow]);
 
@@ -657,30 +702,33 @@ class Component extends DCLogic {
       ['7889','Logan COH'], ['9168','Liz COH Svgs'],
       ['0466','Matt COH Svgs'], ['3195','Logan COH Svgs'],
     ];
+    const colHead = (t,align)=> el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700,marginBottom:'3px',textAlign:align||'left'}},t);
     const renderMapRow = (id,name,target,accent,note,gray)=>{
       const current = balById[id]||0;
       const move = target - current;
       const moveUp = move >= 0.005, moveDown = move <= -0.005;
-      const moveColor = gray ? C.muted : (moveUp ? C.sage : (moveDown ? C.mauve : C.muted));
-      const moveTxt = (!moveUp && !moveDown) ? '\u2014' : (moveUp?'+':'\u2212') + money(Math.abs(move));
-      const dir = gray ? 'Parked \u00b7 stays put'
-        : note==='hub' ? 'Hub \u00b7 bills + daily + buffer'
-        : moveUp ? 'Main \u2192 '+name
-        : moveDown ? name+' \u2192 Main'
-        : 'On target';
-      return el('div',{key:id,style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px 14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:gray?0.5:1}},
-        el('div',{style:{flex:'1 1 150px',minWidth:0}},
-          el('div',{style:{fontSize:'13px',color:gray?C.muted:C.cream,fontWeight:600}},name),
-          el('div',{style:{fontSize:'10px',color:gray?C.muted:accent,fontWeight:600}},dir)),
-        el('div',{style:{textAlign:'right',minWidth:'78px'}},
-          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Now'),
-          el('div',{className:'num',style:{fontSize:'13px',color:C.muted}},money(current))),
-        el('div',{style:{textAlign:'right',minWidth:'88px'}},
-          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.midL,fontWeight:700}},'Target'),
-          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:gray?C.muted:C.cream}},money(target))),
-        el('div',{style:{textAlign:'right',minWidth:'86px'}},
-          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Move'),
-          el('div',{className:'num',style:{fontSize:'13px',fontWeight:600,color:moveColor}}, moveTxt)));
+      const needsMove = moveUp || moveDown;
+      const dim = gray || !needsMove;           // gray rows that need no transfer work
+      const moveColor = dim ? C.muted : (moveUp ? C.sage : C.mauve);
+      const moveTxt = !needsMove ? '\u2014' : (moveUp?'+':'\u2212') + money(Math.abs(move));
+      // From → To reflects the direction funds move to reach the target.
+      let fromAcct = '\u2014', toAcct = '\u2014';
+      if(note!=='hub' && moveUp){ fromAcct='Main'; toAcct=name; }
+      else if(note!=='hub' && moveDown){ fromAcct=name; toAcct='Main'; }
+      const pill = (txt,active)=> el('span',{style:{display:'inline-block',fontSize:'11px',fontWeight:600,color:active?C.cream:C.muted,background:active?'#2E3A2C':'transparent',border:'1px solid '+(active?C.mid:C.line),borderRadius:'999px',padding:'4px 10px',whiteSpace:'nowrap'}}, txt);
+      const active = needsMove && !gray;
+      return el('div',{key:id,style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px 14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:dim?0.5:1}},
+        el('div',{style:{flex:'1 1 120px',minWidth:0}},
+          el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600}},name),
+          el('div',{className:'num',style:{fontSize:'10px',color:C.muted,fontWeight:600}},'*'+id)),
+        el('div',{style:{minWidth:'70px'}}, colHead('From'), pill(fromAcct,active)),
+        el('div',{style:{minWidth:'70px'}}, colHead('To'), pill(toAcct,active)),
+        el('div',{style:{textAlign:'right',minWidth:'84px'}}, colHead('Move','right'),
+          el('div',{className:'num',style:{fontSize:'13px',fontWeight:600,color:moveColor}}, moveTxt)),
+        el('div',{style:{textAlign:'right',minWidth:'76px'}}, colHead('Now','right'),
+          el('div',{className:'num',style:{fontSize:'13px',color:C.muted}}, money(current))),
+        el('div',{style:{textAlign:'right',minWidth:'84px'}}, colHead('Target','right'),
+          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}}, money(target))));
     };
     const mapItems = [];
     earmarks.forEach(([id,name,target,accent,note])=> mapItems.push(renderMapRow(id,name,target,accent,note,false)));

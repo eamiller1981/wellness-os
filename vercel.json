@@ -1,6 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/budget-abroad/biweekly", "destination": "/budget-abroad/Biweekly%20Cockpit.dc.html" },
+    { "source": "/budget-abroad/dashboard", "destination": "/budget-abroad/Dashboard.dc.html" },
+    { "source": "/budget-abroad/forecast", "destination": "/budget-abroad/Forecast%20Planner.dc.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
