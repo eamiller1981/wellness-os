@@ -149,6 +149,8 @@
           daily: lizCoh + spending + travelCash,
           travel: mattCoh + lodging + flights,
           family: loganCoh + logan + momPapa,
+          familyLogan: logan,        // Forecast "Logan" column (period)
+          familyMomPapa: momPapa,    // Forecast "Mom & Papa" column (period)
           tpa: tpa,
           start: parseISO(propDate(p['Start'])),
           end: parseISO(propDate(p['End']))

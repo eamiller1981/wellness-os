@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="../app-auth.js"></script>
-<script src="./notion.js"></script>
+<script src="./notion.js?v=20260703"></script>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -228,8 +228,8 @@ class Component extends DCLogic {
     return {
       daily: best.daily||0,
       travel: best.travel||0,
-      familyLogan: (best.family||0) * 0.5,   // split family evenly if not separately tracked
-      familyMomPapa: (best.family||0) * 0.5,
+      familyLogan: best.familyLogan||0,       // Forecast "Logan" for this period
+      familyMomPapa: best.familyMomPapa||0,   // Forecast "Mom & Papa" for this period
       periodLabel: this.payPeriodLabel(best.start)
     };
   }
@@ -469,9 +469,12 @@ class Component extends DCLogic {
   openBills(){
     this.setState({ billsOpen:true });
     if(this.state.billsRows || this.state.billsLoading) return;
-    if(!window.BudgetAbroad){ this.setState({ billsRows:[] }); return; }
+    if(!window.BudgetAbroad || typeof window.BudgetAbroad.loadBillsDue !== 'function'){
+      console.warn('[budget-abroad] loadBillsDue unavailable (stale cache?)');
+      this.setState({ billsRows:[] }); return;
+    }
     this.setState({ billsLoading:true });
-    window.BudgetAbroad.loadBillsDue().then((rows)=>{
+    Promise.resolve().then(()=>window.BudgetAbroad.loadBillsDue()).then((rows)=>{
       this.setState({ billsRows: rows||[], billsLoading:false });
     }).catch((e)=>{
       console.warn('[budget-abroad] bills load failed', e);
