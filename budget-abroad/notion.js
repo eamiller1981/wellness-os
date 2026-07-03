@@ -259,6 +259,35 @@
     });
   }
 
+  /* ════════════════════════════════════════════════════════════════
+   * loadRunBills(pageId) — bills related to a Budget Run row.
+   * Reads the 📉 Bills DB filtered by the 💸 Budget Run relation
+   * containing pageId. Returns [{merchant, amount, next}] sorted by
+   * next occurrence date.
+   * ════════════════════════════════════════════════════════════════ */
+  var BILLS_DB = 'dda95f92df7445fab2681ddc330e2b46'; // 📉 Bills
+  function loadRunBills(pageId) {
+    if (!pageId) return Promise.resolve([]);
+    return queryAll(BILLS_DB, {
+      filter: { property: '💸 Budget Run', relation: { contains: pageId } }
+    }).then(function (results) {
+      var rows = results.map(function (pg) {
+        var p = pg.properties || {};
+        return {
+          merchant: propText(p['Merchant']),
+          amount: num(p['Amount']),
+          next: propDate(p['Next Occurrence'])
+        };
+      });
+      rows.sort(function (a, b) {
+        var da = a.next ? parseISO(a.next).getTime() : Infinity;
+        var db = b.next ? parseISO(b.next).getTime() : Infinity;
+        return da - db;
+      });
+      return rows;
+    });
+  }
+
   /* ---- 40/40/20 from Accounts Percent (best-effort; falls back to defaults) ---- */
   function loadAllocPercents() {
     return queryAll(ACCOUNTS_DB, {}).then(function (results) {
@@ -340,6 +369,7 @@
     loadForecastBase: loadForecastBase,
     loadActuals: loadActuals,
     loadCurrentRun: loadCurrentRun,
+    loadRunBills: loadRunBills,
     loadAllocPercents: loadAllocPercents,
     createPendingRun: createPendingRun,
     pollBalances: pollBalances,

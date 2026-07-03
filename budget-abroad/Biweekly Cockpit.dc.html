@@ -31,8 +31,6 @@
     <a href="Dashboard.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Dashboard</a>
     <span style="color:#B7B1A0;font-size:12px">/</span>
     <a href="Forecast Planner.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Forecast</a>
-    <span style="flex:1"></span>
-    <a href="/archive/finances-2026-07.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Domestic (archived)</a>
   </nav>
   <div style="background:#232820;border-radius:clamp(16px,4vw,22px);padding:clamp(16px,4vw,26px) clamp(15px,4vw,26px) 30px;box-shadow:0 30px 70px -34px rgba(20,30,22,.55)">
 
@@ -48,6 +46,9 @@
 
     <!-- PASTE BALANCES (shown after Run) -->
     <div>{{ pasteBox }}</div>
+
+    <!-- BILLS DETAIL MODAL -->
+    <div>{{ billsModal }}</div>
 
     <!-- STAT TILES -->
     <div style="margin-top:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:11px">{{ tiles }}</div>
@@ -147,6 +148,10 @@ class Component extends DCLogic {
     showPaste: false,
     pasteText: '',
     applying: false,
+    // ---- bills detail modal ----
+    billsOpen: false,
+    billsLoading: false,
+    billsRows: null,
   };
 
   componentDidMount(){
@@ -445,6 +450,21 @@ class Component extends DCLogic {
     this.setState({ alloc: { ...this.state.alloc, [key]: p }, committed:false });
   }
 
+  // Bills detail — load the bills related to the current Budget Run on demand.
+  openBills(){
+    this.setState({ billsOpen:true });
+    if(this.state.billsRows || this.state.billsLoading) return;
+    if(!window.BudgetAbroad || !this.state.currentRunId){ this.setState({ billsRows:[] }); return; }
+    this.setState({ billsLoading:true });
+    window.BudgetAbroad.loadRunBills(this.state.currentRunId).then((rows)=>{
+      this.setState({ billsRows: rows||[], billsLoading:false });
+    }).catch((e)=>{
+      console.warn('[budget-abroad] bills load failed', e);
+      this.setState({ billsRows:[], billsLoading:false });
+    });
+  }
+  closeBills(){ this.setState({ billsOpen:false }); }
+
   renderVals(){
     const el = React.createElement;
     const n = s => parseFloat(s)||0;
@@ -498,8 +518,9 @@ class Component extends DCLogic {
       el('span',{className:'num',style:{fontSize:'15px',color:C.cream,padding:'8px 9px'}}, othersSum.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})));
     const bankRows = rowList('bank', C.sage, totalBank, 'Total in bank', null, false, [othersRow]);
     const billsRow = el('div',{key:'__bills',style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderTop:'1px solid '+C.line}},
-      el('div',{style:{flex:1,minWidth:0}},
-        el('div',{style:{fontSize:'13px',color:C.text,lineHeight:1.2}},'Bills'),
+      el('div',{role:'button',tabIndex:0,onClick:()=>this.openBills(),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.openBills();}},style:{flex:1,minWidth:0,cursor:'pointer'}},
+        el('div',{style:{display:'flex',alignItems:'center',gap:'6px',fontSize:'13px',color:C.text,lineHeight:1.2}},'Bills',
+          el('span',{style:{fontSize:'11px',color:C.midL,textDecoration:'underline',textUnderlineOffset:'2px'}},'view')),
         el('div',{style:{fontSize:'10.5px',color:C.muted}},'due this period')),
       el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
       el('input',{value:S.bills,inputMode:'decimal',onChange:e=>this.setState({bills:e.target.value}),style:inpStyle}));
@@ -651,11 +672,42 @@ class Component extends DCLogic {
       el('div',{style:{display:'flex',justifyContent:'flex-end',marginTop:'11px'}},
         el('button',{type:'button',disabled:S.applying,onClick:()=>this.applyPastedBalances(),style:loadBtnStyle}, S.applying?'Saving…':'Load'))) : null;
 
+    // ---- bills detail modal (Merchant | Amount | Next Occurrence) ----
+    let billsModal = null;
+    if(S.billsOpen){
+      const fmtDate = s => { if(!s) return '—'; const d=new Date(String(s).slice(0,10).replace(/-/g,'/')); return isNaN(d.getTime())?'—':d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); };
+      const th = { fontSize:'10px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700,textAlign:'left',padding:'0 10px 8px' };
+      const rows = S.billsRows || [];
+      const billsSum = rows.reduce((a,b)=>a+(b.amount||0),0);
+      let bodyRows;
+      if(S.billsLoading) bodyRows = [el('tr',{key:'__l'},el('td',{colSpan:3,style:{padding:'16px 10px',color:C.muted,fontSize:'13px'}},'Loading bills…'))];
+      else if(!rows.length) bodyRows = [el('tr',{key:'__e'},el('td',{colSpan:3,style:{padding:'16px 10px',color:C.muted,fontSize:'13px'}},'No bills linked to this pay period.'))];
+      else bodyRows = rows.map((b,i)=>el('tr',{key:i,style:{borderTop:'1px solid '+C.line}},
+        el('td',{style:{padding:'10px',fontSize:'13px',color:C.text}}, b.merchant||'—'),
+        el('td',{className:'num',style:{padding:'10px',fontSize:'13px',color:C.cream,textAlign:'right',whiteSpace:'nowrap'}}, money(b.amount||0)),
+        el('td',{className:'num',style:{padding:'10px',fontSize:'13px',color:C.text,textAlign:'right',whiteSpace:'nowrap'}}, fmtDate(b.next))));
+      billsModal = el('div',{onClick:()=>this.closeBills(),style:{position:'fixed',inset:0,zIndex:50,background:'rgba(15,20,14,.62)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}},
+        el('div',{onClick:e=>e.stopPropagation(),style:{width:'min(560px,100%)',maxHeight:'80vh',overflow:'auto',background:C.panel,borderRadius:'16px',padding:'20px 20px 18px',boxShadow:'0 30px 70px -20px rgba(0,0,0,.6)'}},
+          el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}},
+            el('div',{style:{fontFamily:"'Newsreader',serif",fontSize:'21px',color:C.cream}},'Bills This Period'),
+            el('button',{type:'button',onClick:()=>this.closeBills(),style:{background:'none',border:'none',color:C.muted,fontSize:'22px',lineHeight:1,cursor:'pointer',padding:'0 4px'}},'\u00D7')),
+          el('table',{style:{width:'100%',borderCollapse:'collapse'}},
+            el('thead',null,el('tr',null,
+              el('th',{style:th},'Merchant'),
+              el('th',{style:{...th,textAlign:'right'}},'Amount'),
+              el('th',{style:{...th,textAlign:'right'}},'Next Occurrence'))),
+            el('tbody',null, ...bodyRows)),
+          (rows.length ? el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:'12px',paddingTop:'12px',borderTop:'1px solid '+C.mauve}},
+            el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:C.mauve,fontWeight:700}},'Total'),
+            el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(billsSum))) : null)));
+    }
+
     return {
       onRun: () => this.onRun(),
       pieChart,
       runControls,
       pasteBox,
+      billsModal,
       commitBar,
       payPeriodStr: S.payPeriodStr || '—',
       totalAssetsStr: money(S.totalAssets!=null ? S.totalAssets : totalBank),
