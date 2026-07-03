@@ -155,6 +155,9 @@ class Component extends DCLogic {
     billsOpen: false,
     billsLoading: false,
     billsRows: null,
+    // which allocation input is being typed in (keeps raw text so it isn't
+    // reformatted mid-keystroke while the other two inputs update live)
+    editing: null, // { key, field:'pct'|'dollar', text }
   };
 
   componentDidMount(){
@@ -443,15 +446,24 @@ class Component extends DCLogic {
     arr[i][2] = val;
     this.setState({ [section]: arr, committed:false });
   }
+  // The three inputs per row (slider, %, $) all resolve to alloc[key] (a %).
+  // Editing any one updates the shared value, so the other two re-derive live.
+  // The % and $ text fields stash their raw text in `editing` so they aren't
+  // reformatted while you type; the slider clears it (its value is always numeric).
   setPct(key,val){
     let p = parseFloat(val); if(isNaN(p)) p=0; p=Math.max(0,Math.min(100,p));
-    this.setState({ alloc: { ...this.state.alloc, [key]: p }, committed:false });
+    this.setState({ alloc: { ...this.state.alloc, [key]: p }, editing:{key,field:'pct',text:String(val)}, committed:false });
   }
   setDollar(key,val,remainder){
     const d = parseFloat(val)||0;
     const p = remainder>0 ? Math.max(0,Math.min(100,(d/remainder)*100)) : 0;
-    this.setState({ alloc: { ...this.state.alloc, [key]: p }, committed:false });
+    this.setState({ alloc: { ...this.state.alloc, [key]: p }, editing:{key,field:'dollar',text:String(val)}, committed:false });
   }
+  setSlider(key,val){
+    let p = parseFloat(val); if(isNaN(p)) p=0; p=Math.max(0,Math.min(100,p));
+    this.setState({ alloc: { ...this.state.alloc, [key]: p }, editing:null, committed:false });
+  }
+  clearEditing(){ if(this.state.editing) this.setState({ editing:null }); }
 
   // Bills detail — load the bills due today→period end on demand.
   openBills(){
@@ -591,59 +603,79 @@ class Component extends DCLogic {
       ['emergency','Emergency Fund','0741', C.midL, dEmg],
       ['buffer','USAA Buffer','7419', C.mauve, dBuf],
     ];
-    const allocSliders = cats.map(([key,title,acctId,accent,dollars])=>el('div',{key,style:{background:'#242A22',border:'1px solid '+C.line,borderRadius:'12px',padding:'11px 14px',marginBottom:'8px',display:'flex',alignItems:'center',flexWrap:'wrap',gap:'8px 14px'}},
-      el('div',{style:{flex:'1 1 130px',minWidth:0}},
-        el('div',{style:{fontSize:'14px',color:C.cream,fontWeight:600}},title),
-        el('div',{className:'num',style:{fontSize:'11px',letterSpacing:'.06em',color:C.muted}},'*'+acctId)),
-      el('input',{type:'range',min:0,max:100,value:S.alloc[key],onChange:e=>this.setPct(key,e.target.value),style:{flex:'1 1 120px',accentColor:accent}}),
-      el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}},
-        el('input',{value:Math.round(S.alloc[key]),inputMode:'decimal',onChange:e=>this.setPct(key,e.target.value),style:{...inpStyle,width:'52px'}}),
-        el('span',{style:{color:C.muted,fontSize:'12px'}},'%')),
-      el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}},
-        el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
-        el('input',{value:dollars.toFixed(2),inputMode:'decimal',onChange:e=>this.setDollar(key,e.target.value,remainder),style:{...inpStyle,width:'88px'}}))));
+    const ed = S.editing;
+    const allocSliders = cats.map(([key,title,acctId,accent,dollars])=>{
+      const pctVal = (ed && ed.key===key && ed.field==='pct') ? ed.text : String(Math.round(S.alloc[key]));
+      const dolVal = (ed && ed.key===key && ed.field==='dollar') ? ed.text : dollars.toFixed(2);
+      return el('div',{key,style:{background:'#242A22',border:'1px solid '+C.line,borderRadius:'12px',padding:'11px 14px',marginBottom:'8px',display:'flex',alignItems:'center',flexWrap:'wrap',gap:'8px 14px'}},
+        el('div',{style:{flex:'1 1 130px',minWidth:0}},
+          el('div',{style:{fontSize:'14px',color:C.cream,fontWeight:600}},title),
+          el('div',{className:'num',style:{fontSize:'11px',letterSpacing:'.06em',color:C.muted}},'*'+acctId)),
+        el('input',{type:'range',min:0,max:100,value:S.alloc[key],onChange:e=>this.setSlider(key,e.target.value),style:{flex:'1 1 120px',accentColor:accent}}),
+        el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}},
+          el('input',{value:pctVal,inputMode:'decimal',onChange:e=>this.setPct(key,e.target.value),onBlur:()=>this.clearEditing(),style:{...inpStyle,width:'52px'}}),
+          el('span',{style:{color:C.muted,fontSize:'12px'}},'%')),
+        el('div',{style:{display:'flex',alignItems:'center',gap:'4px'}},
+          el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
+          el('input',{value:dolVal,inputMode:'decimal',onChange:e=>this.setDollar(key,e.target.value,remainder),onBlur:()=>this.clearEditing(),style:{...inpStyle,width:'88px'}})));
+    });
 
     const balOk = Math.abs(balance) < 0.005;
     const balancePill = el('div',{style:{flex:'1 1 240px',display:'flex',justifyContent:'space-between',alignItems:'center',background:balOk?'#2E3A2C':'#3A2C2E',border:'1px solid '+(balOk?C.mid:C.mauveD),borderRadius:'999px',padding:'11px 18px'}},
       el('span',{style:{fontSize:'11px',letterSpacing:'.1em',textTransform:'uppercase',color:balOk?C.sage:C.mauve,fontWeight:700}},balOk?'Fully allocated':'Balance unassigned'),
       el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'20px',color:C.cream}},money(balance)));
 
-    // ---- money map: from varies per row (backend-determined); target = dest balance after transfer.
-    // Same-account moves are omitted (buffer stays put; daily spending stays in Main).
-    const rawMap = [
-      {fromId:'7419',fromName:'Main', toId:'7397',toName:'Savings', amt:dSav, tag:'Savings', color:C.sage, external:false},
-      {fromId:'7419',fromName:'Main', toId:'0741',toName:'Emergency Fund', amt:dEmg, tag:'Emergency', color:C.midL, external:false},
-      {fromId:'7419',fromName:'Main', toId:'7889',toName:'Logan COH', amt:logan, tag:'Family', color:C.mauve, external:true},
-      {fromId:'7419',fromName:'Main', toId:'3536',toName:'Mom & Papa', amt:momPapa, tag:'Family', color:C.mauve, external:true},
-      {fromId:'7419',fromName:'Main', toId:'8568',toName:'Schwab', amt:schwabSpend, tag:'Spending', color:C.sage, external:false},
-    ].filter(m=>m.fromId!==m.toId && m.amt>0.005);
-
-    let mapMoved = 0;
-    const mapItems = rawMap.map((m,i)=>{
-      mapMoved += m.amt;
-      const target = (balById[m.toId]||0) + m.amt;
-      return el('div',{key:i,style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'10px 14px',background:'#242A22',borderRadius:'10px',padding:'12px 14px',marginBottom:'8px'}},
-        el('div',{style:{flex:'1 1 190px',minWidth:0,display:'flex',alignItems:'center',gap:'9px'}},
-          el('div',{style:{minWidth:0}},
-            el('div',{style:{fontSize:'12.5px',color:C.text}},m.fromName),
-            el('div',{className:'num',style:{fontSize:'10px',color:C.muted}},'*'+m.fromId)),
-          el('span',{style:{color:m.external?C.mauve:C.mid,fontSize:'16px',flex:'none'}},'→'),
-          el('div',{style:{minWidth:0}},
-            el('div',{style:{fontSize:'12.5px',color:C.cream,fontWeight:600}},m.toName),
-            el('div',{className:'num',style:{fontSize:'10px',color:C.muted}},'*'+m.toId))),
-        el('div',{style:{textAlign:'right',minWidth:'88px'}},
-          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.mauve,fontWeight:700}},'Transfer'),
-          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}},money(m.amt))),
-        el('div',{style:{textAlign:'right',minWidth:'88px'}},
-          el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Target'),
-          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.text}},money(target))));
-    });
-    // Unallocated = after-bills pool minus every destination (transferred OR kept in place).
-    const mapRemaining = (income - bills) - (familyTile + spendTile + dSav + dEmg + dBuf);
-    const mapOk = Math.abs(mapRemaining) < 0.005;
-    mapItems.push(el('div',{key:'__mt',style:{marginTop:'auto',paddingTop:'12px',borderTop:'1px solid '+(mapOk?C.sage:C.mauveD),display:'flex',justifyContent:'space-between',alignItems:'baseline'}},
-      el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:mapOk?C.sage:C.mauve,fontWeight:700}},'Unallocated'),
-      el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(mapRemaining))));
+    // ---- money map: comprehensive end-state allocation of Total Assets.
+    // Every dollar of Total Assets is assigned a home. The target column is the
+    // amount each account should hold after the waterfall; targets sum to Total
+    // Assets (when balanced). Move = target − current balance (∑ moves = 0).
+    //   Main *7419 holds the bills reserve + daily spending + USAA buffer.
+    //   Savings/Emergency/Schwab/Logan/Mom&Papa each hold their envelope.
+    //   All other cash accounts sweep to $0 into Main.
+    const mapPlan = [
+      ['7419','Main', bills + daily + dBuf, 'Bills + daily + buffer', C.midL],
+      ['7397','Savings', dSav, 'Savings allocation', C.sage],
+      ['0741','Emergency Fund', dEmg, 'Emergency allocation', C.midL],
+      ['8568','Schwab', schwabSpend, 'Spending reserve', C.sage],
+      ['6374','Logan', logan, 'Family', C.mauve],
+      ['3536','Mom & Papa', momPapa, 'Family', C.mauve],
+      ['9176','Liz COH', 0, 'Sweep to Main', C.muted],
+      ['0458','Matt COH', 0, 'Sweep to Main', C.muted],
+      ['7889','Logan COH', 0, 'Sweep to Main', C.muted],
+      ['9168','Liz COH Svgs', 0, 'Sweep to Main', C.muted],
+      ['0466','Matt COH Svgs', 0, 'Sweep to Main', C.muted],
+      ['3195','Logan COH Svgs', 0, 'Sweep to Main', C.muted],
+    ];
+    const mapTargetSum = mapPlan.reduce((a,r)=>a+r[2],0);
+    const mapItems = mapPlan
+      .map(([id,name,target,note,color])=>({id,name,target,note,color,current:balById[id]||0}))
+      .filter(r=>r.current>0.005 || r.target>0.005)
+      .map((r,i)=>{
+        const move = r.target - r.current;
+        const moveUp = move >= 0.005, moveDown = move <= -0.005;
+        const moveColor = moveUp ? C.sage : (moveDown ? C.mauve : C.muted);
+        const moveTxt = (moveUp?'+':moveDown?'\u2212':'') + money(Math.abs(move));
+        return el('div',{key:r.id,style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'8px 14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px'}},
+          el('div',{style:{flex:'1 1 150px',minWidth:0}},
+            el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600}},r.name),
+            el('div',{style:{fontSize:'10px',color:r.color,fontWeight:600}},r.note)),
+          el('div',{style:{textAlign:'right',minWidth:'78px'}},
+            el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Now'),
+            el('div',{className:'num',style:{fontSize:'13px',color:C.muted}},money(r.current))),
+          el('div',{style:{textAlign:'right',minWidth:'88px'}},
+            el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.midL,fontWeight:700}},'Target'),
+            el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}},money(r.target))),
+          el('div',{style:{textAlign:'right',minWidth:'86px'}},
+            el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700}},'Move'),
+            el('div',{className:'num',style:{fontSize:'13px',fontWeight:600,color:moveColor}}, move===0?'—':moveTxt)));
+      });
+    // Totals: allocated targets must equal Total Assets.
+    const mapOk = Math.abs(mapTargetSum - income) < 0.005;
+    mapItems.push(el('div',{key:'__mt',style:{marginTop:'auto',paddingTop:'12px',borderTop:'1px solid '+(mapOk?C.sage:C.mauveD),display:'flex',flexWrap:'wrap',justifyContent:'space-between',alignItems:'baseline',gap:'6px 14px'}},
+      el('span',{style:{fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:mapOk?C.sage:C.mauve,fontWeight:700}}, mapOk?'Allocated = Total Assets':'Allocated \u2260 Total Assets'),
+      el('div',{style:{display:'flex',alignItems:'baseline',gap:'12px'}},
+        el('span',{className:'num',style:{fontSize:'12px',color:C.muted}}, 'of '+money(income)),
+        el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(mapTargetSum)))));
     const mapRows = mapItems;
 
     // ---- run controls (Run button + editable date + status) ----
