@@ -26,9 +26,9 @@
 
 <div style="max-width:1020px;margin:0 auto;padding:clamp(10px,3.5vw,26px) clamp(8px,3vw,18px) 52px">
   <nav style="display:flex;align-items:center;gap:6px;margin-bottom:14px;padding:0 2px">
-    <a href="Dashboard.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Dashboard</a>
-    <span style="color:#B7B1A0;font-size:12px">/</span>
     <span style="font-size:13px;font-weight:700;color:#F6E8D6;background:#232820;padding:7px 13px;border-radius:9px">Biweekly</span>
+    <span style="color:#B7B1A0;font-size:12px">/</span>
+    <a href="Dashboard.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Dashboard</a>
     <span style="color:#B7B1A0;font-size:12px">/</span>
     <a href="Forecast Planner.dc.html" style="font-size:13px;font-weight:500;color:#6E6E60;text-decoration:none;padding:7px 13px;border-radius:9px" style-hover="background:rgba(35,40,32,.08);color:#232820">Forecast</a>
     <span style="flex:1"></span>
@@ -86,7 +86,6 @@
         </div>
       </div>
       {{ allocSliders }}
-      {{ balancePill }}
       {{ commitBar }}
     </div>
 
@@ -108,11 +107,17 @@ class Component extends DCLogic {
       ['0741','Emergency Fund','1700.00'],
       ['9176','Liz COH (Lodging)','0.01'],
       ['0458','Matt COH (Transit)','0.01'],
-      ['7889','Logan COH','300.00'],
       ['8568','Schwab','2450.00'],
     ],
+    // placeholder / hold accounts summed into a single "Others" line
+    others: [
+      ['7889','Logan COH','300.00'],
+      ['9168','Liz COH Svgs','0.01'],
+      ['0466','Matt COH Svgs','0.01'],
+      ['3195','Logan COH Svgs','0.01'],
+    ],
     cards: [
-      ['0074','Venture','842.15'],
+      ['1454','Venture','842.15'],
       ['9722','Altitude Connect','1203.60'],
       ['1375','USAA Credit','456.90'],
       ['9379','Ulta','78.44'],
@@ -164,11 +169,16 @@ class Component extends DCLogic {
           ['0741','Emergency Fund', (run.bank['0741']||0).toFixed(2)],
           ['9176','Liz COH (Lodging)', (run.bank['9176']||0).toFixed(2)],
           ['0458','Matt COH (Transit)', (run.bank['0458']||0).toFixed(2)],
-          ['7889','Logan COH', (run.bank['7889']||0).toFixed(2)],
           ['8568','Schwab', (run.bank['8568']||0).toFixed(2)],
         ];
+        patch.others = [
+          ['7889','Logan COH', (run.bank['7889']||0).toFixed(2)],
+          ['9168','Liz COH Svgs', (run.bank['9168']||0).toFixed(2)],
+          ['0466','Matt COH Svgs', (run.bank['0466']||0).toFixed(2)],
+          ['3195','Logan COH Svgs', (run.bank['3195']||0).toFixed(2)],
+        ];
         patch.cards = [
-          ['0074','Venture', (run.cards['0074']||0).toFixed(2)],
+          ['1454','Venture', (run.cards['0074']||0).toFixed(2)],
           ['9722','Altitude Connect', (run.cards['9722']||0).toFixed(2)],
           ['1375','USAA Credit', (run.cards['1375']||0).toFixed(2)],
           ['9379','Ulta', (run.cards['9379']||0).toFixed(2)],
@@ -242,8 +252,8 @@ class Component extends DCLogic {
       'Using the finance/Plaid connector ONLY (do NOT use Notion), read my CURRENT balances and reply with ONE JSON code block and nothing else.',
       '',
       'Accounts by last-4 mask:',
-      '  Banks \u2014 7419, 7397, 0741, 9176, 0458, 7889, and 8568 (Schwab Investor Checking; use mask 8568 ONLY \u2014 ignore any Equity Awards / Beneficiary accounts).',
-      '  Credit cards \u2014 0074 (Venture), 9722 (Altitude Connect), 1375 (USAA Credit), 9379 (Ulta), 3611 (Prime Visa).',
+      '  Banks \u2014 7419, 7397, 0741, 9176, 9168, 0458, 0466, 7889, 3195, and 8568 (Schwab Investor Checking; use mask 8568 ONLY \u2014 ignore any Equity Awards / Beneficiary accounts).',
+      '  Credit cards \u2014 1454 (Venture), 9722 (Altitude Connect), 1375 (USAA Credit), 9379 (Ulta), 3611 (Prime Visa).',
       '',
       'Also compute schwab_period_spend = sum of posted, positive (outgoing) transactions on Schwab mask 8568 dated ' + (start||'the pay-period start') + ' (inclusive) through ' + (end||'start + 14 days') + ' (exclusive). Include transfers.',
       '',
@@ -251,8 +261,8 @@ class Component extends DCLogic {
       '```json',
       '{',
       '  "balances": {',
-      '    "7419": 0, "7397": 0, "0741": 0, "9176": 0, "0458": 0, "7889": 0, "8568": 0,',
-      '    "0074": 0, "9722": 0, "1375": 0, "9379": 0, "3611": 0',
+      '    "7419": 0, "7397": 0, "0741": 0, "9176": 0, "9168": 0, "0458": 0, "0466": 0, "7889": 0, "3195": 0, "8568": 0,',
+      '    "1454": 0, "9722": 0, "1375": 0, "9379": 0, "3611": 0',
       '  },',
       '  "schwab_period_spend": 0',
       '}',
@@ -311,6 +321,8 @@ class Component extends DCLogic {
     }
     const bal = data.balances || data;
     const g = k => { const v = parseFloat(bal[k]); return isNaN(v)?0:v; };
+    // Venture card is Plaid mask 1454 (Notion column stays "0074 Venture"); accept either key.
+    const venture = (function(){ let v = parseFloat(bal['1454']); if(isNaN(v)) v = parseFloat(bal['0074']); return isNaN(v)?0:v; })();
     const schwabSpend = (function(){ const v = parseFloat(data.schwab_period_spend); return isNaN(v)?0:v; })();
 
     // populate fields client-side
@@ -320,11 +332,16 @@ class Component extends DCLogic {
       ['0741','Emergency Fund', g('0741').toFixed(2)],
       ['9176','Liz COH (Lodging)', g('9176').toFixed(2)],
       ['0458','Matt COH (Transit)', g('0458').toFixed(2)],
-      ['7889','Logan COH', g('7889').toFixed(2)],
       ['8568','Schwab', g('8568').toFixed(2)],
     ];
+    const others = [
+      ['7889','Logan COH', g('7889').toFixed(2)],
+      ['9168','Liz COH Svgs', g('9168').toFixed(2)],
+      ['0466','Matt COH Svgs', g('0466').toFixed(2)],
+      ['3195','Logan COH Svgs', g('3195').toFixed(2)],
+    ];
     const cards = [
-      ['0074','Venture', g('0074').toFixed(2)],
+      ['1454','Venture', venture.toFixed(2)],
       ['9722','Altitude Connect', g('9722').toFixed(2)],
       ['1375','USAA Credit', g('1375').toFixed(2)],
       ['9379','Ulta', g('9379').toFixed(2)],
@@ -332,7 +349,7 @@ class Component extends DCLogic {
     ];
     const family = this.state.family.map(r=>r.slice());
     family[1][2] = schwabSpend.toFixed(2); // Schwab period spend
-    this.setState({ bank, cards, family, committed:false });
+    this.setState({ bank, others, cards, family, committed:false });
 
     if(!this.state.currentRunId){
       this.setState({ status:'Balances loaded. Click Run first to create the Budget Run row, then Load again to save.', statusErr:true });
@@ -347,7 +364,10 @@ class Component extends DCLogic {
       '0458 Matt COH':      { number: g('0458') },
       '7889 Logan COH':     { number: g('7889') },
       '8568 Schwab':        { number: g('8568') },
-      '0074 Venture':       { number: g('0074') },
+      '9168 Liz COH Svgs':  { number: g('9168') },
+      '0466 Matt COH Svgs': { number: g('0466') },
+      '3195 Logan COH Svgs':{ number: g('3195') },
+      '0074 Venture':       { number: venture },
       '9722 Altitude Connect': { number: g('9722') },
       '1375 USAA Credit':   { number: g('1375') },
       '9379 Ulta':          { number: g('9379') },
@@ -376,10 +396,27 @@ class Component extends DCLogic {
     if(!this.state.currentRunId){ this.setState({ status:'Run a pay period first (no current run).', statusErr:true }); return; }
     if(!ctx.balOk){ this.setState({ status:'⚠ Balance must be $0.00 before committing. Currently '+ctx.balanceStr, statusErr:true }); return; }
     const S = this.state, n = s => parseFloat(s)||0;
+    const bankBy = {}; S.bank.forEach(r=>bankBy[r[0]]=n(r[2])); S.others.forEach(r=>bankBy[r[0]]=n(r[2]));
+    const cardBy = {}; S.cards.forEach(r=>cardBy[r[0]]=n(r[2]));
     const props = {
+      // 40/40 allocations — recomputed from the (edited) balances, so reliable
       '7397 Savings':      { number: ctx.dSav },
       '0741 Special Svgs': { number: ctx.dEmg },
-      '7419 Main':         { number: n(S.bank[0][2]) },
+      // account balances — edited values persist to Notion
+      '7419 Main':          { number: bankBy['7419'] },
+      '9176 Liz COH':       { number: bankBy['9176'] },
+      '0458 Matt COH':      { number: bankBy['0458'] },
+      '8568 Schwab':        { number: bankBy['8568'] },
+      '7889 Logan COH':     { number: bankBy['7889'] },
+      '9168 Liz COH Svgs':  { number: bankBy['9168'] },
+      '0466 Matt COH Svgs': { number: bankBy['0466'] },
+      '3195 Logan COH Svgs':{ number: bankBy['3195'] },
+      '0074 Venture':          { number: cardBy['1454'] },
+      '9722 Altitude Connect': { number: cardBy['9722'] },
+      '1375 USAA Credit':      { number: cardBy['1375'] },
+      '9379 Ulta':             { number: cardBy['9379'] },
+      '3611 Prime Visa':       { number: cardBy['3611'] },
+      // other run fields
       'Less Bills':        { number: n(S.bills) },
       '6374 Logan':        { number: n(S.family[2][2]) },
       '3536 Mom and Papa': { number: n(S.family[3][2]) },
@@ -414,10 +451,12 @@ class Component extends DCLogic {
     const money = v => (v<0?'-$':'$') + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
     const C = { panel:'#2C332A', line:'rgba(255,255,255,.07)', cream:'#F6E8D6', text:'#E7E3D8', muted:'#9DA394', mid:'#64926F', midL:'#8FB39C', sage:'#ABC49C', mauve:'#C39AA0', mauveD:'#875C62' };
     const S = this.state;
-    const balById = {}; S.bank.forEach(r=>balById[r[0]]=n(r[2]));
+    const others = S.others || [];
+    const balById = {}; S.bank.forEach(r=>balById[r[0]]=n(r[2])); others.forEach(r=>balById[r[0]]=n(r[2]));
+    const othersSum = others.reduce((a,r)=>a+n(r[2]),0);
 
     // ---- totals
-    const totalBank = S.bank.reduce((a,r)=>a+n(r[2]),0);
+    const totalBank = S.bank.reduce((a,r)=>a+n(r[2]),0) + othersSum;
     const totalCards = S.cards.reduce((a,r)=>a+n(r[2]),0);
     const daily = n(S.family[0][2]), schwabSpend = n(S.family[1][2]), logan = n(S.family[2][2]), momPapa = n(S.family[3][2]);
     const familyTile = logan + momPapa;
@@ -451,7 +490,13 @@ class Component extends DCLogic {
       rows.push(el('div',{key:'__t',style:{marginTop:bottomAlign?'auto':'10px',paddingTop:'12px',borderTop:'1px solid '+accent}},...totalBlock));
       return rows;
     };
-    const bankRows = rowList('bank', C.sage, totalBank, 'Total in bank');
+    const othersRow = el('div',{key:'__others',style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderTop:'1px solid '+C.line}},
+      el('div',{style:{flex:1,minWidth:0}},
+        el('div',{style:{fontSize:'13px',color:C.text,lineHeight:1.2}},'Others'),
+        el('div',{className:'num',style:{fontSize:'10.5px',color:C.muted}},'*7889 · *9168 · *0466 · *3195')),
+      el('span',{style:{color:C.muted,fontSize:'12px'}},'$'),
+      el('span',{className:'num',style:{fontSize:'15px',color:C.cream,padding:'8px 9px'}}, othersSum.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})));
+    const bankRows = rowList('bank', C.sage, totalBank, 'Total in bank', null, false, [othersRow]);
     const billsRow = el('div',{key:'__bills',style:{display:'flex',alignItems:'center',gap:'10px',padding:'8px 0',borderTop:'1px solid '+C.line}},
       el('div',{style:{flex:1,minWidth:0}},
         el('div',{style:{fontSize:'13px',color:C.text,lineHeight:1.2}},'Bills'),
@@ -536,7 +581,7 @@ class Component extends DCLogic {
         el('input',{value:dollars.toFixed(2),inputMode:'decimal',onChange:e=>this.setDollar(key,e.target.value,remainder),style:{...inpStyle,width:'88px'}}))));
 
     const balOk = Math.abs(balance) < 0.005;
-    const balancePill = el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'4px',background:balOk?'#2E3A2C':'#3A2C2E',border:'1px solid '+(balOk?C.mid:C.mauveD),borderRadius:'999px',padding:'11px 18px'}},
+    const balancePill = el('div',{style:{flex:'1 1 240px',display:'flex',justifyContent:'space-between',alignItems:'center',background:balOk?'#2E3A2C':'#3A2C2E',border:'1px solid '+(balOk?C.mid:C.mauveD),borderRadius:'999px',padding:'11px 18px'}},
       el('span',{style:{fontSize:'11px',letterSpacing:'.1em',textTransform:'uppercase',color:balOk?C.sage:C.mauve,fontWeight:700}},balOk?'Fully allocated':'Balance unassigned'),
       el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'20px',color:C.cream}},money(balance)));
 
@@ -588,15 +633,12 @@ class Component extends DCLogic {
         el('input',{type:'date',value:S.runDate||'',onChange:e=>this.setRunDate(e.target.value),style:dateInputStyle})),
       S.status ? el('div',{style:{fontSize:'11.5px',maxWidth:'240px',color:S.statusErr?C.mauve:C.sage}}, S.status) : null);
 
-    // ---- commit bar (single explicit writer; locks on commit) ----
+    // ---- commit bar (balance pill + single explicit writer on one row) ----
     const ctx = { balOk, dSav, dEmg, dBuf, balanceStr: money(balance) };
     const commitDisabled = S.committing || !balOk;
-    const commitBtnStyle = { flex:'none',background:balOk?'#64926F':'#3A4436',color:'#F6E8D6',border:'none',borderRadius:'12px',padding:'13px 26px',fontFamily:'inherit',fontSize:'14px',fontWeight:700,letterSpacing:'.03em',cursor:commitDisabled?'default':'pointer',opacity:commitDisabled?0.55:1 };
-    const commitBar = el('div',{style:{display:'flex',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:'10px 16px',marginTop:'12px'}},
-      el('div',{style:{fontSize:'11.5px',color:S.committed?C.sage:(balOk?C.muted:C.mauve)}},
-        S.committed ? '✔ Committed — values locked to the current Budget Run.'
-                    : (balOk ? 'Ready to commit. Writes savings, emergency, buffer + edited daily/travel/family to Notion.'
-                             : 'Balance must be $0.00 before committing.')),
+    const commitBtnStyle = { flex:'none',background:balOk?C.mauveD:'#3A4436',color:'#F6E8D6',border:'none',borderRadius:'12px',padding:'13px 26px',fontFamily:'inherit',fontSize:'14px',fontWeight:700,letterSpacing:'.03em',cursor:commitDisabled?'default':'pointer',opacity:commitDisabled?0.55:1 };
+    const commitBar = el('div',{style:{display:'flex',flexWrap:'wrap',alignItems:'center',gap:'10px 16px',marginTop:'8px'}},
+      balancePill,
       el('button',{type:'button',disabled:commitDisabled,onClick:()=>this.onCommit(ctx),style:commitBtnStyle}, S.committing?'Committing…':(S.committed?'Committed':'Commit')));
 
     // ---- paste-back box (ChatGPT JSON reply → fields + Notion write) ----

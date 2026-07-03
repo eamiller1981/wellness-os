@@ -238,7 +238,10 @@
           '9176': num(p['9176 Liz COH']),
           '0458': num(p['0458 Matt COH']),
           '7889': num(p['7889 Logan COH']),
-          '8568': num(p['8568 Schwab'])
+          '8568': num(p['8568 Schwab']),
+          '9168': num(p['9168 Liz COH Svgs']),
+          '0466': num(p['0466 Matt COH Svgs']),
+          '3195': num(p['3195 Logan COH Svgs'])
         },
         cards: {
           '0074': num(p['0074 Venture']),
