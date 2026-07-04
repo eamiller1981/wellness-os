@@ -16,6 +16,7 @@
   var FORECAST_DB = '392627ee81db80c9af9bf27e7de0f185'; // Abroad - Forecast
   var BUDGET_RUN_DB = '311627ee81db80b8ae51c5b7c8ed83bb'; // 💸 Budget Run
   var ACCOUNTS_DB = '779dccf0265a475ebe784612b5d8e2eb';   // 🪣 Accounts
+  var ENGINE_DB = '40dfe0c1b236407ab13e805b418f5d9d';     // 💱 Current Budget Engine
 
   /* ---- transport (ported from finances.html notionFetch) ---- */
   function notionFetch(path, method, body) {
@@ -224,7 +225,7 @@
       if (!results.length) return null;
       var pg = results[0];
       var p = pg.properties || {};
-      return {
+      var run = {
         pageId: pg.id,
         paydate: propDate(p['Paydate']),
         balancesPending: propChecked(p['Balances Pending']),
@@ -258,7 +259,26 @@
           '3536': num(p['3536 Mom and Papa'])
         }
       };
+      // "Bills due today" comes from the Current Budget Engine formula
+      // "Bills Due Today" (Σ Reserve Needed Today across related Bills, live
+      // today()→Period End), NOT the run's Less Bills (Live) reserve. Find the
+      // engine settings row related to this run and read that formula.
+      return loadEngineBillsDueToday(pg.id).then(function (bdt) {
+        run.billsDueToday = (bdt == null ? run.billsLive : bdt);
+        return run;
+      });
     });
+  }
+
+  /* Read "Bills Due Today" from the Current Budget Engine settings row that
+   * relates to the given Budget Run page. Returns null if not found. */
+  function loadEngineBillsDueToday(runPageId) {
+    return queryAll(ENGINE_DB, {
+      filter: { property: 'Current Budget Engine', relation: { contains: runPageId } }
+    }).then(function (results) {
+      if (!results.length) return null;
+      return notionPropNum((results[0].properties || {})['Bills Due Today']);
+    }).catch(function () { return null; });
   }
 
   /* ════════════════════════════════════════════════════════════════

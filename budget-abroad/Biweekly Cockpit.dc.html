@@ -179,7 +179,7 @@ class Component extends DCLogic {
         patch.currentRunId = run.pageId;
         patch.totalAssets = run.totalAssets;
         if(run.paydate) patch.runDate = run.paydate;
-        patch.bills = (run.billsLive!=null ? run.billsLive : 0).toFixed(2);
+        patch.bills = (run.billsDueToday!=null ? run.billsDueToday : 0).toFixed(2);
         patch.bank = [
           ['7419','Main', (run.bank['7419']||0).toFixed(2)],
           ['7397','Savings', (run.bank['7397']||0).toFixed(2)],
@@ -414,7 +414,7 @@ class Component extends DCLogic {
         const patch = { applying:false, showPaste:false, statusErr:false, status:'\u2714 Balances saved. Review allocations and Commit.' };
         if(run){
           patch.totalAssets = run.totalAssets;
-          patch.bills = (run.billsLive!=null ? run.billsLive : 0).toFixed(2);
+          patch.bills = (run.billsDueToday!=null ? run.billsDueToday : 0).toFixed(2);
         }
         this.setState(patch);
       });
@@ -453,7 +453,11 @@ class Component extends DCLogic {
       '9379 Ulta':             { number: cardBy['9379'] },
       '3611 Prime Visa':       { number: cardBy['3611'] },
       // other run fields
-      'Less Bills':        { number: n(S.bills) },
+      // NOTE: do NOT write "Less Bills" here. The bills tile now displays the
+      // Current Budget Engine's live "Bills Due Today" formula, which is a
+      // different concept from the run's static "Less Bills" reserve snapshot
+      // (set by Notion automation at run creation). Writing the due-today figure
+      // into that column would corrupt the reserve + the Balance formula.
       '6374 Logan':        { number: n(S.family[2][2]) },
       '3536 Mom and Papa': { number: n(S.family[3][2]) },
       '8568 Schwab Spend': { number: n(S.family[1][2]) },
