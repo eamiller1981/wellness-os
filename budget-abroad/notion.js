@@ -76,6 +76,7 @@
   }
   function propDate(prop) {
     if (prop && prop.date && prop.date.start) return prop.date.start;
+    if (prop && prop.formula && prop.formula.date && prop.formula.date.start) return prop.formula.date.start;
     return null;
   }
   function propChecked(prop) { return !!(prop && prop.checkbox); }
@@ -259,13 +260,13 @@
         }
       };
       // The bills tile is derived from the SAME per-bill data the popup shows:
-      // Σ of each unpaid bill's "Reserve Needed" (= its Amount when Next
-      // Occurrence falls in [today, Period End], else 0). This guarantees the
-      // tile always equals the popup total and matches the user's rule exactly.
-      // The engine's own "Bills Due"/"Bills Due Today" formula fields are NOT
-      // used — they are ambiguous and drift day-to-day. Fall back to the run's
-      // Less Bills (Live) only if the per-bill read fails.
-      return loadBillsDue().then(function (rows) {
+      // Σ Amount of each unpaid bill whose Next Occurrence falls in the window
+      // [today, paydate + 14 days]. This is computed IN-PAGE from raw fields
+      // (Amount, Next Occurrence, Paid) rather than Notion's "Reserve Needed"
+      // formula, because that formula depends on the bill's Period Start rollup
+      // which is empty for a freshly created run (→ every bill reads 0). The
+      // engine's "Bills Due"/"Bills Due Today" fields are likewise not used.
+      return loadBillsDue(run.paydate).then(function (rows) {
         var sum = rows.reduce(function (a, b) { return a + (b.amount || 0); }, 0);
         run.billsDue = sum;
         return run;
@@ -277,25 +278,34 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-   * loadBillsDue() — bills reserved for this full pay period. The per-bill
-   * formula "Reserve Needed" returns the bill's Amount when the budget window
-   * (period start→end) overlaps its due window (and it's unpaid), else 0. Its
-   * sum ties to the engine's "Bills Due" tile. (Contrast "Reserve Needed
-   * Today", which is today()→Period End and shrinks as bills pass their date.)
-   * Returns [{merchant, amount, next}] sorted by next date.
+   * loadBillsDue(paydateISO) — bills to reserve for this pay period.
+   * The user's rule: sum the Amount of every unpaid bill whose Next Occurrence
+   * falls between today and the period end (paydate + 13 days = the 14-day
+   * period's last day, matching the Pay Period label), inclusive — so money
+   * stays in 7419 for autopay obligations due before the next paycheck.
+   * Computed in-page from Amount + Next Occurrence + Paid (NOT the Notion
+   * "Reserve Needed" formula, which is 0 until the run's Period Start rollup
+   * resolves). Returns [{merchant, amount, next}] sorted by next date.
    * ════════════════════════════════════════════════════════════════ */
   var BILLS_DB = 'dda95f92df7445fab2681ddc330e2b46'; // 📉 Bills
-  function loadBillsDue() {
+  function loadBillsDue(paydateISO) {
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var pay = parseISO(paydateISO) || today;
+    var windowEnd = new Date(pay.getFullYear(), pay.getMonth(), pay.getDate() + 13);
+    windowEnd.setHours(0, 0, 0, 0);
     return queryAll(BILLS_DB, {
       filter: { property: 'Paid', checkbox: { equals: false } }
     }).then(function (results) {
       var rows = results.map(function (pg) {
         var p = pg.properties || {};
-        var reserve = num(p['Reserve Needed']);
+        var next = propDate(p['Next Occurrence']);
+        var nd = next ? parseISO(next) : null;
+        var inWindow = nd && nd.getTime() >= today.getTime() && nd.getTime() <= windowEnd.getTime();
         return {
           merchant: propText(p['Merchant']).replace(/\s+/g, ' ').trim(),
-          amount: reserve,           // = bill Amount when in-window; ties to engine "Bills Due"
-          next: propDate(p['Next Occurrence'])
+          amount: inWindow ? num(p['Amount']) : 0,
+          next: next
         };
       }).filter(function (b) { return b.amount > 0.005; });
       rows.sort(function (a, b) {
