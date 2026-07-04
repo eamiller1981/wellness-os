@@ -16,7 +16,6 @@
   var FORECAST_DB = '392627ee81db80c9af9bf27e7de0f185'; // Abroad - Forecast
   var BUDGET_RUN_DB = '311627ee81db80b8ae51c5b7c8ed83bb'; // 💸 Budget Run
   var ACCOUNTS_DB = '779dccf0265a475ebe784612b5d8e2eb';   // 🪣 Accounts
-  var ENGINE_DB = '40dfe0c1b236407ab13e805b418f5d9d';     // 💱 Current Budget Engine
 
   /* ---- transport (ported from finances.html notionFetch) ---- */
   function notionFetch(path, method, body) {
@@ -259,33 +258,22 @@
           '3536': num(p['3536 Mom and Papa'])
         }
       };
-      // The bills tile shows the FULL pay-period bills reserve from the Current
-      // Budget Engine "Bills Due" formula (mirror of Reserve Needed (Total) =
-      // Σ Reserve Needed across related Bills for the whole budget window). NOT
-      // "Bills Due Today", which is today()→Period End and shrinks each day as
-      // bills pass their due date. Fall back to the run's Less Bills (Live).
-      return loadEngineBillsDue().then(function (bd) {
-        run.billsDue = (bd == null ? run.billsLive : bd);
+      // The bills tile is derived from the SAME per-bill data the popup shows:
+      // Σ of each unpaid bill's "Reserve Needed" (= its Amount when Next
+      // Occurrence falls in [today, Period End], else 0). This guarantees the
+      // tile always equals the popup total and matches the user's rule exactly.
+      // The engine's own "Bills Due"/"Bills Due Today" formula fields are NOT
+      // used — they are ambiguous and drift day-to-day. Fall back to the run's
+      // Less Bills (Live) only if the per-bill read fails.
+      return loadBillsDue().then(function (rows) {
+        var sum = rows.reduce(function (a, b) { return a + (b.amount || 0); }, 0);
+        run.billsDue = sum;
+        return run;
+      }).catch(function () {
+        run.billsDue = run.billsLive;
         return run;
       });
     });
-  }
-
-  /* Read "Bills Due" (full-period bills reserve) from the Current Budget Engine.
-   * There is a single settings row ("Bills + Debts"); its Bills Due formula is
-   * independent of which run it links to, so read the first row directly (a
-   * freshly created run isn't linked to the engine row yet). Falls back to
-   * "Bills Due Today" if "Bills Due" is unreadable. Returns null if neither. */
-  function loadEngineBillsDue() {
-    return queryAll(ENGINE_DB, {}).then(function (results) {
-      for (var i = 0; i < results.length; i++) {
-        var props = results[i].properties || {};
-        var v = notionPropNum(props['Bills Due']);
-        if (v == null) v = notionPropNum(props['Bills Due Today']);
-        if (v != null) return v;
-      }
-      return null;
-    }).catch(function () { return null; });
   }
 
   /* ════════════════════════════════════════════════════════════════

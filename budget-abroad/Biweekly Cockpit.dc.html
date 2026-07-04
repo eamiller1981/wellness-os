@@ -221,10 +221,12 @@ class Component extends DCLogic {
       // NOTE: bank/others/cards balances are Plaid→Notion authoritative and are
       // intentionally NOT overlaid — a stale sessionStorage snapshot must never
       // override the fresh Notion balances (that caused Total Assets to diverge
-      // from Notion's Total Account Balance).
+      // from Notion's Total Account Balance). 'bills' is likewise a fresh Notion
+      // computation (Σ per-bill Reserve Needed) and must never be overlaid from a
+      // stale snapshot (that caused the tile to stick at an old value like 309.45).
       const saved = this.loadPersisted(patch.currentRunId);
       if(saved){
-        ['family','bills','alloc','runDate'].forEach(k=>{
+        ['family','alloc','runDate'].forEach(k=>{
           if(saved[k] != null) patch[k] = saved[k];
         });
         if(saved.runDate){
