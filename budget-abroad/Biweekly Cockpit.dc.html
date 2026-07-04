@@ -216,11 +216,15 @@ class Component extends DCLogic {
       } else {
         patch.payPeriodStr = this.payPeriodLabel(rd);
       }
-      // Overlay any in-session edits for this run so navigating away and back
-      // preserves what was typed instead of snapping to the fresh Notion load.
+      // Overlay any in-session PLANNING edits for this run so navigating away and
+      // back preserves what was typed instead of snapping to the fresh Notion load.
+      // NOTE: bank/others/cards balances are Plaid→Notion authoritative and are
+      // intentionally NOT overlaid — a stale sessionStorage snapshot must never
+      // override the fresh Notion balances (that caused Total Assets to diverge
+      // from Notion's Total Account Balance).
       const saved = this.loadPersisted(patch.currentRunId);
       if(saved){
-        ['bank','others','cards','family','bills','alloc','runDate'].forEach(k=>{
+        ['family','bills','alloc','runDate'].forEach(k=>{
           if(saved[k] != null) patch[k] = saved[k];
         });
         if(saved.runDate){
@@ -428,9 +432,12 @@ class Component extends DCLogic {
     const bankBy = {}; S.bank.forEach(r=>bankBy[r[0]]=n(r[2])); S.others.forEach(r=>bankBy[r[0]]=n(r[2]));
     const cardBy = {}; S.cards.forEach(r=>cardBy[r[0]]=n(r[2]));
     const props = {
-      // 40/40 allocations — recomputed from the (edited) balances, so reliable
-      '7397 Savings':      { number: ctx.dSav },
-      '0741 Special Svgs': { number: ctx.dEmg },
+      // 40/40 allocations are ADDITIVE: write the amount to ADD this period into
+      // the dedicated input columns. Notion's "Savings ($)"/"Special Savings ($)"
+      // formulas turn these into the additive amount. Do NOT overwrite the actual
+      // Plaid balance columns (7397/0741) — that corrupts Total Account Balance.
+      '# Add to Svgs':         { number: ctx.dSav },
+      '# Add to Special Svgs': { number: ctx.dEmg },
       // account balances — edited values persist to Notion
       '7419 Main':          { number: bankBy['7419'] },
       '9176 Liz COH':       { number: bankBy['9176'] },
