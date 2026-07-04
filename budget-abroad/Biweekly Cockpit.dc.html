@@ -179,7 +179,7 @@ class Component extends DCLogic {
         patch.currentRunId = run.pageId;
         patch.totalAssets = run.totalAssets;
         if(run.paydate) patch.runDate = run.paydate;
-        patch.bills = (run.billsDueToday!=null ? run.billsDueToday : 0).toFixed(2);
+        patch.bills = (run.billsDue!=null ? run.billsDue : 0).toFixed(2);
         patch.bank = [
           ['7419','Main', (run.bank['7419']||0).toFixed(2)],
           ['7397','Savings', (run.bank['7397']||0).toFixed(2)],
@@ -425,7 +425,7 @@ class Component extends DCLogic {
         const patch = { applying:false, showPaste:false, statusErr:false, status:'\u2714 Balances saved. Review allocations and Commit.' };
         if(run){
           patch.totalAssets = run.totalAssets;
-          patch.bills = (run.billsDueToday!=null ? run.billsDueToday : 0).toFixed(2);
+          patch.bills = (run.billsDue!=null ? run.billsDue : 0).toFixed(2);
         }
         this.setState(patch);
       });

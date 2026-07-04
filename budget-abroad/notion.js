@@ -259,25 +259,29 @@
           '3536': num(p['3536 Mom and Papa'])
         }
       };
-      // "Bills due today" comes from the Current Budget Engine formula
-      // "Bills Due Today" (Σ Reserve Needed Today across related Bills, live
-      // today()→Period End), NOT the run's Less Bills (Live) reserve.
-      return loadEngineBillsDueToday().then(function (bdt) {
-        run.billsDueToday = (bdt == null ? run.billsLive : bdt);
+      // The bills tile shows the FULL pay-period bills reserve from the Current
+      // Budget Engine "Bills Due" formula (mirror of Reserve Needed (Total) =
+      // Σ Reserve Needed across related Bills for the whole budget window). NOT
+      // "Bills Due Today", which is today()→Period End and shrinks each day as
+      // bills pass their due date. Fall back to the run's Less Bills (Live).
+      return loadEngineBillsDue().then(function (bd) {
+        run.billsDue = (bd == null ? run.billsLive : bd);
         return run;
       });
     });
   }
 
-  /* Read "Bills Due Today" from the Current Budget Engine. There is a single
-   * settings row ("Bills + Debts"); its Bills Due Today formula is live
-   * (today()→Period End) independent of which run it links to, so we read the
-   * first row directly rather than matching by the run relation (a freshly
-   * created run isn't linked to the engine row yet). Returns null if unread. */
-  function loadEngineBillsDueToday() {
+  /* Read "Bills Due" (full-period bills reserve) from the Current Budget Engine.
+   * There is a single settings row ("Bills + Debts"); its Bills Due formula is
+   * independent of which run it links to, so read the first row directly (a
+   * freshly created run isn't linked to the engine row yet). Falls back to
+   * "Bills Due Today" if "Bills Due" is unreadable. Returns null if neither. */
+  function loadEngineBillsDue() {
     return queryAll(ENGINE_DB, {}).then(function (results) {
       for (var i = 0; i < results.length; i++) {
-        var v = notionPropNum((results[i].properties || {})['Bills Due Today']);
+        var props = results[i].properties || {};
+        var v = notionPropNum(props['Bills Due']);
+        if (v == null) v = notionPropNum(props['Bills Due Today']);
         if (v != null) return v;
       }
       return null;
@@ -285,12 +289,12 @@
   }
 
   /* ════════════════════════════════════════════════════════════════
-   * loadBillsDue() — bills due from today through this period's end.
-   * The per-bill formula "Reserve Needed Today (Bills only)" returns the
-   * bill's Amount when today→Period End overlaps its due window (and it's
-   * unpaid), else 0. That column rolls up to the run's "Less Bills (Live)"
-   * reserve, so filtering reserve>0 yields exactly the bills that make up
-   * that number. Returns [{merchant, amount, next}] sorted by next date.
+   * loadBillsDue() — bills reserved for this full pay period. The per-bill
+   * formula "Reserve Needed" returns the bill's Amount when the budget window
+   * (period start→end) overlaps its due window (and it's unpaid), else 0. Its
+   * sum ties to the engine's "Bills Due" tile. (Contrast "Reserve Needed
+   * Today", which is today()→Period End and shrinks as bills pass their date.)
+   * Returns [{merchant, amount, next}] sorted by next date.
    * ════════════════════════════════════════════════════════════════ */
   var BILLS_DB = 'dda95f92df7445fab2681ddc330e2b46'; // 📉 Bills
   function loadBillsDue() {
@@ -299,10 +303,10 @@
     }).then(function (results) {
       var rows = results.map(function (pg) {
         var p = pg.properties || {};
-        var reserve = num(p['Reserve Needed Today (Bills only)']);
+        var reserve = num(p['Reserve Needed']);
         return {
           merchant: propText(p['Merchant']).replace(/\s+/g, ' ').trim(),
-          amount: reserve,           // = bill Amount when in-window; ties to Less Bills (Live)
+          amount: reserve,           // = bill Amount when in-window; ties to engine "Bills Due"
           next: propDate(p['Next Occurrence'])
         };
       }).filter(function (b) { return b.amount > 0.005; });
