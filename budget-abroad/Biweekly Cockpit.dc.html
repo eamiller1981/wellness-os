@@ -358,6 +358,17 @@ class Component extends DCLogic {
     const venture = (function(){ let v = parseFloat(bal['1454']); if(isNaN(v)) v = parseFloat(bal['0074']); return isNaN(v)?0:v; })();
     const schwabSpend = (function(){ const v = parseFloat(data.schwab_period_spend); return isNaN(v)?0:v; })();
 
+    // Guard: refuse to save an all-zero / empty reply. ChatGPT sometimes echoes
+    // the blank prompt template (every balance 0) instead of the filled Plaid
+    // numbers — saving that silently wipes the run's balances. Bail with a clear
+    // message and DON'T touch state or Notion.
+    const balKeys = ['7419','7397','0741','9176','0458','8568','7889','9168','0466','3195','9722','1375','9379','3611'];
+    const balSum = balKeys.reduce((a,k)=>a+g(k),0) + venture;
+    if(balSum === 0){
+      this.setState({ status:'That reply had no balances (every value is 0) \u2014 it looks like ChatGPT returned the empty template instead of your real Plaid numbers. Re-run the prompt in the finance chat and paste the filled JSON.', statusErr:true });
+      return;
+    }
+
     // populate fields client-side
     const bank = [
       ['7419','Main', g('7419').toFixed(2)],
