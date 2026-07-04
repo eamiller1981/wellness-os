@@ -261,23 +261,26 @@
       };
       // "Bills due today" comes from the Current Budget Engine formula
       // "Bills Due Today" (Σ Reserve Needed Today across related Bills, live
-      // today()→Period End), NOT the run's Less Bills (Live) reserve. Find the
-      // engine settings row related to this run and read that formula.
-      return loadEngineBillsDueToday(pg.id).then(function (bdt) {
+      // today()→Period End), NOT the run's Less Bills (Live) reserve.
+      return loadEngineBillsDueToday().then(function (bdt) {
         run.billsDueToday = (bdt == null ? run.billsLive : bdt);
         return run;
       });
     });
   }
 
-  /* Read "Bills Due Today" from the Current Budget Engine settings row that
-   * relates to the given Budget Run page. Returns null if not found. */
-  function loadEngineBillsDueToday(runPageId) {
-    return queryAll(ENGINE_DB, {
-      filter: { property: 'Current Budget Engine', relation: { contains: runPageId } }
-    }).then(function (results) {
-      if (!results.length) return null;
-      return notionPropNum((results[0].properties || {})['Bills Due Today']);
+  /* Read "Bills Due Today" from the Current Budget Engine. There is a single
+   * settings row ("Bills + Debts"); its Bills Due Today formula is live
+   * (today()→Period End) independent of which run it links to, so we read the
+   * first row directly rather than matching by the run relation (a freshly
+   * created run isn't linked to the engine row yet). Returns null if unread. */
+  function loadEngineBillsDueToday() {
+    return queryAll(ENGINE_DB, {}).then(function (results) {
+      for (var i = 0; i < results.length; i++) {
+        var v = notionPropNum((results[i].properties || {})['Bills Due Today']);
+        if (v != null) return v;
+      }
+      return null;
     }).catch(function () { return null; });
   }
 
