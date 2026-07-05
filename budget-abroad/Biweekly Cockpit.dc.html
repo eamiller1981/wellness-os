@@ -773,7 +773,7 @@ class Component extends DCLogic {
       const moveColor = !needsMove ? C.muted : (moveUp ? C.sage : C.mauve);
       const moveTxt = !needsMove ? '\u2014' : (moveUp?'+':'\u2212') + money(Math.abs(move));
       const pill = (txt,active)=> el('span',{style:{display:'inline-block',fontSize:'11px',fontWeight:600,color:active?C.cream:C.muted,background:active?'#2E3A2C':'transparent',border:'1px solid '+(active?C.mid:C.line),borderRadius:'999px',padding:'4px 10px',whiteSpace:'nowrap'}}, txt);
-      return el('div',{key:id,style:{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto auto auto',alignItems:'center',columnGap:'14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:dim?0.5:1}},
+      return { active: !dim, node: el('div',{key:id,style:{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto auto auto',alignItems:'center',columnGap:'14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:dim?0.5:1}},
         el('div',{style:{minWidth:0}},
           el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600}},name),
           el('div',{className:'num',style:{fontSize:'10px',color:C.muted,fontWeight:600}},'*'+id)),
@@ -784,7 +784,7 @@ class Component extends DCLogic {
         el('div',{style:{textAlign:'right',minWidth:'76px'}}, colHead('Now','right'),
           el('div',{className:'num',style:{fontSize:'13px',color:C.muted}}, money(current))),
         el('div',{style:{textAlign:'right',minWidth:'84px'}}, colHead('Target','right'),
-          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}}, money(target))));
+          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}}, money(target)))) };
     };
     // Credit-card pay-down row: funds move FROM the funding account TO the card,
     // driving the balance owed to $0. No hub logic — the "from" is explicit.
@@ -797,7 +797,7 @@ class Component extends DCLogic {
       const moveColor = pays ? C.mauve : C.muted;
       const moveTxt = pays ? '\u2212'+money(bal) : '\u2014';
       const pill = (txt,active)=> el('span',{style:{display:'inline-block',fontSize:'11px',fontWeight:600,color:active?C.cream:C.muted,background:active?'#2E3A2C':'transparent',border:'1px solid '+(active?C.mid:C.line),borderRadius:'999px',padding:'4px 10px',whiteSpace:'nowrap'}}, txt);
-      return el('div',{key:'card-'+id,style:{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto auto auto',alignItems:'center',columnGap:'14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:dim?0.5:1}},
+      return { active: !dim, node: el('div',{key:'card-'+id,style:{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto auto auto',alignItems:'center',columnGap:'14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:dim?0.5:1}},
         el('div',{style:{minWidth:0}},
           el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600}},name),
           el('div',{className:'num',style:{fontSize:'10px',color:C.muted,fontWeight:600}},'*'+id)),
@@ -808,12 +808,18 @@ class Component extends DCLogic {
         el('div',{style:{textAlign:'right',minWidth:'76px'}}, colHead('Now','right'),
           el('div',{className:'num',style:{fontSize:'13px',color:C.muted}}, money(bal))),
         el('div',{style:{textAlign:'right',minWidth:'84px'}}, colHead('Target','right'),
-          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}}, money(0))));
+          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}}, money(0)))) };
     };
-    const mapItems = [];
-    earmarks.forEach(([id,name,target,accent,note])=> mapItems.push(renderMapRow(id,name,target,accent,note,false)));
-    cardPays.forEach(([id,name,fromName])=> mapItems.push(renderCardRow(id,name,fromName)));
-    parked.forEach(([id,name])=> mapItems.push(renderMapRow(id,name,balById[id]||0,C.muted,null,true)));
+    // Collect all rows with their active flag, then stable-sort active (non-dimmed)
+    // rows to the top so live transfers surface above the dimmed/no-op rows.
+    const mapRowObjs = [];
+    earmarks.forEach(([id,name,target,accent,note])=> mapRowObjs.push(renderMapRow(id,name,target,accent,note,false)));
+    cardPays.forEach(([id,name,fromName])=> mapRowObjs.push(renderCardRow(id,name,fromName)));
+    parked.forEach(([id,name])=> mapRowObjs.push(renderMapRow(id,name,balById[id]||0,C.muted,null,true)));
+    const mapItems = mapRowObjs
+      .map((r,i)=>({r,i}))
+      .sort((a,b)=> (b.r.active-a.r.active) || (a.i-b.i))
+      .map(x=> x.r.node);
     // Bottom summary reflects whether this period's 40/40/20 remainder is fully
     // assigned ($0 unassigned) — the same balance the allocation pill shows.
     mapItems.push(el('div',{key:'__mt',style:{marginTop:'auto',paddingTop:'12px',borderTop:'1px solid '+(balOk?C.sage:C.mauveD),display:'flex',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center',gap:'6px 14px'}},
