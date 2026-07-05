@@ -330,10 +330,12 @@
   // template-driven field the run needs: the 📉 Dues relation (which feeds the
   // Reserve Needed Total rollup → Bills tile). Read it off the row flagged
   // Template = true and copy it verbatim into each new run.
-  // A database-query response caps relation arrays at 25 items, but the
-  // Template row links 40+ Dues. Page the property-item endpoint to copy
-  // the FULL relation so the run's Reserve Needed Total (Bills tile) is
-  // complete, not truncated.
+  // A database-query/page response caps relation arrays at 25 items, but the
+  // Template row links 40+ Dues. The reverse relation (Dues → 💸 Budget Run)
+  // is a SEPARATE one-way relation and is empty for these rows, so we can't
+  // query it backwards. The only complete source is the paginated page-property
+  // endpoint, which returns ALL relation ids across pages
+  // (top-level next_cursor / has_more; each result is {type:'relation', relation:{id}}).
   function fetchAllRelationIds(pageId, propId) {
     var ids = [];
     function page(cursor) {
@@ -360,11 +362,16 @@
       var row = results[0];
       var rel = (row.properties || {})['📉 Dues'];
       if (!rel || !rel.id) return [];
+      var inline = Array.isArray(rel.relation)
+        ? rel.relation.map(function (r) { return { id: r.id }; }) : [];
       return fetchAllRelationIds(row.id, rel.id).then(function (ids) {
-        if (ids.length) return ids;
-        // fallback to the (possibly truncated) inline relation
-        var arr = rel.relation;
-        return Array.isArray(arr) ? arr.map(function (r) { return { id: r.id }; }) : [];
+        // Prefer the full paginated list; fall back to the (≤25) inline list.
+        var dues = ids.length >= inline.length ? ids : inline;
+        if (window.console && console.info) {
+          console.info('loadTemplateDues: paginated=' + ids.length +
+            ' inline=' + inline.length + ' → copying ' + dues.length);
+        }
+        return dues;
       });
     }).catch(function (e) {
       if (window.console && console.warn) console.warn('loadTemplateDues failed:', e && e.message);
