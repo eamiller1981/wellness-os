@@ -326,18 +326,36 @@
       }, Promise.resolve());
     });
   }
+  // The Notion API can't create a page "from template", so replicate the one
+  // template-driven field the run needs: the 📉 Dues relation (which feeds the
+  // Reserve Needed Total rollup → Bills tile). Read it off the row flagged
+  // Template = true and copy it verbatim into each new run.
+  function loadTemplateDues() {
+    return queryAll(BUDGET_RUN_DB, {
+      filter: { property: 'Template', checkbox: { equals: true } }
+    }).then(function (results) {
+      if (!results.length) return [];
+      var rel = (results[0].properties || {})['📉 Dues'];
+      rel = rel && rel.relation;
+      if (!Array.isArray(rel)) return [];
+      return rel.map(function (r) { return { id: r.id }; });
+    }).catch(function () { return []; });
+  }
   function createPendingRun(paydateVal) {
     var reqId = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    return demoteCurrentRuns().then(function () {
+    return Promise.all([demoteCurrentRuns(), loadTemplateDues()]).then(function (res) {
+      var dues = res[1] || [];
+      var props = {
+        'Current Run': { checkbox: true },
+        'Balances Pending': { checkbox: true },
+        'Balance Request ID': { rich_text: [{ text: { content: reqId } }] },
+        'Paydate': { date: { start: paydateVal } },
+        'Today': { date: { start: new Date().toISOString().split('T')[0] } }
+      };
+      if (dues.length) props['📉 Dues'] = { relation: dues };
       return notionFetch('/pages', 'POST', {
         parent: { database_id: BUDGET_RUN_DB },
-        properties: {
-          'Current Run': { checkbox: true },
-          'Balances Pending': { checkbox: true },
-          'Balance Request ID': { rich_text: [{ text: { content: reqId } }] },
-          'Paydate': { date: { start: paydateVal } },
-          'Today': { date: { start: new Date().toISOString().split('T')[0] } }
-        }
+        properties: props
       });
     }).then(function (pg) {
       if (pg && pg.object === 'error') throw new Error(pg.message);
