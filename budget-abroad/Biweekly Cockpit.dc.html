@@ -466,11 +466,9 @@ class Component extends DCLogic {
       '9379 Ulta':             { number: cardBy['9379'] },
       '3611 Prime Visa':       { number: cardBy['3611'] },
       // other run fields
-      // NOTE: do NOT write "Less Bills" here. The bills tile now displays the
-      // Current Budget Engine's live "Bills Due Today" formula, which is a
-      // different concept from the run's static "Less Bills" reserve snapshot
-      // (set by Notion automation at run creation). Writing the due-today figure
-      // into that column would corrupt the reserve + the Balance formula.
+      // NOTE: the bills tile is read-only — it displays Notion's "Reserve Needed
+      // Total" rollup (Σ per-Due "Reserve Needed" over the run's Dues relation),
+      // computed entirely in Notion. Never write a bills figure back into the run.
       '6374 Logan':        { number: n(S.family[2][2]) },
       '3536 Mom and Papa': { number: n(S.family[3][2]) },
       '8568 Schwab Spend': { number: n(S.family[1][2]) },
@@ -796,7 +794,7 @@ class Component extends DCLogic {
       el('div',{style:{display:'flex',justifyContent:'flex-end',marginTop:'11px'}},
         el('button',{type:'button',disabled:S.applying,onClick:()=>this.applyPastedBalances(),style:loadBtnStyle}, S.applying?'Saving…':'Load'))) : null;
 
-    // ---- bills detail modal (Merchant | Amount | Next Occurrence) ----
+    // ---- bills detail modal (Merchant | Reserve Needed | Next Occurrence) ----
     let billsModal = null;
     if(S.billsOpen){
       const fmtDate = s => { if(!s) return '—'; const d=new Date(String(s).slice(0,10).replace(/-/g,'/')); return isNaN(d.getTime())?'—':d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); };
@@ -818,7 +816,7 @@ class Component extends DCLogic {
           el('table',{style:{width:'100%',borderCollapse:'collapse'}},
             el('thead',null,el('tr',null,
               el('th',{style:th},'Merchant'),
-              el('th',{style:{...th,textAlign:'right'}},'Amount'),
+              el('th',{style:{...th,textAlign:'right'}},'Reserve Needed'),
               el('th',{style:{...th,textAlign:'right'}},'Next Occurrence'))),
             el('tbody',null, ...bodyRows)),
           (rows.length ? el('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginTop:'12px',paddingTop:'12px',borderTop:'1px solid '+C.mauve}},

@@ -196,17 +196,16 @@
           if (diff < bestDiff) { bestDiff = diff; idx = i; }
         }
         if (idx < 0) return;
-        var billsLive = notionPropNum(p['Less Bills (Live)']);
-        if (billsLive == null) billsLive = notionPropNum(p['Less Bills']);
+        var bills = num(p['Reserve Needed Total']);
         var daily = num(p['9722 Altitude Connect']) + num(p['8568 Schwab Spend']);
         var travel = num(p['0074 Venture']);
         var family = num(p['6374 Logan']) + num(p['3536 Mom and Papa']);
         var sav = num(p['7397 Savings']);
         var emg = num(p['0741 Special Svgs']);
-        var recorded = (billsLive || 0) + daily + travel + family + sav + emg;
+        var recorded = bills + daily + travel + family + sav + emg;
         if (recorded <= 0.005) return; // nothing recorded yet
         actuals[idx] = {
-          bills: billsLive || 0, daily: daily, travel: travel,
+          bills: bills, daily: daily, travel: travel,
           family: family, sav: sav, emg: emg
         };
       });
@@ -230,10 +229,10 @@
         paydate: propDate(p['Paydate']),
         balancesPending: propChecked(p['Balances Pending']),
         totalAssets: notionPropNum(p['Total Account Balance']),
-        billsLive: (function () {
-          var v = notionPropNum(p['Less Bills (Live)']);
-          return v == null ? num(p['Less Bills']) : v;
-        })(),
+        // Bills tile = Notion's authoritative rollup (Σ per-Due "Reserve Needed"
+        // over the run's 📉 Dues relation). Same source the popup lists, so the
+        // two always agree. No in-page computation.
+        billsDue: num(p['Reserve Needed Total']),
         bank: {
           '7419': num(p['7419 Main']),
           '7397': num(p['7397 Savings']),
@@ -259,53 +258,27 @@
           '3536': num(p['3536 Mom and Papa'])
         }
       };
-      // The bills tile is derived from the SAME per-bill data the popup shows:
-      // Σ Amount of each unpaid bill whose Next Occurrence falls in the window
-      // [today, paydate + 14 days]. This is computed IN-PAGE from raw fields
-      // (Amount, Next Occurrence, Paid) rather than Notion's "Reserve Needed"
-      // formula, because that formula depends on the bill's Period Start rollup
-      // which is empty for a freshly created run (→ every bill reads 0). The
-      // engine's "Bills Due"/"Bills Due Today" fields are likewise not used.
-      return loadBillsDue(run.paydate).then(function (rows) {
-        var sum = rows.reduce(function (a, b) { return a + (b.amount || 0); }, 0);
-        run.billsDue = sum;
-        return run;
-      }).catch(function () {
-        run.billsDue = run.billsLive;
-        return run;
-      });
+      return run;
     });
   }
 
   /* ════════════════════════════════════════════════════════════════
-   * loadBillsDue(paydateISO) — bills to reserve for this pay period.
-   * The user's rule: sum the Amount of every unpaid bill whose Next Occurrence
-   * falls between today and the period end (paydate + 13 days = the 14-day
-   * period's last day, matching the Pay Period label), inclusive — so money
-   * stays in 7419 for autopay obligations due before the next paycheck.
-   * Computed in-page from Amount + Next Occurrence + Paid (NOT the Notion
-   * "Reserve Needed" formula, which is 0 until the run's Period Start rollup
-   * resolves). Returns [{merchant, amount, next}] sorted by next date.
+   * loadBillsDue() — the popup "Bills Due" list, straight from Notion.
+   * Mirrors the Dues "Bills Due" view: every Merchant record whose
+   * "Reserve Needed" formula is > 0. Each row shows Merchant + that
+   * Reserve Needed amount + Next Occurrence, so the rows sum to the tile's
+   * "Reserve Needed Total" rollup. No in-page window computation.
+   * Returns [{merchant, amount, next}] sorted by next date.
    * ════════════════════════════════════════════════════════════════ */
-  var BILLS_DB = 'dda95f92df7445fab2681ddc330e2b46'; // 📉 Bills
-  function loadBillsDue(paydateISO) {
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    var pay = parseISO(paydateISO) || today;
-    var windowEnd = new Date(pay.getFullYear(), pay.getMonth(), pay.getDate() + 13);
-    windowEnd.setHours(0, 0, 0, 0);
-    return queryAll(BILLS_DB, {
-      filter: { property: 'Paid', checkbox: { equals: false } }
-    }).then(function (results) {
+  var DUES_DB = 'dda95f92df7445fab2681ddc330e2b46'; // 📉 Dues
+  function loadBillsDue() {
+    return queryAll(DUES_DB, {}).then(function (results) {
       var rows = results.map(function (pg) {
         var p = pg.properties || {};
-        var next = propDate(p['Next Occurrence']);
-        var nd = next ? parseISO(next) : null;
-        var inWindow = nd && nd.getTime() >= today.getTime() && nd.getTime() <= windowEnd.getTime();
         return {
           merchant: propText(p['Merchant']).replace(/\s+/g, ' ').trim(),
-          amount: inWindow ? num(p['Amount']) : 0,
-          next: next
+          amount: num(p['Reserve Needed']),
+          next: propDate(p['Next Occurrence'])
         };
       }).filter(function (b) { return b.amount > 0.005; });
       rows.sort(function (a, b) {
