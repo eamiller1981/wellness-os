@@ -172,14 +172,22 @@ class Component extends DCLogic {
       window.BudgetAbroad.loadCurrentRun().catch(()=>null),
       window.BudgetAbroad.loadForecastBase().catch(()=>null),
       window.BudgetAbroad.loadAllocPercents().catch(()=>null),
-    ]).then(([run, base, pct])=>{
+      window.BudgetAbroad.loadBillsDue().catch(()=>null),
+    ]).then(([run, base, pct, billsRows])=>{
       const patch = { loaded:true };
       if(pct) patch.alloc = pct;
+      // Bills tile + popup are both sourced from the Dues "Bills Due" view: sum
+      // each Due's period-aware "Reserve Needed". Independent of the Budget Run
+      // "Reserve Needed Total" rollup (which needs the Dues relation copied) —
+      // the two always agree because the popup lists the very rows summed here.
+      if(billsRows){
+        patch.billsRows = billsRows;
+        patch.bills = billsRows.reduce((s,b)=>s+(b.amount||0),0).toFixed(2);
+      }
       if(run){
         patch.currentRunId = run.pageId;
         patch.totalAssets = run.totalAssets;
         if(run.paydate) patch.runDate = run.paydate;
-        patch.bills = (run.billsDue!=null ? run.billsDue : 0).toFixed(2);
         patch.bank = [
           ['7419','Main', (run.bank['7419']||0).toFixed(2)],
           ['7397','Savings', (run.bank['7397']||0).toFixed(2)],
@@ -423,11 +431,17 @@ class Component extends DCLogic {
     };
     this.setState({ applying:true, status:'Saving balances to Notion…', statusErr:false });
     window.BudgetAbroad.commitRun(this.state.currentRunId, props).then(()=>{
-      return window.BudgetAbroad.loadCurrentRun().then((run)=>{
+      return Promise.all([
+        window.BudgetAbroad.loadCurrentRun(),
+        window.BudgetAbroad.loadBillsDue().catch(()=>null),
+      ]).then(([run, billsRows])=>{
         const patch = { applying:false, showPaste:false, statusErr:false, status:'\u2714 Balances saved. Review allocations and Commit.' };
         if(run){
           patch.totalAssets = run.totalAssets;
-          patch.bills = (run.billsDue!=null ? run.billsDue : 0).toFixed(2);
+        }
+        if(billsRows){
+          patch.billsRows = billsRows;
+          patch.bills = billsRows.reduce((s,b)=>s+(b.amount||0),0).toFixed(2);
         }
         this.setState(patch);
       });
@@ -476,9 +490,9 @@ class Component extends DCLogic {
       '9379 Ulta':             { number: cardBy['9379'] },
       '3611 Prime Visa':       { number: cardBy['3611'] },
       // ---- family actuals ---------------------------------------------------
-      // NOTE: the bills tile is read-only — it displays Notion's "Reserve Needed
-      // Total" rollup (Σ per-Due "Reserve Needed" over the run's Dues relation),
-      // computed entirely in Notion. Never write a bills figure back into the run.
+      // NOTE: the bills tile is read-only — it displays the sum of the Dues
+      // "Bills Due" view (Σ per-Due "Reserve Needed"), the same rows the popup
+      // lists. Never write a bills figure back into the run.
       '6374 Logan':        { number: n(S.family[2][2]) },
       '3536 Mom and Papa': { number: n(S.family[3][2]) },
     };
