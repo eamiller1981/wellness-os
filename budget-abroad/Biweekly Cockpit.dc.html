@@ -729,23 +729,39 @@ class Component extends DCLogic {
       el('span',{style:{fontSize:'11px',letterSpacing:'.1em',textTransform:'uppercase',color:balOk?C.sage:C.mauve,fontWeight:700}},balOk?'Fully allocated':'Balance unassigned'),
       el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'20px',color:C.cream}},money(balance)));
 
-    // ---- money map: end-state balances (Notion "… Total" targets).
-    // Each row's Target is the account's Notion "… Total" formula — the current
-    // Plaid balance plus this period's additive input — computed in-page for
-    // live feedback so it matches what Notion stores on Commit. Main *7419 is the
-    // funding hub for bank top-ups; the credit cards are paid down each period
-    // from their funding account (Venture ← Liz COH *9176; the rest ← Main *7419).
-    // The *COH / *Svgs accounts are parked (target = current, no move).
-    const cardTopups = (cardBy['9722']||0) + (cardBy['1375']||0) + (cardBy['9379']||0) + (cardBy['3611']||0);
+    // ---- money map: end-state balances, conserving Total Assets.
+    // The map redistributes existing cash into envelopes — nothing enters or
+    // leaves — so the sum of every target must equal Total Assets (income).
+    // Each earmark below is an account's current balance PLUS the money moved
+    // INTO it this period; Main *7419 is the hub/plug that is DEBITED for those
+    // same outflows, so the double-count is avoided and the totals reconcile.
+    // Parked *COH / *Svgs accounts keep their current balance (no move).
+    // Credit cards are paid down to $0 from their funding account (Venture ←
+    // Liz COH *9176; the rest ← Main *7419), contributing $0 to the total.
+    const savingsTgt = (balById['7397']||0) + dSav;                 // 7397 Savings Total
+    const emergTgt   = (balById['0741']||0) + dEmg;                 // 0741 Emergency Fund Total
+    const schwabTgt  = (balById['8568']||0) + schwabSpend;          // 8568 Schwab Total
+    const lizTgt     = (balById['9176']||0) + (cardBy['0074']||0);  // 9176 Liz COH Total (funds Venture payoff)
+    const loganTgt   = logan;                                       // 6374 Logan
+    const momPapaTgt = momPapa;                                     // 3536 Mom & Papa
+    // Parked accounts keep their current balance (target = current, no move).
+    const parked = [
+      ['7889','Logan COH'], ['0458','Matt COH'], ['9168','Liz COH Svgs'],
+      ['0466','Matt COH Svgs'], ['3195','Logan COH Svgs'],
+    ];
+    const parkedTgtSum = parked.reduce((s,[id])=> s + (balById[id]||0), 0);
+    // Main is the plug: it holds every dollar not earmarked elsewhere (buffer,
+    // spending, bills + card-payoff reserves), so Σ targets === Total Assets.
+    const mainTgt = income - (savingsTgt + emergTgt + schwabTgt + lizTgt + loganTgt + momPapaTgt + parkedTgtSum);
     const earmarks = [
-      // id, name, target (= Notion "… Total"), accent, note
-      ['7419','Main', (balById['7419']||0) + daily + dBuf + cardTopups, C.midL, 'hub'], // 7419 Main Total (item 6)
-      ['7397','Savings', (balById['7397']||0) + dSav, C.sage],                          // 7397 Savings Total (item 7)
-      ['0741','Emergency Fund', (balById['0741']||0) + dEmg, C.midL],                   // 0741 Emergency Fund Total (item 9)
-      ['8568','Schwab', (balById['8568']||0) + schwabSpend, C.sage],                    // 8568 Schwab Total (item 5)
-      ['9176','Liz COH', (balById['9176']||0) + (cardBy['0074']||0), C.midL],           // 9176 Liz COH Total (item 8)
-      ['6374','Logan', logan, C.mauve],
-      ['3536','Mom & Papa', momPapa, C.mauve],
+      // id, name, target, accent, note
+      ['7419','Main', mainTgt, C.midL, 'hub'],
+      ['7397','Savings', savingsTgt, C.sage],
+      ['0741','Emergency Fund', emergTgt, C.midL],
+      ['8568','Schwab', schwabTgt, C.sage],
+      ['9176','Liz COH', lizTgt, C.midL],
+      ['6374','Logan', loganTgt, C.mauve],
+      ['3536','Mom & Papa', momPapaTgt, C.mauve],
     ];
     // credit cards paid down each period (item 10): funding account → card, target $0.
     const cardPays = [
@@ -754,10 +770,6 @@ class Component extends DCLogic {
       ['1375','USAA Credit','Main'],
       ['9379','Ulta','Main'],
       ['3611','Prime Visa','Main'],
-    ];
-    const parked = [
-      ['7889','Logan COH'], ['9168','Liz COH Svgs'],
-      ['0466','Matt COH Svgs'], ['3195','Logan COH Svgs'],
     ];
     const colHead = (t,align)=> el('div',{style:{fontSize:'9px',letterSpacing:'.08em',textTransform:'uppercase',color:C.muted,fontWeight:700,marginBottom:'3px',textAlign:align||'left'}},t);
     const renderMapRow = (id,name,target,accent,note,gray)=>{
