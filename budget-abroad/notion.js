@@ -330,16 +330,46 @@
   // template-driven field the run needs: the 📉 Dues relation (which feeds the
   // Reserve Needed Total rollup → Bills tile). Read it off the row flagged
   // Template = true and copy it verbatim into each new run.
+  // A database-query response caps relation arrays at 25 items, but the
+  // Template row links 40+ Dues. Page the property-item endpoint to copy
+  // the FULL relation so the run's Reserve Needed Total (Bills tile) is
+  // complete, not truncated.
+  function fetchAllRelationIds(pageId, propId) {
+    var ids = [];
+    function page(cursor) {
+      var path = '/pages/' + pageId + '/properties/' + encodeURIComponent(propId) +
+        '?page_size=100' + (cursor ? '&start_cursor=' + encodeURIComponent(cursor) : '');
+      return notionFetch(path, 'GET').then(function (data) {
+        if (data && data.object === 'error') throw new Error(data.message);
+        (data.results || []).forEach(function (item) {
+          if (item && item.type === 'relation' && item.relation && item.relation.id) {
+            ids.push({ id: item.relation.id });
+          }
+        });
+        if (data.has_more && data.next_cursor) return page(data.next_cursor);
+        return ids;
+      });
+    }
+    return page(null);
+  }
   function loadTemplateDues() {
     return queryAll(BUDGET_RUN_DB, {
       filter: { property: 'Template', checkbox: { equals: true } }
     }).then(function (results) {
       if (!results.length) return [];
-      var rel = (results[0].properties || {})['📉 Dues'];
-      rel = rel && rel.relation;
-      if (!Array.isArray(rel)) return [];
-      return rel.map(function (r) { return { id: r.id }; });
-    }).catch(function () { return []; });
+      var row = results[0];
+      var rel = (row.properties || {})['📉 Dues'];
+      if (!rel || !rel.id) return [];
+      return fetchAllRelationIds(row.id, rel.id).then(function (ids) {
+        if (ids.length) return ids;
+        // fallback to the (possibly truncated) inline relation
+        var arr = rel.relation;
+        return Array.isArray(arr) ? arr.map(function (r) { return { id: r.id }; }) : [];
+      });
+    }).catch(function (e) {
+      if (window.console && console.warn) console.warn('loadTemplateDues failed:', e && e.message);
+      return [];
+    });
   }
   function createPendingRun(paydateVal) {
     var reqId = 'req_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
