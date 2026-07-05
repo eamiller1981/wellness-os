@@ -337,25 +337,35 @@
   // endpoint, which returns ALL relation ids across pages
   // (top-level next_cursor / has_more; each result is {type:'relation', relation:{id}}).
   /* Collect the Template's Dues by reading them from the DUES side, not the
-   * Budget Run relation. The Notion API truncates a relation array to 25 items
-   * on both database-query and page-retrieve, so reading the Template row's
-   * "📉 Dues" relation can never return more than 25. Instead we page the whole
-   * Dues table (100/row, no cap) and keep every Due whose "Template Match Count"
-   * rollup is ≥ 1 — that rollup counts the linked Budget Run rows with
-   * Template=true, so ≥ 1 means the Due belongs to the Template. Relation
-   * *writes* allow up to 100 ids, so the resulting list sets cleanly on the run. */
+   * Budget Run's "📉 Dues" relation. The Notion API truncates a relation array
+   * to 25 items on both database-query and page-retrieve, so reading the
+   * Template row's "📉 Dues" (~41 items) can never return more than 25.
+   * Instead: find the Template run's page id, then page the whole Dues table
+   * (100/row, no cap) and keep every Due whose own "💸 Budget Run" relation
+   * contains that id. Each Due links to only a handful of runs, well under the
+   * 25-cap, so no truncation. Relation *writes* allow up to 100 ids, so the
+   * resulting list sets cleanly on the new run. */
+  function normId(s) { return String(s || '').replace(/-/g, ''); }
   function loadTemplateDues() {
-    return queryAll(DUES_DB, {}).then(function (results) {
-      var dues = results.filter(function (pg) {
-        return num((pg.properties || {})['Template Match Count']) >= 1;
-      }).map(function (pg) {
-        return { id: pg.id };
+    return queryAll(BUDGET_RUN_DB, {
+      filter: { property: 'Template', checkbox: { equals: true } }
+    }).then(function (runs) {
+      if (!runs.length) return [];
+      var templateId = normId(runs[0].id);
+      return queryAll(DUES_DB, {}).then(function (results) {
+        var dues = results.filter(function (pg) {
+          var rel = (pg.properties || {})['💸 Budget Run'];
+          var arr = rel && Array.isArray(rel.relation) ? rel.relation : [];
+          return arr.some(function (r) { return normId(r.id) === templateId; });
+        }).map(function (pg) {
+          return { id: pg.id };
+        });
+        if (window.console && console.info) {
+          console.info('loadTemplateDues: templateRun=' + templateId +
+            ' scanned=' + results.length + ' → template dues=' + dues.length);
+        }
+        return dues;
       });
-      if (window.console && console.info) {
-        console.info('loadTemplateDues: scanned=' + results.length +
-          ' → template dues=' + dues.length);
-      }
-      return dues;
     }).catch(function (e) {
       if (window.console && console.warn) console.warn('loadTemplateDues failed:', e && e.message);
       return [];
