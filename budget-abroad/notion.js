@@ -201,7 +201,7 @@
         var travel = num(p['0074 Venture']);
         var family = num(p['6374 Logan']) + num(p['3536 Mom and Papa']);
         var sav = num(p['7397 Savings']);
-        var emg = num(p['0741 Special Svgs']);
+        var emg = num(p['0741 Emergency Fund']);
         var recorded = bills + daily + travel + family + sav + emg;
         if (recorded <= 0.005) return; // nothing recorded yet
         actuals[idx] = {
@@ -236,7 +236,7 @@
         bank: {
           '7419': num(p['7419 Main']),
           '7397': num(p['7397 Savings']),
-          '0741': num(p['0741 Special Svgs']),
+          '0741': num(p['0741 Emergency Fund']),
           '9176': num(p['9176 Liz COH']),
           '0458': num(p['0458 Matt COH']),
           '7889': num(p['7889 Logan COH']),

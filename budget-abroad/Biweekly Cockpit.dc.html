@@ -125,7 +125,7 @@ class Component extends DCLogic {
       ['3195','Logan COH Svgs','0.01'],
     ],
     cards: [
-      ['1454','Venture','842.15'],
+      ['0074','Venture','842.15'],
       ['9722','Altitude Connect','1203.60'],
       ['1375','USAA Credit','456.90'],
       ['9379','Ulta','78.44'],
@@ -195,7 +195,7 @@ class Component extends DCLogic {
           ['3195','Logan COH Svgs', (run.bank['3195']||0).toFixed(2)],
         ];
         patch.cards = [
-          ['1454','Venture', (run.cards['0074']||0).toFixed(2)],
+          ['0074','Venture', (run.cards['0074']||0).toFixed(2)],
           ['9722','Altitude Connect', (run.cards['9722']||0).toFixed(2)],
           ['1375','USAA Credit', (run.cards['1375']||0).toFixed(2)],
           ['9379','Ulta', (run.cards['9379']||0).toFixed(2)],
@@ -387,7 +387,7 @@ class Component extends DCLogic {
       ['3195','Logan COH Svgs', g('3195').toFixed(2)],
     ];
     const cards = [
-      ['1454','Venture', venture.toFixed(2)],
+      ['0074','Venture', venture.toFixed(2)],
       ['9722','Altitude Connect', g('9722').toFixed(2)],
       ['1375','USAA Credit', g('1375').toFixed(2)],
       ['9379','Ulta', g('9379').toFixed(2)],
@@ -405,7 +405,7 @@ class Component extends DCLogic {
     const props = {
       '7419 Main':          { number: g('7419') },
       '7397 Savings':       { number: g('7397') },
-      '0741 Special Svgs':  { number: g('0741') },
+      '0741 Emergency Fund':{ number: g('0741') },
       '9176 Liz COH':       { number: g('9176') },
       '0458 Matt COH':      { number: g('0458') },
       '7889 Logan COH':     { number: g('7889') },
@@ -444,14 +444,23 @@ class Component extends DCLogic {
     const S = this.state, n = s => parseFloat(s)||0;
     const bankBy = {}; S.bank.forEach(r=>bankBy[r[0]]=n(r[2])); S.others.forEach(r=>bankBy[r[0]]=n(r[2]));
     const cardBy = {}; S.cards.forEach(r=>cardBy[r[0]]=n(r[2]));
+    const dailyAdd = n(S.family[0][2]);   // Family "Daily Expenses"
+    const schwabAdd = n(S.family[1][2]);  // Family "Schwab" (amount to add this period)
     const props = {
-      // 40/40 allocations are ADDITIVE: write the amount to ADD this period into
-      // the dedicated input columns. Notion's "Savings ($)"/"Special Savings ($)"
-      // formulas turn these into the additive amount. Do NOT overwrite the actual
-      // Plaid balance columns (7397/0741) — that corrupts Total Account Balance.
-      '# Add to Svgs':         { number: ctx.dSav },
-      '# Add to Special Svgs': { number: ctx.dEmg },
-      // account balances — edited values persist to Notion
+      // ---- additive / allocation inputs -------------------------------------
+      // These write the amount to ADD this period into dedicated input columns;
+      // Notion's "… Total" formulas sum each input onto the live Plaid balance.
+      // NEVER overwrite the actual Plaid balance columns (7397/0741/8568) — that
+      // corrupts Total Account Balance and the "… Total" targets.
+      '# $ Add to Savings':      { number: ctx.dSav },  // → 7397 Savings Total  (item 7)
+      '$ Add to Emergency Fund': { number: ctx.dEmg },  // → 0741 Emergency Fund Total (item 9)
+      // Daily Expenses + USAA Buffer are the "Add to Main" components; Notion's
+      // 7419 Main Total sums them (plus the paid-from-Main cards) (item 6).
+      '$ Add to Main (Daily Expenses)': { number: dailyAdd },   // (item 3)
+      '$ Add to Main (Buffer) (1)':     { number: ctx.dBuf },   // buffer component (item 6)
+      // Family "Schwab" is the amount added to Schwab → 8568 Schwab Total (item 4/5).
+      '$ Add to 8568 Schwab': { number: schwabAdd },
+      // ---- account balances — edited values persist to Notion ---------------
       '7419 Main':          { number: bankBy['7419'] },
       '9176 Liz COH':       { number: bankBy['9176'] },
       '0458 Matt COH':      { number: bankBy['0458'] },
@@ -460,18 +469,18 @@ class Component extends DCLogic {
       '9168 Liz COH Svgs':  { number: bankBy['9168'] },
       '0466 Matt COH Svgs': { number: bankBy['0466'] },
       '3195 Logan COH Svgs':{ number: bankBy['3195'] },
-      '0074 Venture':          { number: cardBy['1454'] },
+      // ---- card balances owed ----------------------------------------------
+      '0074 Venture':          { number: cardBy['0074'] },  // (item 8) → 9176 Liz COH Total
       '9722 Altitude Connect': { number: cardBy['9722'] },
       '1375 USAA Credit':      { number: cardBy['1375'] },
       '9379 Ulta':             { number: cardBy['9379'] },
       '3611 Prime Visa':       { number: cardBy['3611'] },
-      // other run fields
+      // ---- family actuals ---------------------------------------------------
       // NOTE: the bills tile is read-only — it displays Notion's "Reserve Needed
       // Total" rollup (Σ per-Due "Reserve Needed" over the run's Dues relation),
       // computed entirely in Notion. Never write a bills figure back into the run.
       '6374 Logan':        { number: n(S.family[2][2]) },
       '3536 Mom and Papa': { number: n(S.family[3][2]) },
-      '8568 Schwab Spend': { number: n(S.family[1][2]) },
     };
     this.setState({ committing:true, status:'Committing to Notion…', statusErr:false });
     window.BudgetAbroad.commitRun(this.state.currentRunId, props).then(()=>{
@@ -565,6 +574,7 @@ class Component extends DCLogic {
     const S = this.state;
     const others = S.others || [];
     const balById = {}; S.bank.forEach(r=>balById[r[0]]=n(r[2])); others.forEach(r=>balById[r[0]]=n(r[2]));
+    const cardBy = {}; S.cards.forEach(r=>cardBy[r[0]]=n(r[2]));
     const othersSum = others.reduce((a,r)=>a+n(r[2]),0);
 
     // ---- totals
@@ -702,23 +712,31 @@ class Component extends DCLogic {
       el('span',{style:{fontSize:'11px',letterSpacing:'.1em',textTransform:'uppercase',color:balOk?C.sage:C.mauve,fontWeight:700}},balOk?'Fully allocated':'Balance unassigned'),
       el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'20px',color:C.cream}},money(balance)));
 
-    // ---- money map: comprehensive end-state allocation of Total Assets.
-    // Main *7419 is the hub: every inflow lands there and it funds each earmark.
-    // Each earmark row shows the transfer direction (Main → X to fund it, or
-    // X → Main to sweep an excess). Main's target is the residual plug, so the
-    // targets always sum to Total Assets. The four *COH / *Svgs accounts are not
-    // reallocated — their money stays put (target = current, move = 0); they are
-    // shown grayed at the bottom only so the total ties out to Total Assets.
-    const parkedIds = ['7889','9168','0466','3195'];
-    const parkedSum = parkedIds.reduce((a,id)=>a+(balById[id]||0),0);
-    const mainTarget = income - (dSav + dEmg + schwabSpend + logan + momPapa) - parkedSum;
+    // ---- money map: end-state balances (Notion "… Total" targets).
+    // Each row's Target is the account's Notion "… Total" formula — the current
+    // Plaid balance plus this period's additive input — computed in-page for
+    // live feedback so it matches what Notion stores on Commit. Main *7419 is the
+    // funding hub for bank top-ups; the credit cards are paid down each period
+    // from their funding account (Venture ← Liz COH *9176; the rest ← Main *7419).
+    // The *COH / *Svgs accounts are parked (target = current, no move).
+    const cardTopups = (cardBy['9722']||0) + (cardBy['1375']||0) + (cardBy['9379']||0) + (cardBy['3611']||0);
     const earmarks = [
-      ['7419','Main', mainTarget, C.midL, 'hub'],
-      ['7397','Savings', dSav, C.sage],
-      ['0741','Emergency Fund', dEmg, C.midL],
-      ['8568','Schwab', schwabSpend, C.sage],
+      // id, name, target (= Notion "… Total"), accent, note
+      ['7419','Main', (balById['7419']||0) + daily + dBuf + cardTopups, C.midL, 'hub'], // 7419 Main Total (item 6)
+      ['7397','Savings', (balById['7397']||0) + dSav, C.sage],                          // 7397 Savings Total (item 7)
+      ['0741','Emergency Fund', (balById['0741']||0) + dEmg, C.midL],                   // 0741 Emergency Fund Total (item 9)
+      ['8568','Schwab', (balById['8568']||0) + schwabSpend, C.sage],                    // 8568 Schwab Total (item 5)
+      ['9176','Liz COH', (balById['9176']||0) + (cardBy['0074']||0), C.midL],           // 9176 Liz COH Total (item 8)
       ['6374','Logan', logan, C.mauve],
       ['3536','Mom & Papa', momPapa, C.mauve],
+    ];
+    // credit cards paid down each period (item 10): funding account → card, target $0.
+    const cardPays = [
+      ['0074','Venture','Liz COH'],
+      ['9722','Altitude Connect','Main'],
+      ['1375','USAA Credit','Main'],
+      ['9379','Ulta','Main'],
+      ['3611','Prime Visa','Main'],
     ];
     const parked = [
       ['7889','Logan COH'], ['9168','Liz COH Svgs'],
@@ -751,19 +769,42 @@ class Component extends DCLogic {
         el('div',{style:{textAlign:'right',minWidth:'84px'}}, colHead('Target','right'),
           el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}}, money(target))));
     };
+    // Credit-card pay-down row: funds move FROM the funding account TO the card,
+    // driving the balance owed to $0. No hub logic — the "from" is explicit.
+    const renderCardRow = (id,name,fromName)=>{
+      const bal = cardBy[id]||0;
+      const pays = bal >= 0.005;
+      const fromAcct = pays ? fromName : '\u2014';
+      const toAcct = pays ? name : '\u2014';
+      const dim = !pays;
+      const moveColor = pays ? C.mauve : C.muted;
+      const moveTxt = pays ? '\u2212'+money(bal) : '\u2014';
+      const pill = (txt,active)=> el('span',{style:{display:'inline-block',fontSize:'11px',fontWeight:600,color:active?C.cream:C.muted,background:active?'#2E3A2C':'transparent',border:'1px solid '+(active?C.mid:C.line),borderRadius:'999px',padding:'4px 10px',whiteSpace:'nowrap'}}, txt);
+      return el('div',{key:'card-'+id,style:{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto auto auto',alignItems:'center',columnGap:'14px',background:'#242A22',borderRadius:'10px',padding:'11px 14px',marginBottom:'8px',opacity:dim?0.5:1}},
+        el('div',{style:{minWidth:0}},
+          el('div',{style:{fontSize:'13px',color:C.cream,fontWeight:600}},name),
+          el('div',{className:'num',style:{fontSize:'10px',color:C.muted,fontWeight:600}},'*'+id)),
+        el('div',{style:{minWidth:0}}, colHead('From'), pill(fromAcct,fromAcct!=='\u2014')),
+        el('div',{style:{minWidth:0}}, colHead('To'), pill(toAcct,toAcct!=='\u2014')),
+        el('div',{style:{textAlign:'right',minWidth:'84px'}}, colHead('Move','right'),
+          el('div',{className:'num',style:{fontSize:'13px',fontWeight:600,color:moveColor}}, moveTxt)),
+        el('div',{style:{textAlign:'right',minWidth:'76px'}}, colHead('Now','right'),
+          el('div',{className:'num',style:{fontSize:'13px',color:C.muted}}, money(bal))),
+        el('div',{style:{textAlign:'right',minWidth:'84px'}}, colHead('Target','right'),
+          el('div',{className:'num',style:{fontSize:'14px',fontWeight:600,color:C.cream}}, money(0))));
+    };
     const mapItems = [];
     earmarks.forEach(([id,name,target,accent,note])=> mapItems.push(renderMapRow(id,name,target,accent,note,false)));
+    cardPays.forEach(([id,name,fromName])=> mapItems.push(renderCardRow(id,name,fromName)));
     parked.forEach(([id,name])=> mapItems.push(renderMapRow(id,name,balById[id]||0,C.muted,null,true)));
-    const mapTargetSum = earmarks.reduce((a,r)=>a+r[2],0) + parkedSum;
-    // Allocated ties to Total Assets by construction (Main is the plug); the
-    // check reflects whether the waterfall balance is clean ($0 unassigned).
+    // Bottom summary reflects whether this period's 40/40/20 remainder is fully
+    // assigned ($0 unassigned) — the same balance the allocation pill shows.
     mapItems.push(el('div',{key:'__mt',style:{marginTop:'auto',paddingTop:'12px',borderTop:'1px solid '+(balOk?C.sage:C.mauveD),display:'flex',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center',gap:'6px 14px'}},
       el('span',{style:{display:'flex',alignItems:'center',gap:'8px',fontSize:'11px',letterSpacing:'.08em',textTransform:'uppercase',color:balOk?C.sage:C.mauve,fontWeight:700}},
         el('span',{style:{fontSize:'16px',lineHeight:1}}, balOk?'\u2713':'\u2717'),
-        'Allocated = Total Assets'),
+        balOk?'Allocations balanced':'Balance unassigned'),
       el('div',{style:{display:'flex',alignItems:'baseline',gap:'12px'}},
-        el('span',{className:'num',style:{fontSize:'12px',color:C.muted}}, 'of '+money(income)),
-        el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(mapTargetSum)))));
+        el('span',{className:'num',style:{fontFamily:"'Newsreader',serif",fontSize:'19px',color:C.cream}},money(balance)))));
     const mapRows = mapItems;
 
     // ---- run controls (Run button + editable date + status) ----
