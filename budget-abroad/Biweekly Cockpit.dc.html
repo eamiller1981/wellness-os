@@ -490,9 +490,12 @@ class Component extends DCLogic {
       '9379 Ulta':             { number: cardBy['9379'] },
       '3611 Prime Visa':       { number: cardBy['3611'] },
       // ---- family actuals ---------------------------------------------------
-      // NOTE: the bills tile is read-only — it displays the sum of the Dues
-      // "Bills Due" view (Σ per-Due "Reserve Needed"), the same rows the popup
-      // lists. Never write a bills figure back into the run.
+      // NOTE: the bills tile is read-only (sum of the Dues "Bills Due" view,
+      // Σ per-Due "Reserve Needed" — the same rows the popup lists). On Commit
+      // we snapshot that displayed total into the run's "Period Bills Due"
+      // number field (a static per-run record; the tile itself is never
+      // overwritten from the run).
+      'Period Bills Due':  { number: n(S.bills) },
       '6374 Logan':        { number: n(S.family[2][2]) },
       '3536 Mom and Papa': { number: n(S.family[3][2]) },
     };
