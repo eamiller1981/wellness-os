@@ -13,9 +13,14 @@
   var WORKER_URL = 'https://notion-budget-manager.eamiller1981.workers.dev';
 
   // Notion database ids (no dashes)
+  // NOTE: these are Notion *database* ids (the data-source's top-level page id),
+  // NOT collection ids. The REST /databases/{id}/query endpoint 404s on a
+  // collection id. Dues + Accounts were previously (wrongly) set to their
+  // collection ids, which silently broke every Dues query (bills tile/popup)
+  // and forced loadAllocPercents to its 40/40/20 fallback.
   var FORECAST_DB = '392627ee81db80c9af9bf27e7de0f185'; // Abroad - Forecast
   var BUDGET_RUN_DB = '311627ee81db80b8ae51c5b7c8ed83bb'; // 💸 Budget Run
-  var ACCOUNTS_DB = '779dccf0265a475ebe784612b5d8e2eb';   // 🪣 Accounts
+  var ACCOUNTS_DB = '2bb2ef2de2e1400281a4acbc028a0e4f';   // 🪣 Accounts
 
   /* ---- transport (ported from finances.html notionFetch) ---- */
   function notionFetch(path, method, body) {
@@ -270,7 +275,7 @@
    * "Reserve Needed Total" rollup. No in-page window computation.
    * Returns [{merchant, amount, next}] sorted by next date.
    * ════════════════════════════════════════════════════════════════ */
-  var DUES_DB = 'dda95f92df7445fab2681ddc330e2b46'; // 📉 Dues
+  var DUES_DB = 'ab19a9bd4dca420b97ebfe97da191c77'; // 📉 Dues (database id, not collection id)
   function loadBillsDue() {
     return queryAll(DUES_DB, {}).then(function (results) {
       var rows = results.map(function (pg) {
