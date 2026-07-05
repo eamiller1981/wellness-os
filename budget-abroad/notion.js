@@ -338,7 +338,17 @@
   // (top-level next_cursor / has_more; each result is {type:'relation', relation:{id}}).
   function fetchAllRelationIds(pageId, propId) {
     var ids = [];
-    function page(cursor) {
+    function nextCursorFrom(data) {
+      if (data.next_cursor) return data.next_cursor;
+      // Some Notion responses only expose the cursor via property_item.next_url
+      var nu = data.property_item && data.property_item.next_url;
+      if (nu) {
+        var m = /[?&]start_cursor=([^&]+)/.exec(nu);
+        if (m) return decodeURIComponent(m[1]);
+      }
+      return null;
+    }
+    function page(cursor, guard) {
       var path = '/pages/' + pageId + '/properties/' + encodeURIComponent(propId) +
         '?page_size=100' + (cursor ? '&start_cursor=' + encodeURIComponent(cursor) : '');
       return notionFetch(path, 'GET').then(function (data) {
@@ -348,11 +358,13 @@
             ids.push({ id: item.relation.id });
           }
         });
-        if (data.has_more && data.next_cursor) return page(data.next_cursor);
+        var next = data.has_more ? nextCursorFrom(data) : null;
+        // guard against a non-advancing / repeating cursor
+        if (next && guard < 20) return page(next, guard + 1);
         return ids;
       });
     }
-    return page(null);
+    return page(null, 0);
   }
   function loadTemplateDues() {
     return queryAll(BUDGET_RUN_DB, {
