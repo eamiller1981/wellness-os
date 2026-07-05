@@ -336,55 +336,26 @@
   // query it backwards. The only complete source is the paginated page-property
   // endpoint, which returns ALL relation ids across pages
   // (top-level next_cursor / has_more; each result is {type:'relation', relation:{id}}).
-  function fetchAllRelationIds(pageId, propId) {
-    var ids = [];
-    function nextCursorFrom(data) {
-      if (data.next_cursor) return data.next_cursor;
-      // Some Notion responses only expose the cursor via property_item.next_url
-      var nu = data.property_item && data.property_item.next_url;
-      if (nu) {
-        var m = /[?&]start_cursor=([^&]+)/.exec(nu);
-        if (m) return decodeURIComponent(m[1]);
-      }
-      return null;
-    }
-    function page(cursor, guard) {
-      var path = '/pages/' + pageId + '/properties/' + encodeURIComponent(propId) +
-        '?page_size=100' + (cursor ? '&start_cursor=' + encodeURIComponent(cursor) : '');
-      return notionFetch(path, 'GET').then(function (data) {
-        if (data && data.object === 'error') throw new Error(data.message);
-        (data.results || []).forEach(function (item) {
-          if (item && item.type === 'relation' && item.relation && item.relation.id) {
-            ids.push({ id: item.relation.id });
-          }
-        });
-        var next = data.has_more ? nextCursorFrom(data) : null;
-        // guard against a non-advancing / repeating cursor
-        if (next && guard < 20) return page(next, guard + 1);
-        return ids;
-      });
-    }
-    return page(null, 0);
-  }
+  /* Collect the Template's Dues by reading them from the DUES side, not the
+   * Budget Run relation. The Notion API truncates a relation array to 25 items
+   * on both database-query and page-retrieve, so reading the Template row's
+   * "📉 Dues" relation can never return more than 25. Instead we page the whole
+   * Dues table (100/row, no cap) and keep every Due whose "Template Match Count"
+   * rollup is ≥ 1 — that rollup counts the linked Budget Run rows with
+   * Template=true, so ≥ 1 means the Due belongs to the Template. Relation
+   * *writes* allow up to 100 ids, so the resulting list sets cleanly on the run. */
   function loadTemplateDues() {
-    return queryAll(BUDGET_RUN_DB, {
-      filter: { property: 'Template', checkbox: { equals: true } }
-    }).then(function (results) {
-      if (!results.length) return [];
-      var row = results[0];
-      var rel = (row.properties || {})['📉 Dues'];
-      if (!rel || !rel.id) return [];
-      var inline = Array.isArray(rel.relation)
-        ? rel.relation.map(function (r) { return { id: r.id }; }) : [];
-      return fetchAllRelationIds(row.id, rel.id).then(function (ids) {
-        // Prefer the full paginated list; fall back to the (≤25) inline list.
-        var dues = ids.length >= inline.length ? ids : inline;
-        if (window.console && console.info) {
-          console.info('loadTemplateDues: paginated=' + ids.length +
-            ' inline=' + inline.length + ' → copying ' + dues.length);
-        }
-        return dues;
+    return queryAll(DUES_DB, {}).then(function (results) {
+      var dues = results.filter(function (pg) {
+        return num((pg.properties || {})['Template Match Count']) >= 1;
+      }).map(function (pg) {
+        return { id: pg.id };
       });
+      if (window.console && console.info) {
+        console.info('loadTemplateDues: scanned=' + results.length +
+          ' → template dues=' + dues.length);
+      }
+      return dues;
     }).catch(function (e) {
       if (window.console && console.warn) console.warn('loadTemplateDues failed:', e && e.message);
       return [];
