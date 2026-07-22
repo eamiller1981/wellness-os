@@ -584,21 +584,14 @@
       </div>
 
       <section class="panel" id="setupPanel" hidden>
-        <h2>Connect your task sheet</h2>
-        <p>This page is a live view of the <strong>Prep_Tasks</strong> tab in your Destination Scorecard sheet. Connect it once and it stays in sync.</p>
-        <ol>
-          <li>Open the sheet &rarr; <code>Extensions &rarr; Apps Script</code> and paste in <code>docs/prep-tasks-apps-script.gs</code> from this repo.</li>
-          <li>Deploy it as a <strong>Web app</strong> (Execute as: Me &middot; Access: Anyone with the link).</li>
-          <li>Paste the <code>/exec</code> URL below. Add a token only if you set <code>PREP_TOKEN</code> in the script.</li>
-        </ol>
-        <label>Web app URL
+        <h2>Sync settings</h2>
+        <p>Prep reads and writes the <strong>Prep_Tasks</strong> tab through your Year Abroad Scorecard web app. The endpoint is already built in &mdash; you only need this if that web app URL ever changes.</p>
+        <label>Web app URL (advanced)
           <input type="text" id="endpointInput" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" spellcheck="false">
         </label>
-        <label>Token (optional)
-          <input type="password" id="tokenInput" placeholder="Leave blank if you didn't set one" autocomplete="off">
-        </label>
         <div class="row">
-          <button class="btn-primary" id="saveSetup" type="button">Save &amp; connect</button>
+          <button class="btn-primary" id="saveSetup" type="button">Save</button>
+          <button class="btn-ghost" id="resetEndpoint" type="button">Reset to default</button>
           <button class="btn-ghost" id="closeSetup" type="button" hidden>Cancel</button>
         </div>
         <p id="setupHint"></p>
@@ -652,9 +645,13 @@
     "use strict";
 
     // ---- Config / storage keys -------------------------------------------
+    // Prep is a view over the Prep_Tasks tab, served by the existing
+    // "Year Abroad Scorecard" Apps Script web app (same one that powers the
+    // scorecards). The endpoint is hardcoded like every other page's API URL;
+    // localStorage can override it for troubleshooting.
+    var DEFAULT_ENDPOINT = "https://script.google.com/macros/s/AKfycbzG9A0jwU8PZE_0a1dEe1fCbpp_tKZNKw2BaJLcvTBY0r7YYnZ0phnXxsxaoKNIbHAJ_g/exec";
     var LS = {
       endpoint: "wellness.prep.endpoint",
-      token: "wellness.prep.token",
       filter: "wellness.prep.filter",
       order: "wellness.prep.order" // { bucketKey: [taskId, ...] }
     };
@@ -680,8 +677,7 @@
         return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
       });
     }
-    function endpoint() { return (localStorage.getItem(LS.endpoint) || "").trim(); }
-    function token() { return (localStorage.getItem(LS.token) || "").trim(); }
+    function endpoint() { return (localStorage.getItem(LS.endpoint) || DEFAULT_ENDPOINT).trim(); }
 
     function dayKey(d) {
       var y = d.getFullYear();
@@ -869,41 +865,42 @@
       } catch (e) { return null; }
     }
 
-    async function apiList() {
-      var url = endpoint() + (endpoint().indexOf("?") === -1 ? "?" : "&") +
-        "action=list&token=" + encodeURIComponent(token());
-      var res = await fetch(url, { method: "GET", redirect: "follow" });
+    // Talks to the existing "Year Abroad Scorecard" Apps Script web app.
+    // Envelope: { status: 'ok', data: {...} } | { status: 'error', message }.
+    // Actions carry their fields at the top level of the body.
+    // text/plain keeps this a "simple" request so Apps Script needs no CORS preflight.
+    async function apiCall(bodyObj) {
+      var res = await fetch(endpoint(), {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        redirect: "follow",
+        body: JSON.stringify(bodyObj)
+      });
       var text = await res.text();
       var data = JSON.parse(text);
-      if (!data.ok) throw new Error(data.error || "Could not load tasks.");
-      return data;
+      if (!data || data.status !== "ok") {
+        throw new Error((data && data.message) || "Request failed.");
+      }
+      return data.data || {};
+    }
+
+    async function apiList() {
+      var data = await apiCall({ action: "load_tasks" });
+      return Array.isArray(data.tasks) ? data.tasks : [];
     }
 
     async function apiUpdate(taskId, fields) {
-      // text/plain keeps this a "simple" request so Apps Script needs no CORS preflight.
-      var res = await fetch(endpoint(), {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        redirect: "follow",
-        body: JSON.stringify({ action: "update", token: token(), task_id: taskId, fields: fields })
-      });
-      var text = await res.text();
-      var data = JSON.parse(text);
-      if (!data.ok) throw new Error(data.error || "Update failed.");
-      return data.task;
+      // update_task takes task_id + the changed fields at the top level.
+      var body = { action: "update_task", task_id: taskId };
+      for (var k in fields) if (Object.prototype.hasOwnProperty.call(fields, k)) body[k] = fields[k];
+      return apiCall(body); // { updated: true, task_id }
     }
 
     async function apiAdd(fields) {
-      var res = await fetch(endpoint(), {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        redirect: "follow",
-        body: JSON.stringify({ action: "add", token: token(), fields: fields })
-      });
-      var text = await res.text();
-      var data = JSON.parse(text);
-      if (!data.ok) throw new Error(data.error || "Could not add task.");
-      return data.task;
+      var body = { action: "save_task" };
+      for (var k in fields) if (Object.prototype.hasOwnProperty.call(fields, k)) body[k] = fields[k];
+      var data = await apiCall(body);
+      return data.task; // save_task returns the full new row, incl. generated task_id
     }
 
     // ---- Day model --------------------------------------------------------
@@ -1128,9 +1125,7 @@
 
       toast("Done ✓", "Undo", function () { undoComplete(t); }, 5000);
 
-      apiUpdate(t.task_id, { status: "Complete" }).then(function (fresh) {
-        applyFresh(fresh);
-      }).catch(function (err) {
+      apiUpdate(t.task_id, { status: "Complete" }).then(synced).catch(function (err) {
         t.status = prior;
         delete state.justCompleted[t.task_id];
         renderList();
@@ -1146,7 +1141,7 @@
       delete state.justCompleted[t.task_id];
       renderList();
       hideToast();
-      apiUpdate(t.task_id, { status: restore }).then(applyFresh).catch(function (err) {
+      apiUpdate(t.task_id, { status: restore }).then(synced).catch(function (err) {
         setStatus("Couldn't undo: " + err.message, true);
       });
     }
@@ -1200,7 +1195,7 @@
       var prior = t.owner;
       t.owner = owner;
       renderList();
-      apiUpdate(t.task_id, { owner: owner }).then(applyFresh).catch(function (err) {
+      apiUpdate(t.task_id, { owner: owner }).then(synced).catch(function (err) {
         t.owner = prior;
         renderList();
         setStatus("Couldn't reassign: " + err.message, true);
@@ -1232,7 +1227,7 @@
       }
       toast("Moved to " + dueLabel(newKey), null, null, 2500);
 
-      apiUpdate(t.task_id, { due_date: newKey }).then(applyFresh).catch(function (err) {
+      apiUpdate(t.task_id, { due_date: newKey }).then(synced).catch(function (err) {
         t.due_date = priorDue;
         t.dueKey = priorKey;
         renderList();
@@ -1240,13 +1235,9 @@
       });
     }
 
-    function applyFresh(fresh) {
-      if (!fresh || !fresh.task_id) return;
-      var n = normalize(fresh);
-      var idx = state.tasks.findIndex(function (x) { return x.task_id === n.task_id; });
-      if (idx !== -1) state.tasks[idx] = n;
-      setStatus("Synced " + timeNow());
-    }
+    // update_task returns only { updated, task_id }; the optimistic local edit
+    // is already applied, so on success we just note the sync time.
+    function synced() { setStatus("Synced " + timeNow()); }
 
     function timeNow() {
       var d = new Date();
@@ -1374,8 +1365,8 @@
       state.loading = true;
       if (showSpinner) setStatus("Loading…");
       try {
-        var data = await apiList();
-        state.tasks = (data.tasks || []).map(normalize);
+        var tasks = await apiList();
+        state.tasks = tasks.map(normalize);
         state.connected = true;
         showSetup(false);
         rebuildDayModel();
@@ -1401,16 +1392,20 @@
     }
     $("settingsBtn").addEventListener("click", function () {
       $("endpointInput").value = endpoint();
-      $("tokenInput").value = token();
       showSetup(true);
     });
     $("closeSetup").addEventListener("click", function () { showSetup(false); });
+    $("resetEndpoint").addEventListener("click", function () {
+      localStorage.removeItem(LS.endpoint);
+      $("endpointInput").value = DEFAULT_ENDPOINT;
+      $("setupHint").textContent = "Reset to the default endpoint.";
+      state.connected = false;
+      load(true);
+    });
     $("saveSetup").addEventListener("click", function () {
       var ep = $("endpointInput").value.trim();
-      var tk = $("tokenInput").value.trim();
-      if (!ep) { $("setupHint").textContent = "Please paste the web app URL."; return; }
+      if (!ep) { $("setupHint").textContent = "Please paste a web app URL, or reset to default."; return; }
       localStorage.setItem(LS.endpoint, ep);
-      localStorage.setItem(LS.token, tk);
       $("setupHint").textContent = "Connecting…";
       state.connected = false;
       load(true);
