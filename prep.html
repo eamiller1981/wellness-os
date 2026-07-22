@@ -330,6 +330,23 @@
     .drag-handle:active { cursor: grabbing; }
     .drag-handle svg { width: 16px; height: 16px; }
 
+    .move-btn {
+      flex: 0 0 auto;
+      width: 30px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      background: transparent;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      opacity: 0.5;
+    }
+    .move-btn:hover, .move-btn:focus-visible { opacity: 1; outline: none; }
+    .move-btn svg { width: 16px; height: 16px; }
+
     /* Owner popover */
     .popover {
       position: fixed;
@@ -362,6 +379,26 @@
       gap: 8px;
     }
     .popover button:hover { background: rgba(128, 111, 100, 0.1); }
+    .popover .pop-date {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .popover .pop-date input[type="date"] {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-family: inherit;
+      font-size: 0.82rem;
+    }
+    .popover .pop-sep { height: 1px; background: var(--line); margin: 4px 6px; }
     .popover .swatch { width: 10px; height: 10px; border-radius: 999px; }
     .popover .swatch.Liz { background: var(--liz); }
     .popover .swatch.Matt { background: var(--matt); }
@@ -595,6 +632,15 @@
     <button type="button" role="menuitem" data-owner="Liz"><span class="swatch Liz"></span>Liz</button>
     <button type="button" role="menuitem" data-owner="Matt"><span class="swatch Matt"></span>Matt</button>
     <button type="button" role="menuitem" data-owner="Both"><span class="swatch Both"></span>Both</button>
+  </div>
+
+  <div class="popover" id="datePopover" role="menu" aria-label="Move to a different day">
+    <span class="pop-label">Move to</span>
+    <button type="button" role="menuitem" data-move="tomorrow">Tomorrow</button>
+    <button type="button" role="menuitem" data-move="nextweek">Next week</button>
+    <div class="pop-sep"></div>
+    <label class="pop-date">Pick a date<input type="date" id="movePick" aria-label="Pick a date"></label>
+    <button type="button" role="menuitem" data-move="clear">No date</button>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite">
@@ -981,6 +1027,9 @@
           taskMetaHtml(t) +
         "</div>" +
         '<button class="owner-pill" type="button" data-owner="' + esc(ownerKey(t.owner)) + '" aria-label="Owner: ' + esc(ownerLabel(t.owner)) + '">' + esc(ownerLabel(t.owner)) + "</button>" +
+        '<button class="move-btn" type="button" aria-label="Move to a different day" title="Move to a different day">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>' +
+        "</button>" +
         '<span class="drag-handle" aria-label="Drag to reorder" title="Drag to reorder">' +
           '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>' +
         "</span>";
@@ -989,6 +1038,10 @@
       li.querySelector(".owner-pill").addEventListener("click", function (e) {
         e.stopPropagation();
         openOwnerPopover(t, e.currentTarget);
+      });
+      li.querySelector(".move-btn").addEventListener("click", function (e) {
+        e.stopPropagation();
+        openDatePopover(t, e.currentTarget, li);
       });
       attachDrag(li);
       return li;
@@ -1154,6 +1207,39 @@
       });
     }
 
+    function dueLabel(key) {
+      if (!key) return "Later";
+      if (key === state.todayKey) return "today";
+      if (key === addDays(state.todayKey, 1)) return "tomorrow";
+      var d = keyToDate(key);
+      return WD[d.getDay()] + " " + MO[d.getMonth()] + " " + d.getDate();
+    }
+
+    function rescheduleTask(t, newKey, li) {
+      var priorDue = t.due_date, priorKey = t.dueKey;
+      t.due_date = newKey;      // "" clears the date (moves to Later)
+      t.dueKey = newKey || null;
+
+      var stillHere = ownerMatchesFilter(t.owner) && taskInSelected(t);
+      if (li && !stillHere) {
+        // Animate the row out, since it's leaving the current day.
+        var h = li.offsetHeight;
+        li.style.height = h + "px";
+        requestAnimationFrame(function () { li.classList.add("leaving"); });
+        setTimeout(renderList, 300);
+      } else {
+        renderList();
+      }
+      toast("Moved to " + dueLabel(newKey), null, null, 2500);
+
+      apiUpdate(t.task_id, { due_date: newKey }).then(applyFresh).catch(function (err) {
+        t.due_date = priorDue;
+        t.dueKey = priorKey;
+        renderList();
+        setStatus("Couldn't move: " + err.message, true);
+      });
+    }
+
     function applyFresh(fresh) {
       if (!fresh || !fresh.task_id) return;
       var n = normalize(fresh);
@@ -1170,11 +1256,11 @@
       return h + ":" + m + ap;
     }
 
-    // ---- Owner popover ----------------------------------------------------
+    // ---- Popovers (owner + move) -----------------------------------------
     var popTask = null;
-    function openOwnerPopover(t, anchor) {
-      popTask = t;
-      var pop = $("ownerPopover");
+    var popRow = null;
+
+    function positionPopover(pop, anchor) {
       pop.classList.add("open");
       var r = anchor.getBoundingClientRect();
       var pw = pop.offsetWidth, ph = pop.offsetHeight;
@@ -1184,18 +1270,58 @@
       pop.style.left = Math.max(12, left) + "px";
       pop.style.top = Math.max(12, top) + "px";
     }
-    function closeOwnerPopover() { $("ownerPopover").classList.remove("open"); popTask = null; }
+
+    function openOwnerPopover(t, anchor) {
+      closeAllPopovers();
+      popTask = t;
+      positionPopover($("ownerPopover"), anchor);
+    }
+
+    function openDatePopover(t, anchor, li) {
+      closeAllPopovers();
+      popTask = t;
+      popRow = li;
+      $("movePick").value = t.dueKey || "";
+      positionPopover($("datePopover"), anchor);
+    }
+
+    function closeAllPopovers() {
+      $("ownerPopover").classList.remove("open");
+      $("datePopover").classList.remove("open");
+      popTask = null;
+      popRow = null;
+    }
+
     $("ownerPopover").querySelectorAll("button").forEach(function (b) {
       b.addEventListener("click", function () {
         if (popTask) setOwner(popTask, b.dataset.owner);
-        closeOwnerPopover();
+        closeAllPopovers();
       });
     });
-    document.addEventListener("click", function (e) {
-      var pop = $("ownerPopover");
-      if (pop.classList.contains("open") && !pop.contains(e.target)) closeOwnerPopover();
+
+    $("datePopover").querySelectorAll("button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (!popTask) return;
+        var move = b.dataset.move;
+        var key = move === "tomorrow" ? addDays(state.todayKey, 1)
+          : move === "nextweek" ? addDays(state.todayKey, 7)
+          : ""; // clear
+        rescheduleTask(popTask, key, popRow);
+        closeAllPopovers();
+      });
     });
-    window.addEventListener("resize", closeOwnerPopover);
+    $("movePick").addEventListener("change", function (e) {
+      if (popTask && e.target.value) rescheduleTask(popTask, e.target.value, popRow);
+      closeAllPopovers();
+    });
+
+    document.addEventListener("click", function (e) {
+      if (popTask === null) return;
+      var op = $("ownerPopover"), dp = $("datePopover");
+      if (op.contains(e.target) || dp.contains(e.target)) return;
+      closeAllPopovers();
+    });
+    window.addEventListener("resize", closeAllPopovers);
 
     // ---- Drag to reorder (pointer based, touch friendly) ------------------
     var drag = null;
