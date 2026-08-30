@@ -1,5 +1,5 @@
 (function () {
-  const AUTH_URL = window.WELLNESS_AUTH_URL || "https://wellness-auth.eamiller1981.workers.dev";
+  const AUTH_URL = window.WELLNESS_AUTH_URL || "https://auth.my-wellness-os.com";
   const SESSION_DAYS = 30;
   const SESSION_MS = SESSION_DAYS * 24 * 60 * 60 * 1000;
   const TOKEN_KEY = "wellnessAuthToken";
@@ -61,6 +61,7 @@
     if (url.origin === window.location.origin && url.pathname.startsWith("/api/")) return true;
     if (url.origin === AUTH_URL) return true;
     return [
+      "auth.my-wellness-os.com",
       "skincare.eamiller1981.workers.dev",
       "notion-budget-manager.eamiller1981.workers.dev",
       "wellness-auth.eamiller1981.workers.dev",
