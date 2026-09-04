@@ -35,18 +35,18 @@ Both filter with a per-task owner toggle, one-tap complete (with a ding), drag-t
 (saved on the device — no schema change), an inline "Add a task" button, and Today /
 Tomorrow / date-picker day navigation.
 
-### Connect the sheet (one time)
+### How it syncs
 
-1. Open the Destination Scorecard sheet → `Extensions → Apps Script`.
-2. Paste in `docs/prep-tasks-apps-script.gs` and save.
-3. (Recommended) Project Settings → Script Properties → add `PREP_TOKEN` with a long
-   random value.
-4. `Deploy → New deployment → Web app` — *Execute as: Me*, *Who has access: Anyone with
-   the link*. Copy the `/exec` URL.
-5. In the Prep page, tap the gear (Settings), paste the `/exec` URL and the same token
-   (if you set one), and Save.
+Prep talks to the existing **Year Abroad Scorecard** Google Apps Script web app — the
+same deployment that powers the scorecards, itinerary, notes, and travel tracker. That
+script already exposes full Prep_Tasks CRUD (`load_tasks`, `save_task`, `update_task`,
+`delete_task`), so Prep does not need its own backend and does not change the sheet
+schema.
 
-Re-deploy a new version of the Apps Script whenever you change it.
+The web app URL is hardcoded in `prep.html` (`DEFAULT_ENDPOINT`), just like the other
+pages hardcode their API URLs — so there is no per-device setup. If that web app is ever
+re-deployed to a new URL, update `DEFAULT_ENDPOINT`, or use the gear (Settings) on the
+Prep page to override it and **Reset to default** to clear the override.
 
 ## Personal App Auth
 
