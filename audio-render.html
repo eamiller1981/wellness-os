@@ -180,6 +180,33 @@
     .chap-status.done     { background: rgba(95, 140, 95, 0.20); color: #3f6238; }
     .chap-status.error    { background: rgba(180, 70, 70, 0.18); color: #7a2828; }
     .chap-status.skipped  { background: rgba(128, 111, 100, 0.12); color: var(--muted); }
+    .chap-status.queued   { background: rgba(150, 125, 165, 0.20); color: #4f3b63; }
+    .job-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      background: rgba(255, 255, 255, 0.55);
+    }
+    .job-card-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .job-card-title { font-weight: 600; color: var(--ink); }
+    .job-card-meta { font-size: 0.82rem; color: var(--muted); }
+    .job-card .grow { flex: 1; }
+    .job-progress {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(128, 111, 100, 0.15);
+      margin: 10px 0 8px;
+      overflow: hidden;
+    }
+    .job-progress-fill { height: 100%; background: #7d8a6a; width: 0; transition: width 0.3s; }
+    .job-current { font-size: 0.85rem; color: var(--muted); }
+    .job-error { font-size: 0.82rem; color: #7a2828; margin-top: 6px; }
     .status {
       margin-top: 12px;
       padding: 10px 14px;
@@ -323,15 +350,28 @@
       <div id="worker-warning" class="status error" hidden></div>
 
       <div class="toolbar" style="margin-top: 16px;">
-        <button id="render-btn" class="btn btn-primary" type="button">Render selected chapters</button>
+        <button id="queue-btn" class="btn btn-primary" type="button">Render in background</button>
+        <button id="render-btn" class="btn btn-small" type="button">Render here (watch it)</button>
         <button id="retry-btn" class="btn btn-small" type="button" disabled>Retry errored</button>
         <button id="cancel-btn" class="btn btn-small" type="button" hidden>Cancel after current</button>
       </div>
+      <p class="section-sub" style="margin-top: 10px;">
+        <strong>Render in background</strong> hands the whole selection to the server. It keeps
+        going with this tab closed and your phone asleep — check back here or in the Audio Library.
+        <strong>Render here</strong> renders in this tab, so it stops if you leave.
+      </p>
 
       <div id="render-status" class="status"></div>
       <div class="progress-bar" id="progress-wrap" hidden>
         <div class="progress-bar-fill" id="progress-fill"></div>
       </div>
+    </section>
+
+    <section class="module-section" id="jobs-section" hidden>
+      <h2>Background renders</h2>
+      <p class="section-sub">Running on the server. Safe to close this page — progress is picked up again whenever you come back.</p>
+      <div id="jobs-list"></div>
+      <div id="jobs-status" class="status"></div>
     </section>
   </main>
 
@@ -376,6 +416,10 @@
       cancelBtn: document.getElementById("cancel-btn"),
       renderStatus: document.getElementById("render-status"),
       workerWarning: document.getElementById("worker-warning"),
+      queueBtn: document.getElementById("queue-btn"),
+      jobsSection: document.getElementById("jobs-section"),
+      jobsList: document.getElementById("jobs-list"),
+      jobsStatus: document.getElementById("jobs-status"),
       progressWrap: document.getElementById("progress-wrap"),
       progressFill: document.getElementById("progress-fill"),
     };
@@ -387,6 +431,7 @@
     let renderRunning = false;   // guards unload + wake lock
     let wakeLock = null;
     let workerFeatures = null;   // null = not probed yet
+    let jobPollTimer = null;
 
     function setStatus(el, msg, kind) {
       el.textContent = msg || "";
@@ -1123,11 +1168,13 @@
         workerFeatures = null; // unknown; don't block the render on a probe failure
         return;
       }
-      if (!workerFeatures.includes("libraryUpload")) {
+      const missing = ["libraryUpload", "backgroundJobs"].filter(f => !workerFeatures.includes(f));
+      if (missing.length) {
         els.workerWarning.hidden = false;
         els.workerWarning.textContent =
-          "The deployed TTS Worker predates the chunked render pipeline, so long " +
-          "chapters will stall. Redeploy it first: cd cloudflare && wrangler deploy --config wrangler.tts.jsonc";
+          `The deployed TTS Worker is missing: ${missing.join(", ")}. Long chapters will stall and ` +
+          "background renders are unavailable. Redeploy it: cd cloudflare && wrangler deploy --config wrangler.tts.jsonc";
+        if (missing.includes("backgroundJobs")) els.queueBtn.disabled = true;
       }
     }
     probeWorker();
@@ -1271,6 +1318,153 @@
       for (const c of queue) { c.status = "pending"; c.error = null; updateRowStatus(c); }
       await runQueue(queue, bookName);
     });
+
+
+    // -------- Background renders (server-side queue) --------
+    // The whole selection is handed to the Worker, which renders it from a Cron
+    // Trigger. Nothing here needs to stay open for the render to finish.
+    const JOB_POLL_MS = 15000;
+    const JOB_ACTIVE_STATUSES = new Set(["active"]);
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function jobCardHtml(job) {
+      const pct = job.total ? Math.round(((job.done + job.errored) / job.total) * 100) : 0;
+      const label =
+        job.status === "active" ? "rendering"
+        : job.status === "done" ? (job.errored ? `finished · ${job.errored} errored` : "finished")
+        : job.status;
+      const current = job.current
+        ? `Now: ${escapeHtml(job.current.title)}${
+            job.current.chunkCount
+              ? ` · chunk ${job.current.chunk + 1}/${job.current.chunkCount}`
+              : ""
+          }`
+        : job.status === "active" ? "Waiting for the next scheduled pass (runs every minute)…" : "";
+      const err = job.lastError ? `<div class="job-error">${escapeHtml(job.lastError)}</div>` : "";
+      const cancel = job.status === "active"
+        ? `<button class="btn btn-small" type="button" data-cancel-job="${escapeHtml(job.id)}">Stop</button>`
+        : "";
+      return `
+        <div class="job-card">
+          <div class="job-card-head">
+            <span class="job-card-title">${escapeHtml(job.book)}</span>
+            <span class="job-card-meta">${job.done}/${job.total} chapters · ${escapeHtml(label)}</span>
+            <span class="grow"></span>
+            ${cancel}
+          </div>
+          <div class="job-progress"><div class="job-progress-fill" style="width:${pct}%"></div></div>
+          <div class="job-current">${current}</div>
+          ${err}
+        </div>`;
+    }
+
+    async function refreshJobs(showErrors = false) {
+      try {
+        const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/jobs`, { method: "GET" }, HEALTH_TIMEOUT_MS);
+        if (!resp.ok) throw new Error(`${resp.status}`);
+        const data = await resp.json();
+        const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+        if (!jobs.length) {
+          els.jobsSection.hidden = true;
+          stopJobPolling();
+          return;
+        }
+        els.jobsSection.hidden = false;
+        els.jobsList.innerHTML = jobs.map(jobCardHtml).join("");
+        setStatus(els.jobsStatus, "");
+        if (jobs.some(j => JOB_ACTIVE_STATUSES.has(j.status))) startJobPolling();
+        else stopJobPolling();
+      } catch (err) {
+        if (showErrors) setStatus(els.jobsStatus, `Could not read background renders: ${err.message}`, "error");
+      }
+    }
+
+    function startJobPolling() {
+      if (jobPollTimer) return;
+      jobPollTimer = setInterval(() => refreshJobs(), JOB_POLL_MS);
+    }
+    function stopJobPolling() {
+      if (!jobPollTimer) return;
+      clearInterval(jobPollTimer);
+      jobPollTimer = null;
+    }
+
+    els.jobsList.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-cancel-job]");
+      if (!btn) return;
+      btn.disabled = true;
+      try {
+        const resp = await fetchWithTimeout(
+          `${TTS_BASE}/api/tts/jobs/${encodeURIComponent(btn.dataset.cancelJob)}/cancel`,
+          { method: "POST" },
+          HEALTH_TIMEOUT_MS
+        );
+        if (!resp.ok) throw new Error(`${resp.status}`);
+        setStatus(els.jobsStatus, "Stopping after the current chapter…", "info");
+      } catch (err) {
+        btn.disabled = false;
+        setStatus(els.jobsStatus, `Could not stop it: ${err.message}`, "error");
+      }
+      refreshJobs();
+    });
+
+    els.queueBtn.addEventListener("click", async () => {
+      const bookName = els.bookName.value.trim();
+      if (!bookName) {
+        setStatus(els.renderStatus, "Book name is required.", "error");
+        return;
+      }
+      const queue = chapters.filter(c => c.selected && c.status !== "done" && c.charCount > 0);
+      if (!queue.length) {
+        setStatus(els.renderStatus, "No chapters selected.", "error");
+        return;
+      }
+      rememberVoiceForBook();
+      els.queueBtn.disabled = true;
+      setStatus(els.renderStatus, `Handing ${queue.length} chapters to the server…`, "info");
+      try {
+        const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/jobs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            book: bookName,
+            voice: els.voiceSelect.value,
+            rate: 0,
+            chapters: queue.map(c => ({ title: c.title, text: c.text })),
+          }),
+        }, UPLOAD_TIMEOUT_MS);
+        if (resp.status === 404) {
+          throw new Error(
+            "This Worker build has no background queue — redeploy it: " +
+            "cd cloudflare && wrangler deploy --config wrangler.tts.jsonc"
+          );
+        }
+        if (!resp.ok) {
+          const errTxt = await resp.text();
+          throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
+        }
+        for (const c of queue) { c.status = "queued"; c.error = null; updateRowStatus(c); }
+        setStatus(
+          els.renderStatus,
+          `Queued ${queue.length} chapters. You can close this page — the server renders them from here.`,
+          "success"
+        );
+        refreshJobs(true);
+      } catch (err) {
+        setStatus(els.renderStatus, `Could not queue the render: ${err.message}`, "error");
+      } finally {
+        els.queueBtn.disabled = false;
+      }
+    });
+
+    refreshJobs();
 
     els.cancelBtn.addEventListener("click", () => {
       cancelRequested = true;

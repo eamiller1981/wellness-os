@@ -3,6 +3,11 @@
   "main": "./tts-worker.js",
   "compatibility_date": "2026-04-28",
   "compatibility_flags": ["nodejs_compat"],
+  // Drives the background render queue: every minute the Worker's scheduled()
+  // handler renders the next chunks of the oldest queued job.
+  "triggers": {
+    "crons": ["* * * * *"]
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

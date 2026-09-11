@@ -84,6 +84,38 @@ opening two Edge TTS sockets at a time. When a socket hung, the request never re
 the page sat on "Rendering…" indefinitely and the Notion row stayed `pending` with an
 empty `Error`. Every stage now has a deadline, so a failure is visible instead of silent.
 
+### Background renders (no tab, no wake lock)
+
+"Render in background" hands the whole selection to the Worker instead of rendering it in
+the page. A Cron Trigger fires every minute and works the queue, so the render continues
+with the browser closed and the phone asleep.
+
+Job state lives in R2 alongside the audio — no extra binding to provision:
+
+| Key | Holds |
+| --- | --- |
+| `jobs/active/<id>.json` | manifest + cursor (chapter, chunk) |
+| `jobs/done/<id>.json` | finished manifest |
+| `jobs/cancel/<id>` | tombstone requesting cancellation |
+| `jobs/text/<id>/<n>.txt` | chapter source text |
+| `jobs/audio/<id>/<n>/<k>.mp3` | rendered chunk, concatenated on completion |
+
+Each tick claims the oldest un-leased job, renders chunks until its time or subrequest
+budget runs out, and persists the cursor after every chunk — so a tick that dies loses at
+most one chunk. Chapters retry up to three times across ticks before being marked `error`,
+and finishing or cancelling a job clears its scratch keys and closes out its Notion row.
+The per-tick budgets are deliberately conservative (50s, 40 subrequests) to stay inside
+the Workers Free limits; on Workers Paid they could be raised for faster throughput.
+
+Endpoints: `POST /api/tts/jobs` (queue), `GET /api/tts/jobs` (list), `GET /api/tts/jobs/<id>`
+(progress), `POST /api/tts/jobs/<id>/cancel`.
+
+Run the job-runner tests — no network, no Cloudflare account needed:
+
+```bash
+node cloudflare/tts-jobs.test.mjs
+```
+
 **The render page requires the current Worker build.** After pulling these changes:
 
 ```bash
@@ -95,14 +127,16 @@ Verify the build that is live (no auth required):
 
 ```bash
 curl -s https://tts.eamiller1981.workers.dev/api/tts/health
-# {"ok":true,"version":"2026-09-11-chunked-1","features":[...,"libraryUpload",...]}
+# {"ok":true,"version":"2026-09-11-jobs-1","features":[...,"libraryUpload","backgroundJobs"]}
 ```
 
-If `libraryUpload` is missing from `features`, the render page shows a banner and the
-Worker still needs deploying.
+If `libraryUpload` or `backgroundJobs` is missing from `features`, the render page shows a
+banner and the Worker still needs deploying. Deploying also registers the Cron Trigger that
+drives background renders; confirm it under Workers → tts → Settings → Triggers.
 
 Operational notes:
 
-- The render loop lives in the page. Closing the tab or letting the phone sleep stops it;
-  the page now holds a screen wake lock while rendering and warns before unload.
+- "Render here (watch it)" runs the loop in the page: closing the tab or letting the phone
+  sleep stops it, so the page holds a screen wake lock while rendering and warns before
+  unload. "Render in background" has neither constraint.
 - Chapters left mid-render are marked `pending` in Notion and can simply be re-rendered.

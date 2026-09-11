@@ -14,8 +14,10 @@ const WIN_EPOCH_OFFSET_SECONDS = 11644473600; // 1601-01-01 to 1970-01-01
 
 // Bumped on every deploy so the client can detect which build is live and
 // whether it supports the chunked upload pipeline.
-const WORKER_VERSION = "2026-09-11-chunked-1";
-const WORKER_FEATURES = ["synthesize", "library", "libraryUpload", "audioRange", "health"];
+const WORKER_VERSION = "2026-09-11-jobs-1";
+const WORKER_FEATURES = [
+  "synthesize", "library", "libraryUpload", "audioRange", "health", "backgroundJobs"
+];
 
 // Every stage of an Edge TTS call gets its own deadline. Without these a
 // silently-hung upstream socket pins the Worker request open until Cloudflare
@@ -679,6 +681,519 @@ async function handleLibraryCreate(request, env) {
   }
 }
 
+
+// --------------------------------------------------------------------------
+// Background render jobs
+//
+// A job is a whole book (or a selection of its chapters) queued for rendering
+// server-side. A Cron Trigger fires every minute and works the queue, so the
+// render continues with the browser closed and the phone asleep. Job state
+// lives in R2 next to the audio -- no extra binding to provision.
+//
+//   jobs/active/<jobId>.json        manifest + cursor (small)
+//   jobs/done/<jobId>.json          finished manifest
+//   jobs/cancel/<jobId>             tombstone requesting cancellation
+//   jobs/text/<jobId>/<n>.txt       chapter source text
+//   jobs/audio/<jobId>/<n>/<k>.mp3  rendered chunk, concatenated on completion
+// --------------------------------------------------------------------------
+const JOB_ACTIVE_PREFIX = "jobs/active/";
+const JOB_DONE_PREFIX = "jobs/done/";
+const JOB_CANCEL_PREFIX = "jobs/cancel/";
+const jobActiveKey = (id) => `${JOB_ACTIVE_PREFIX}${id}.json`;
+const jobDoneKey = (id) => `${JOB_DONE_PREFIX}${id}.json`;
+const jobCancelKey = (id) => `${JOB_CANCEL_PREFIX}${id}`;
+// Every chapter's text lives in one blob, addressed by byte range, so queueing
+// a 60-chapter book costs two subrequests rather than sixty.
+const jobTextKey = (id) => `jobs/text/${id}.bin`;
+const jobPartKey = (id, chapterIdx, chunkIdx) =>
+  `jobs/audio/${id}/${chapterIdx}/${String(chunkIdx).padStart(4, "0")}.mp3`;
+
+// A cron invocation may run for 15 minutes, but a short tick keeps progress
+// durable and stays well inside the Workers Free subrequest cap (50 per
+// invocation; every binding call counts). Whatever is left resumes next minute.
+const TICK_BUDGET_MS = 50000;
+const TICK_SUBREQUEST_BUDGET = 40;
+const JOB_LEASE_MS = 3 * 60 * 1000;
+const MAX_CHAPTER_ATTEMPTS = 3;
+const MAX_JOB_CHAPTERS = 400;
+const MAX_JOB_TEXT_CHARS = 4000000;
+
+function makeBudget() {
+  const deadline = Date.now() + TICK_BUDGET_MS;
+  let spent = 0;
+  return {
+    spend(n = 1) { spent += n; },
+    remaining() { return TICK_SUBREQUEST_BUDGET - spent; },
+    ok() { return Date.now() < deadline && spent < TICK_SUBREQUEST_BUDGET; }
+  };
+}
+
+function jobSummary(job, { includeChapters = true } = {}) {
+  const chapters = job.chapters || [];
+  const done = chapters.filter((c) => c.status === "done").length;
+  const errored = chapters.filter((c) => c.status === "error").length;
+  const current = chapters[job.cursor?.chapter ?? -1] || null;
+  return {
+    id: job.id,
+    book: job.book,
+    voice: job.voice,
+    status: job.status,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    total: chapters.length,
+    done,
+    errored,
+    lastError: job.lastError || null,
+    current: current && current.status === "running"
+      ? {
+          title: current.title,
+          index: job.cursor.chapter,
+          chunk: job.cursor.chunk,
+          chunkCount: current.chunkCount ?? null
+        }
+      : null,
+    chapters: includeChapters
+      ? chapters.map((c) => ({
+          title: c.title,
+          charCount: c.charCount,
+          status: c.status,
+          fileUrl: c.fileUrl || null,
+          error: c.error || null
+        }))
+      : undefined
+  };
+}
+
+async function loadJob(env, key) {
+  const obj = await env.AUDIO_BUCKET.get(key);
+  if (!obj) return null;
+  try {
+    return JSON.parse(await obj.text());
+  } catch {
+    return null;
+  }
+}
+
+async function saveJob(env, job) {
+  job.updatedAt = new Date().toISOString();
+  await env.AUDIO_BUCKET.put(jobActiveKey(job.id), JSON.stringify(job), {
+    httpMetadata: { contentType: "application/json" }
+  });
+}
+
+async function finishJob(env, job, status) {
+  // A chapter caught mid-render has a Notion row sitting on "pending" and audio
+  // parts in R2. Close both out rather than leaving orphans behind.
+  if (status !== "done") {
+    for (const [idx, chapter] of (job.chapters || []).entries()) {
+      if (chapter.status !== "running") continue;
+      chapter.status = "error";
+      chapter.error = `Render ${status} before this chapter finished`;
+      if (chapter.pageId) {
+        try { await markLibraryError(env, chapter.pageId, chapter.error); } catch {}
+      }
+      await deleteChapterParts(env, job.id, idx);
+    }
+  }
+  job.status = status;
+  job.updatedAt = new Date().toISOString();
+  job.leaseUntil = 0;
+  await env.AUDIO_BUCKET.put(jobDoneKey(job.id), JSON.stringify(job), {
+    httpMetadata: { contentType: "application/json" }
+  });
+  await env.AUDIO_BUCKET.delete(jobActiveKey(job.id));
+  await env.AUDIO_BUCKET.delete(jobCancelKey(job.id));
+  // Source text is only needed while rendering.
+  try {
+    await env.AUDIO_BUCKET.delete(jobTextKey(job.id));
+  } catch {}
+}
+
+async function deleteChapterParts(env, jobId, chapterIdx) {
+  try {
+    const listed = await env.AUDIO_BUCKET.list({ prefix: `jobs/audio/${jobId}/${chapterIdx}/` });
+    for (const o of listed.objects) await env.AUDIO_BUCKET.delete(o.key);
+  } catch {}
+}
+
+// Claim the least-recently-touched active job whose lease has expired. R2 has
+// no compare-and-set, but ticks are short and the lease is long, so two
+// invocations never work the same job in practice.
+async function claimJob(env) {
+  const listed = await env.AUDIO_BUCKET.list({ prefix: JOB_ACTIVE_PREFIX, limit: 10 });
+  const now = Date.now();
+  const candidates = [];
+  for (const obj of listed.objects) {
+    const job = await loadJob(env, obj.key);
+    if (!job || job.status !== "active") continue;
+    if ((job.leaseUntil || 0) > now) continue;
+    candidates.push(job);
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)));
+  const job = candidates[0];
+  job.leaseUntil = now + JOB_LEASE_MS;
+  await saveJob(env, job);
+  return job;
+}
+
+async function isCancelled(env, jobId) {
+  try {
+    return Boolean(await env.AUDIO_BUCKET.head(jobCancelKey(jobId)));
+  } catch {
+    return false;
+  }
+}
+
+// Renders as much of the cursor's chapter as the tick budget allows. Returns
+// when the budget is spent or the chapter is finished; the cursor is persisted
+// after every chunk so the next tick resumes exactly where this one stopped.
+async function advanceChapter(env, job, budget) {
+  const idx = job.cursor.chapter;
+  const chapter = job.chapters[idx];
+
+  if (chapter.status === "done" || chapter.status === "error") {
+    job.cursor = { chapter: idx + 1, chunk: 0 };
+    await saveJob(env, job);
+    budget.spend(1);
+    return;
+  }
+
+  const textObj = await env.AUDIO_BUCKET.get(jobTextKey(job.id), {
+    range: { offset: chapter.textOffset, length: chapter.textLength }
+  });
+  budget.spend(1);
+  if (!textObj) {
+    chapter.status = "error";
+    chapter.error = "Chapter text is missing from R2";
+    job.cursor = { chapter: idx + 1, chunk: 0 };
+    await saveJob(env, job);
+    budget.spend(1);
+    return;
+  }
+  const pieces = chunkText(await textObj.text());
+  chapter.chunkCount = pieces.length;
+
+  if (chapter.status === "pending") {
+    try {
+      chapter.pageId = await createLibraryPage(env, {
+        title: chapter.title,
+        book: job.book,
+        section: chapter.title,
+        voice: job.voice,
+        speed: job.rate,
+        charCount: chapter.charCount
+      });
+      budget.spend(1);
+    } catch (err) {
+      chapter.attempts = (chapter.attempts || 0) + 1;
+      chapter.error = `Notion page create failed: ${err?.message || err}`;
+      if (chapter.attempts >= MAX_CHAPTER_ATTEMPTS) {
+        chapter.status = "error";
+        job.cursor = { chapter: idx + 1, chunk: 0 };
+      }
+      await saveJob(env, job);
+      budget.spend(1);
+      return;
+    }
+    chapter.status = "running";
+    chapter.partSizes = [];
+    job.cursor = { chapter: idx, chunk: 0 };
+    await saveJob(env, job);
+    budget.spend(1);
+  }
+
+  // Synthesize chunks one at a time, persisting each to R2 as its own object.
+  while (job.cursor.chunk < pieces.length && budget.ok()) {
+    const chunkIdx = job.cursor.chunk;
+    try {
+      const mp3 = await synthesizeWithRetry(pieces[chunkIdx], job.voice, job.rate, 0);
+      budget.spend(1);
+      await env.AUDIO_BUCKET.put(jobPartKey(job.id, idx, chunkIdx), mp3, {
+        httpMetadata: { contentType: "audio/mpeg" }
+      });
+      budget.spend(1);
+      chapter.partSizes = chapter.partSizes || [];
+      chapter.partSizes[chunkIdx] = mp3.byteLength;
+      chapter.error = null;
+      chapter.attempts = 0;
+      job.cursor = { chapter: idx, chunk: chunkIdx + 1 };
+      await saveJob(env, job);
+      budget.spend(1);
+    } catch (err) {
+      chapter.attempts = (chapter.attempts || 0) + 1;
+      chapter.error = `chunk ${chunkIdx + 1}/${pieces.length}: ${err?.message || err}`;
+      if (chapter.attempts >= MAX_CHAPTER_ATTEMPTS) {
+        chapter.status = "error";
+        try {
+          if (chapter.pageId) await markLibraryError(env, chapter.pageId, chapter.error);
+        } catch {}
+        await deleteChapterParts(env, job.id, idx);
+        job.cursor = { chapter: idx + 1, chunk: 0 };
+      }
+      await saveJob(env, job);
+      budget.spend(1);
+      return; // let the next tick retry this chapter from its cursor
+    }
+  }
+
+  if (job.cursor.chunk < pieces.length) return; // out of budget mid-chapter
+
+  // Finalising reads every part back, so only start it with room to spare.
+  const finalizeCost = pieces.length + 4;
+  if (finalizeCost <= TICK_SUBREQUEST_BUDGET) {
+    if (budget.remaining() < finalizeCost) return; // finish it on a fresh tick
+  } else if (budget.remaining() < TICK_SUBREQUEST_BUDGET - 2) {
+    // A chapter with more chunks than the conservative per-tick budget can never
+    // satisfy the check above. Run it at the start of a tick instead, so it
+    // always makes progress rather than deferring forever.
+    return;
+  }
+
+  let total = 0;
+  for (const size of chapter.partSizes || []) total += size || 0;
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (let i = 0; i < pieces.length; i++) {
+    const part = await env.AUDIO_BUCKET.get(jobPartKey(job.id, idx, i));
+    budget.spend(1);
+    if (!part) throw new Error(`Rendered part ${i + 1}/${pieces.length} vanished from R2`);
+    const bytes = new Uint8Array(await part.arrayBuffer());
+    merged.set(bytes, offset);
+    offset += bytes.byteLength;
+  }
+
+  const r2Key = `library/${chapter.pageId.replace(/-/g, "")}.mp3`;
+  await env.AUDIO_BUCKET.put(r2Key, merged, {
+    httpMetadata: { contentType: "audio/mpeg" },
+    customMetadata: {
+      title: chapter.title,
+      book: job.book,
+      section: chapter.title,
+      voice: job.voice,
+      rate: String(job.rate),
+      pitch: "0",
+      charCount: String(chapter.charCount)
+    }
+  });
+  budget.spend(1);
+
+  const fileUrl = `${env.AUDIO_PUBLIC_BASE_URL}/${encodeURIComponent(r2Key)}?token=${chapter.pageId.replace(/-/g, "").slice(0, 16)}`;
+  await markLibraryReady(env, chapter.pageId, {
+    durationSec: estimateDurationSec(merged.byteLength),
+    r2Key,
+    fileUrl
+  });
+  budget.spend(1);
+
+  chapter.status = "done";
+  chapter.fileUrl = fileUrl;
+  chapter.bytes = merged.byteLength;
+  chapter.error = null;
+  delete chapter.partSizes;
+  job.cursor = { chapter: idx + 1, chunk: 0 };
+  await saveJob(env, job);
+  budget.spend(1);
+  await deleteChapterParts(env, job.id, idx);
+}
+
+async function runJobTick(env) {
+  const job = await claimJob(env);
+  if (!job) return { claimed: false };
+  const budget = makeBudget();
+  try {
+    while (job.cursor.chapter < job.chapters.length && budget.ok()) {
+      if (await isCancelled(env, job.id)) {
+        await finishJob(env, job, "cancelled");
+        return { claimed: true, id: job.id, cancelled: true };
+      }
+      budget.spend(1);
+      await advanceChapter(env, job, budget);
+    }
+    if (job.cursor.chapter >= job.chapters.length) {
+      await finishJob(env, job, "done");
+      return { claimed: true, id: job.id, finished: true };
+    }
+    job.leaseUntil = 0;
+    await saveJob(env, job);
+    return { claimed: true, id: job.id, cursor: job.cursor };
+  } catch (err) {
+    // Release the lease so the next tick retries rather than waiting it out.
+    job.lastError = String(err?.message || err);
+    job.leaseUntil = 0;
+    try { await saveJob(env, job); } catch {}
+    return { claimed: true, id: job.id, error: job.lastError };
+  }
+}
+
+// POST /api/tts/jobs — queue a book for background rendering.
+async function handleJobCreate(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonResponse(origin, { ok: false, error: "Invalid JSON body" }, 400);
+  }
+
+  const book = String(payload?.book || "").trim();
+  const voice = String(payload?.voice || DEFAULT_VOICE);
+  const rate = Number.isFinite(payload?.rate) ? Number(payload.rate) : 0;
+  const chapters = Array.isArray(payload?.chapters) ? payload.chapters : [];
+  if (!book) return jsonResponse(origin, { ok: false, error: "book is required" }, 400);
+  if (!chapters.length) return jsonResponse(origin, { ok: false, error: "chapters are required" }, 400);
+  if (chapters.length > MAX_JOB_CHAPTERS) {
+    return jsonResponse(origin, { ok: false, error: `${chapters.length} chapters exceeds the ${MAX_JOB_CHAPTERS} cap` }, 400);
+  }
+
+  const texts = [];
+  let totalChars = 0;
+  for (const [i, ch] of chapters.entries()) {
+    const text = String(ch?.text || "").trim();
+    if (!text) return jsonResponse(origin, { ok: false, error: `chapter ${i + 1} has no text` }, 400);
+    totalChars += text.length;
+    texts.push(text);
+  }
+  if (totalChars > MAX_JOB_TEXT_CHARS) {
+    return jsonResponse(origin, { ok: false, error: `${totalChars} chars exceeds the ${MAX_JOB_TEXT_CHARS} per-job cap` }, 400);
+  }
+
+  // Concatenate the chapter texts and record each one's byte range.
+  const encoder = new TextEncoder();
+  const encoded = texts.map((t) => encoder.encode(t));
+  let blobLength = 0;
+  for (const e of encoded) blobLength += e.byteLength;
+  const textBlob = new Uint8Array(blobLength);
+  const ranges = [];
+  let blobOffset = 0;
+  for (const e of encoded) {
+    textBlob.set(e, blobOffset);
+    ranges.push({ offset: blobOffset, length: e.byteLength });
+    blobOffset += e.byteLength;
+  }
+
+  const id = crypto.randomUUID().replace(/-/g, "");
+  const job = {
+    id,
+    book,
+    voice,
+    rate,
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    leaseUntil: 0,
+    cursor: { chapter: 0, chunk: 0 },
+    lastError: null,
+    chapters: chapters.map((ch, i) => ({
+      title: String(ch?.title || `Section ${i + 1}`).slice(0, 200),
+      charCount: texts[i].length,
+      textOffset: ranges[i].offset,
+      textLength: ranges[i].length,
+      chunkCount: null,
+      status: "pending",
+      attempts: 0,
+      pageId: null,
+      fileUrl: null,
+      error: null
+    }))
+  };
+
+  try {
+    await env.AUDIO_BUCKET.put(jobTextKey(id), textBlob, {
+      httpMetadata: { contentType: "text/plain; charset=utf-8" }
+    });
+    await saveJob(env, job);
+  } catch (err) {
+    return jsonResponse(origin, { ok: false, error: `Could not queue job: ${err?.message || err}` }, 502);
+  }
+
+  return jsonResponse(origin, { ok: true, job: jobSummary(job) });
+}
+
+// GET /api/tts/jobs — active jobs first, then recently finished ones.
+async function handleJobList(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+  try {
+    const jobs = [];
+    const active = await env.AUDIO_BUCKET.list({ prefix: JOB_ACTIVE_PREFIX, limit: 25 });
+    for (const obj of active.objects) {
+      const job = await loadJob(env, obj.key);
+      if (job) jobs.push(jobSummary(job, { includeChapters: false }));
+    }
+    const done = await env.AUDIO_BUCKET.list({ prefix: JOB_DONE_PREFIX, limit: 10 });
+    const recent = done.objects
+      .sort((a, b) => String(b.uploaded).localeCompare(String(a.uploaded)))
+      .slice(0, 5);
+    for (const obj of recent) {
+      const job = await loadJob(env, obj.key);
+      if (job) jobs.push(jobSummary(job, { includeChapters: false }));
+    }
+    return jsonResponse(origin, { ok: true, jobs });
+  } catch (err) {
+    return jsonResponse(origin, { ok: false, error: String(err?.message || err) }, 502);
+  }
+}
+
+// GET /api/tts/jobs/<id> — one job's progress.
+async function handleJobGet(request, env, jobId) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+  const job =
+    (await loadJob(env, jobActiveKey(jobId))) || (await loadJob(env, jobDoneKey(jobId)));
+  if (!job) return jsonResponse(origin, { ok: false, error: "Job not found" }, 404);
+  return jsonResponse(origin, { ok: true, job: jobSummary(job) });
+}
+
+// POST /api/tts/jobs/<id>/cancel — the runner stops at the next chapter boundary.
+async function handleJobCancel(request, env, jobId) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+  const job = await loadJob(env, jobActiveKey(jobId));
+  if (!job) return jsonResponse(origin, { ok: false, error: "No active job with that id" }, 404);
+  await env.AUDIO_BUCKET.put(jobCancelKey(jobId), "1");
+  // If nothing holds the lease, retire it immediately.
+  if ((job.leaseUntil || 0) <= Date.now()) {
+    await finishJob(env, job, "cancelled");
+    return jsonResponse(origin, { ok: true, cancelled: true, immediate: true });
+  }
+  return jsonResponse(origin, { ok: true, cancelled: true, immediate: false });
+}
+
 // --------------------------------------------------------------------------
 // POST /api/tts/library/upload — store an MP3 the browser already assembled.
 //
@@ -936,6 +1451,20 @@ export default {
     if (request.method === "POST" && url.pathname === "/api/tts/library/upload") {
       return handleLibraryUpload(request, env);
     }
+    if (request.method === "POST" && url.pathname === "/api/tts/jobs") {
+      return handleJobCreate(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/api/tts/jobs") {
+      return handleJobList(request, env);
+    }
+    const jobCancel = /^\/api\/tts\/jobs\/([A-Za-z0-9]+)\/cancel$/.exec(url.pathname);
+    if (request.method === "POST" && jobCancel) {
+      return handleJobCancel(request, env, jobCancel[1]);
+    }
+    const jobGet = /^\/api\/tts\/jobs\/([A-Za-z0-9]+)$/.exec(url.pathname);
+    if (request.method === "GET" && jobGet) {
+      return handleJobGet(request, env, jobGet[1]);
+    }
     if (request.method === "GET" && url.pathname === "/api/tts/library") {
       return handleLibraryList(request, env);
     }
@@ -965,5 +1494,16 @@ export default {
       status: 404,
       headers: { "Content-Type": "application/json" }
     });
+  },
+
+  // Cron Trigger (every minute): work the background render queue. This is what
+  // lets a render continue with the browser closed.
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(
+      runJobTick(env).then(
+        (result) => console.log("tts job tick", JSON.stringify(result)),
+        (err) => console.error("tts job tick failed", String(err?.message || err))
+      )
+    );
   }
 };
