@@ -1,0 +1,68 @@
+# Deploys the TTS Worker whenever its code or config lands on main.
+#
+# The render page and the Worker have to move together: the page calls
+# /api/tts/library/upload and /api/tts/jobs, and the Worker's cron trigger is
+# what drives background renders. Vercel already ships the page on merge, so
+# this job keeps the Worker in step instead of relying on someone running
+# wrangler by hand.
+#
+# Requires one repository secret:
+#   CLOUDFLARE_API_TOKEN  — Workers Scripts: Edit, plus Account Settings: Read
+#                           (or set the CLOUDFLARE_ACCOUNT_ID secret as well)
+name: Deploy TTS Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - cloudflare/tts-worker.js
+      - cloudflare/personal-auth.js
+      - cloudflare/wrangler.tts.jsonc
+      - .github/workflows/deploy-tts-worker.yml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-tts-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Fast, offline check of the job state machine before anything ships.
+      - name: Test the background render queue
+        run: node cloudflare/tts-jobs.test.mjs
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare
+          wranglerVersion: "4"
+          command: deploy --config wrangler.tts.jsonc
+
+      # Confirm the build that is actually live, rather than trusting the deploy step.
+      - name: Verify the deployed build
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            body="$(curl -sS --max-time 20 https://tts.eamiller1981.workers.dev/api/tts/health || true)"
+            echo "attempt $attempt: $body"
+            case "$body" in
+              *backgroundJobs*libraryUpload*|*libraryUpload*backgroundJobs*)
+                echo "TTS Worker is live with the chunked pipeline and background queue."
+                exit 0
+                ;;
+            esac
+            sleep 10
+          done
+          echo "::error::/api/tts/health never reported libraryUpload + backgroundJobs"
+          exit 1

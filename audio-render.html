@@ -180,6 +180,33 @@
     .chap-status.done     { background: rgba(95, 140, 95, 0.20); color: #3f6238; }
     .chap-status.error    { background: rgba(180, 70, 70, 0.18); color: #7a2828; }
     .chap-status.skipped  { background: rgba(128, 111, 100, 0.12); color: var(--muted); }
+    .chap-status.queued   { background: rgba(150, 125, 165, 0.20); color: #4f3b63; }
+    .job-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      background: rgba(255, 255, 255, 0.55);
+    }
+    .job-card-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .job-card-title { font-weight: 600; color: var(--ink); }
+    .job-card-meta { font-size: 0.82rem; color: var(--muted); }
+    .job-card .grow { flex: 1; }
+    .job-progress {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(128, 111, 100, 0.15);
+      margin: 10px 0 8px;
+      overflow: hidden;
+    }
+    .job-progress-fill { height: 100%; background: #7d8a6a; width: 0; transition: width 0.3s; }
+    .job-current { font-size: 0.85rem; color: var(--muted); }
+    .job-error { font-size: 0.82rem; color: #7a2828; margin-top: 6px; }
     .status {
       margin-top: 12px;
       padding: 10px 14px;
@@ -320,21 +347,49 @@
 
       <div class="chapter-table" id="chapter-table"></div>
 
+      <div id="worker-warning" class="status error" hidden></div>
+
       <div class="toolbar" style="margin-top: 16px;">
-        <button id="render-btn" class="btn btn-primary" type="button">Render selected chapters</button>
+        <button id="queue-btn" class="btn btn-primary" type="button">Render in background</button>
+        <button id="render-btn" class="btn btn-small" type="button">Render here (watch it)</button>
         <button id="retry-btn" class="btn btn-small" type="button" disabled>Retry errored</button>
         <button id="cancel-btn" class="btn btn-small" type="button" hidden>Cancel after current</button>
       </div>
+      <p class="section-sub" style="margin-top: 10px;">
+        <strong>Render in background</strong> hands the whole selection to the server. It keeps
+        going with this tab closed and your phone asleep — check back here or in the Audio Library.
+        <strong>Render here</strong> renders in this tab, so it stops if you leave.
+      </p>
 
       <div id="render-status" class="status"></div>
       <div class="progress-bar" id="progress-wrap" hidden>
         <div class="progress-bar-fill" id="progress-fill"></div>
       </div>
     </section>
+
+    <section class="module-section" id="jobs-section" hidden>
+      <h2>Background renders</h2>
+      <p class="section-sub">Running on the server. Safe to close this page — progress is picked up again whenever you come back.</p>
+      <div id="jobs-list"></div>
+      <div id="jobs-status" class="status"></div>
+    </section>
   </main>
 
   <script>
     const TTS_BASE = "https://tts.eamiller1981.workers.dev";
+
+    // Chapters are rendered chunk-by-chunk from the browser: one short HTTP
+    // request per chunk, MP3 frames concatenated here, then a single upload of
+    // the finished file. The old design asked the Worker to synthesize a whole
+    // chapter inside one request, which opened several upstream Edge TTS sockets
+    // at once; when one of those hung the request never returned and the page
+    // sat on "Rendering…" forever with the Notion row stuck on "pending".
+    const SYNTH_CHUNK_CHARS   = 2800;   // stays under the Worker's 3000 cap
+    const CHUNK_TIMEOUT_MS    = 120000; // no request may hang indefinitely
+    const UPLOAD_TIMEOUT_MS   = 180000;
+    const HEALTH_TIMEOUT_MS   = 15000;
+    const CHUNK_RETRY_BACKOFFS_MS = [3000, 9000, 20000];
+    const INTER_CHUNK_DELAY_MS = 400;   // spacing so Edge TTS doesn't throttle
 
     const els = {
       dropZone: document.getElementById("drop-zone"),
@@ -360,6 +415,11 @@
       retryBtn: document.getElementById("retry-btn"),
       cancelBtn: document.getElementById("cancel-btn"),
       renderStatus: document.getElementById("render-status"),
+      workerWarning: document.getElementById("worker-warning"),
+      queueBtn: document.getElementById("queue-btn"),
+      jobsSection: document.getElementById("jobs-section"),
+      jobsList: document.getElementById("jobs-list"),
+      jobsStatus: document.getElementById("jobs-status"),
       progressWrap: document.getElementById("progress-wrap"),
       progressFill: document.getElementById("progress-fill"),
     };
@@ -367,6 +427,11 @@
     // chapters: [{ index, title, text, charCount, selected, status, error }]
     let chapters = [];
     let cancelRequested = false;
+    let activeAbort = null;      // aborts the in-flight request on Cancel
+    let renderRunning = false;   // guards unload + wake lock
+    let wakeLock = null;
+    let workerFeatures = null;   // null = not probed yet
+    let jobPollTimer = null;
 
     function setStatus(el, msg, kind) {
       el.textContent = msg || "";
@@ -906,12 +971,12 @@
       els.auditionAudio.removeAttribute("src");
       const t0 = performance.now();
       try {
-        const resp = await fetch(`${TTS_BASE}/api/tts/synthesize`, {
+        const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/synthesize`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ text: sample, voice, rate: 0 }),
-        });
+        }, CHUNK_TIMEOUT_MS);
         if (!resp.ok) {
           const errTxt = await resp.text();
           throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
@@ -937,19 +1002,109 @@
     const RETRY_BACKOFFS_MS = [8000, 20000, 45000]; // 3 retries with exponential-ish backoff
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    async function renderOneChapter(ch, bookName) {
-      const resp = await fetch(`${TTS_BASE}/api/tts/library`, {
+    // Every network call gets a deadline. A request with no timeout is how a
+    // failed render turns into a silent stall instead of a visible error.
+    async function fetchWithTimeout(url, init, timeoutMs) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(new Error("timeout")), timeoutMs);
+      activeAbort = ctrl;
+      try {
+        return await fetch(url, { ...init, signal: ctrl.signal });
+      } catch (err) {
+        if (ctrl.signal.aborted && !cancelRequested) {
+          throw new Error(`timed out after ${Math.round(timeoutMs / 1000)}s`);
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+        if (activeAbort === ctrl) activeAbort = null;
+      }
+    }
+
+    // Mirrors the Worker's chunker: paragraph boundaries first, then sentence
+    // boundaries, then a hard slice. Each chunk is one Edge TTS utterance.
+    function chunkForSynthesis(text, target = SYNTH_CHUNK_CHARS) {
+      const normalized = String(text).replace(/\r\n/g, "\n").trim();
+      if (normalized.length <= target) return normalized ? [normalized] : [];
+      const chunks = [];
+      let buf = "";
+      for (const para of normalized.split(/\n{2,}/)) {
+        if (!para.trim()) continue;
+        if ((buf ? buf.length + 2 : 0) + para.length <= target) {
+          buf = buf ? `${buf}\n\n${para}` : para;
+          continue;
+        }
+        if (buf) { chunks.push(buf); buf = ""; }
+        if (para.length <= target) { buf = para; continue; }
+        let sBuf = "";
+        for (const sentence of para.split(/(?<=[.!?])\s+/)) {
+          if ((sBuf ? sBuf.length + 1 : 0) + sentence.length <= target) {
+            sBuf = sBuf ? `${sBuf} ${sentence}` : sentence;
+            continue;
+          }
+          if (sBuf) { chunks.push(sBuf); sBuf = ""; }
+          if (sentence.length > target) {
+            for (let i = 0; i < sentence.length; i += target) {
+              chunks.push(sentence.slice(i, i + target));
+            }
+          } else {
+            sBuf = sentence;
+          }
+        }
+        if (sBuf) buf = sBuf;
+      }
+      if (buf) chunks.push(buf);
+      return chunks;
+    }
+
+    async function synthesizeChunk(text, voice) {
+      const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/synthesize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: ch.text,
-          voice: els.voiceSelect.value,
-          rate: 0,
-          title: ch.title,
-          book: bookName,
-          section: ch.title,
-        }),
-      });
+        body: JSON.stringify({ text, voice, rate: 0 }),
+      }, CHUNK_TIMEOUT_MS);
+      if (!resp.ok) {
+        const errTxt = await resp.text();
+        throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
+      }
+      const buf = await resp.arrayBuffer();
+      if (buf.byteLength < 200) throw new Error("Edge TTS returned an empty clip");
+      return new Uint8Array(buf);
+    }
+
+    // MP3 frames concatenate byte-for-byte, which is exactly what the Worker
+    // used to do server-side.
+    function concatChunks(parts) {
+      let total = 0;
+      for (const p of parts) total += p.byteLength;
+      const merged = new Uint8Array(total);
+      let offset = 0;
+      for (const p of parts) { merged.set(p, offset); offset += p.byteLength; }
+      return merged;
+    }
+
+    function encodeMetaHeader(meta) {
+      const bytes = new TextEncoder().encode(JSON.stringify(meta));
+      let binary = "";
+      for (const b of bytes) binary += String.fromCharCode(b);
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+
+    async function uploadChapterAudio(mp3, meta) {
+      const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/library/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "X-Audio-Meta": encodeMetaHeader(meta),
+        },
+        body: mp3,
+      }, UPLOAD_TIMEOUT_MS);
+      if (resp.status === 404) {
+        throw new Error(
+          "TTS Worker is missing /api/tts/library/upload — redeploy it: " +
+          "cd cloudflare && wrangler deploy --config wrangler.tts.jsonc"
+        );
+      }
       if (!resp.ok) {
         const errTxt = await resp.text();
         throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
@@ -957,8 +1112,99 @@
       return resp.json();
     }
 
+    async function renderOneChapter(ch, bookName, onProgress) {
+      const voice = els.voiceSelect.value;
+      const pieces = chunkForSynthesis(ch.text);
+      if (!pieces.length) throw new Error("Chapter has no text to render");
+
+      const audio = [];
+      for (let i = 0; i < pieces.length; i++) {
+        if (cancelRequested) throw new Error("Cancelled");
+        if (i > 0) await sleep(INTER_CHUNK_DELAY_MS);
+        onProgress?.(i, pieces.length);
+        let lastErr = null;
+        for (let attempt = 0; attempt <= CHUNK_RETRY_BACKOFFS_MS.length; attempt++) {
+          try {
+            audio.push(await synthesizeChunk(pieces[i], voice));
+            lastErr = null;
+            break;
+          } catch (err) {
+            lastErr = err;
+            if (cancelRequested) throw new Error("Cancelled");
+            if (attempt < CHUNK_RETRY_BACKOFFS_MS.length) {
+              const backoff = CHUNK_RETRY_BACKOFFS_MS[attempt];
+              onProgress?.(i, pieces.length, `retry ${attempt + 1} in ${backoff / 1000}s · ${err.message.slice(0, 60)}`);
+              await sleep(backoff);
+            }
+          }
+        }
+        if (lastErr) throw new Error(`chunk ${i + 1}/${pieces.length}: ${lastErr.message}`);
+      }
+
+      onProgress?.(pieces.length, pieces.length, "uploading");
+      return uploadChapterAudio(concatChunks(audio), {
+        title: ch.title,
+        book: bookName,
+        section: ch.title,
+        voice,
+        rate: 0,
+        pitch: 0,
+        charCount: ch.charCount,
+        chunks: pieces.length,
+      });
+    }
+
+    // -------- Worker build probe --------
+    // The chunked pipeline needs a Worker that exposes /api/tts/library/upload.
+    // Probe once on load so a stale Worker is an upfront message, not a failure
+    // three chapters into a render.
+    async function probeWorker() {
+      try {
+        const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/health`, { method: "GET" }, HEALTH_TIMEOUT_MS);
+        if (!resp.ok) throw new Error(`health ${resp.status}`);
+        const data = await resp.json();
+        workerFeatures = Array.isArray(data.features) ? data.features : [];
+      } catch {
+        workerFeatures = null; // unknown; don't block the render on a probe failure
+        return;
+      }
+      const missing = ["libraryUpload", "backgroundJobs"].filter(f => !workerFeatures.includes(f));
+      if (missing.length) {
+        els.workerWarning.hidden = false;
+        els.workerWarning.textContent =
+          `The deployed TTS Worker is missing: ${missing.join(", ")}. Long chapters will stall and ` +
+          "background renders are unavailable. Redeploy it: cd cloudflare && wrangler deploy --config wrangler.tts.jsonc";
+        if (missing.includes("backgroundJobs")) els.queueBtn.disabled = true;
+      }
+    }
+    probeWorker();
+
+    // -------- Keep the render alive --------
+    // The queue runs in this page. If the tab is closed or the phone sleeps, the
+    // loop dies mid-chapter and the entry never completes.
+    async function acquireWakeLock() {
+      try {
+        if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+      } catch { wakeLock = null; }
+    }
+    function releaseWakeLock() {
+      try { wakeLock?.release?.(); } catch {}
+      wakeLock = null;
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && renderRunning && !wakeLock) acquireWakeLock();
+    });
+    window.addEventListener("beforeunload", (e) => {
+      if (!renderRunning) return;
+      e.preventDefault();
+      e.returnValue = "A render is still running. Leaving this page cancels it.";
+      return e.returnValue;
+    });
+
     async function runQueue(queue, bookName) {
       cancelRequested = false;
+      renderRunning = true;
+      acquireWakeLock();
       els.cancelBtn.hidden = false;
       els.cancelBtn.disabled = false;
       els.renderBtn.disabled = true;
@@ -978,12 +1224,18 @@
         }
         ch.status = "running"; ch.error = null; updateRowStatus(ch);
         setStatus(els.renderStatus, `Rendering ${ch.title} (${ch.charCount.toLocaleString()} chars)… [${i + 1}/${total}]`, "info");
+        const onProgress = (chunkIdx, chunkTotal, note) => {
+          const stage = note === "uploading"
+            ? "saving to library"
+            : `chunk ${chunkIdx + 1}/${chunkTotal}${note ? ` · ${note}` : ""}`;
+          setStatus(els.renderStatus, `${ch.title} — ${stage} [${i + 1}/${total}]`, "info");
+        };
 
         let lastErr = null;
         const maxAttempts = 1 + RETRY_BACKOFFS_MS.length;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            const data = await renderOneChapter(ch, bookName);
+            const data = await renderOneChapter(ch, bookName, onProgress);
             ch.status = "done";
             ch.pageId = data.pageId;
             lastErr = null;
@@ -991,7 +1243,8 @@
             break;
           } catch (err) {
             lastErr = err;
-            if (attempt < maxAttempts && !cancelRequested) {
+            if (cancelRequested) break;
+            if (attempt < maxAttempts) {
               const backoff = RETRY_BACKOFFS_MS[attempt - 1];
               setStatus(els.renderStatus, `Retry ${attempt}/${RETRY_BACKOFFS_MS.length} for "${ch.title}" in ${backoff / 1000}s · ${err.message.slice(0, 80)}`, "info");
               await sleep(backoff);
@@ -999,9 +1252,15 @@
           }
         }
         if (lastErr) {
-          ch.status = "error";
-          ch.error = lastErr.message;
-          errors++;
+          if (cancelRequested) {
+            // A cancelled chapter is untouched work, not a failure.
+            ch.status = "pending";
+            ch.error = null;
+          } else {
+            ch.status = "error";
+            ch.error = lastErr.message;
+            errors++;
+          }
         }
         updateRowStatus(ch);
         els.progressFill.style.width = `${Math.round(((done + errors) / total) * 100)}%`;
@@ -1020,6 +1279,8 @@
           errors ? "error" : "success"
         );
       }
+      renderRunning = false;
+      releaseWakeLock();
       els.renderBtn.disabled = false;
       els.retryBtn.disabled = !chapters.some(c => c.status === "error");
       els.cancelBtn.hidden = true;
@@ -1058,10 +1319,158 @@
       await runQueue(queue, bookName);
     });
 
+
+    // -------- Background renders (server-side queue) --------
+    // The whole selection is handed to the Worker, which renders it from a Cron
+    // Trigger. Nothing here needs to stay open for the render to finish.
+    const JOB_POLL_MS = 15000;
+    const JOB_ACTIVE_STATUSES = new Set(["active"]);
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function jobCardHtml(job) {
+      const pct = job.total ? Math.round(((job.done + job.errored) / job.total) * 100) : 0;
+      const label =
+        job.status === "active" ? "rendering"
+        : job.status === "done" ? (job.errored ? `finished · ${job.errored} errored` : "finished")
+        : job.status;
+      const current = job.current
+        ? `Now: ${escapeHtml(job.current.title)}${
+            job.current.chunkCount
+              ? ` · chunk ${job.current.chunk + 1}/${job.current.chunkCount}`
+              : ""
+          }`
+        : job.status === "active" ? "Waiting for the next scheduled pass (runs every minute)…" : "";
+      const err = job.lastError ? `<div class="job-error">${escapeHtml(job.lastError)}</div>` : "";
+      const cancel = job.status === "active"
+        ? `<button class="btn btn-small" type="button" data-cancel-job="${escapeHtml(job.id)}">Stop</button>`
+        : "";
+      return `
+        <div class="job-card">
+          <div class="job-card-head">
+            <span class="job-card-title">${escapeHtml(job.book)}</span>
+            <span class="job-card-meta">${job.done}/${job.total} chapters · ${escapeHtml(label)}</span>
+            <span class="grow"></span>
+            ${cancel}
+          </div>
+          <div class="job-progress"><div class="job-progress-fill" style="width:${pct}%"></div></div>
+          <div class="job-current">${current}</div>
+          ${err}
+        </div>`;
+    }
+
+    async function refreshJobs(showErrors = false) {
+      try {
+        const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/jobs`, { method: "GET" }, HEALTH_TIMEOUT_MS);
+        if (!resp.ok) throw new Error(`${resp.status}`);
+        const data = await resp.json();
+        const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+        if (!jobs.length) {
+          els.jobsSection.hidden = true;
+          stopJobPolling();
+          return;
+        }
+        els.jobsSection.hidden = false;
+        els.jobsList.innerHTML = jobs.map(jobCardHtml).join("");
+        setStatus(els.jobsStatus, "");
+        if (jobs.some(j => JOB_ACTIVE_STATUSES.has(j.status))) startJobPolling();
+        else stopJobPolling();
+      } catch (err) {
+        if (showErrors) setStatus(els.jobsStatus, `Could not read background renders: ${err.message}`, "error");
+      }
+    }
+
+    function startJobPolling() {
+      if (jobPollTimer) return;
+      jobPollTimer = setInterval(() => refreshJobs(), JOB_POLL_MS);
+    }
+    function stopJobPolling() {
+      if (!jobPollTimer) return;
+      clearInterval(jobPollTimer);
+      jobPollTimer = null;
+    }
+
+    els.jobsList.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-cancel-job]");
+      if (!btn) return;
+      btn.disabled = true;
+      try {
+        const resp = await fetchWithTimeout(
+          `${TTS_BASE}/api/tts/jobs/${encodeURIComponent(btn.dataset.cancelJob)}/cancel`,
+          { method: "POST" },
+          HEALTH_TIMEOUT_MS
+        );
+        if (!resp.ok) throw new Error(`${resp.status}`);
+        setStatus(els.jobsStatus, "Stopping after the current chapter…", "info");
+      } catch (err) {
+        btn.disabled = false;
+        setStatus(els.jobsStatus, `Could not stop it: ${err.message}`, "error");
+      }
+      refreshJobs();
+    });
+
+    els.queueBtn.addEventListener("click", async () => {
+      const bookName = els.bookName.value.trim();
+      if (!bookName) {
+        setStatus(els.renderStatus, "Book name is required.", "error");
+        return;
+      }
+      const queue = chapters.filter(c => c.selected && c.status !== "done" && c.charCount > 0);
+      if (!queue.length) {
+        setStatus(els.renderStatus, "No chapters selected.", "error");
+        return;
+      }
+      rememberVoiceForBook();
+      els.queueBtn.disabled = true;
+      setStatus(els.renderStatus, `Handing ${queue.length} chapters to the server…`, "info");
+      try {
+        const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/jobs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            book: bookName,
+            voice: els.voiceSelect.value,
+            rate: 0,
+            chapters: queue.map(c => ({ title: c.title, text: c.text })),
+          }),
+        }, UPLOAD_TIMEOUT_MS);
+        if (resp.status === 404) {
+          throw new Error(
+            "This Worker build has no background queue — redeploy it: " +
+            "cd cloudflare && wrangler deploy --config wrangler.tts.jsonc"
+          );
+        }
+        if (!resp.ok) {
+          const errTxt = await resp.text();
+          throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
+        }
+        for (const c of queue) { c.status = "queued"; c.error = null; updateRowStatus(c); }
+        setStatus(
+          els.renderStatus,
+          `Queued ${queue.length} chapters. You can close this page — the server renders them from here.`,
+          "success"
+        );
+        refreshJobs(true);
+      } catch (err) {
+        setStatus(els.renderStatus, `Could not queue the render: ${err.message}`, "error");
+      } finally {
+        els.queueBtn.disabled = false;
+      }
+    });
+
+    refreshJobs();
+
     els.cancelBtn.addEventListener("click", () => {
       cancelRequested = true;
       els.cancelBtn.disabled = true;
-      setStatus(els.renderStatus, "Cancelling after current chapter…", "info");
+      setStatus(els.renderStatus, "Cancelling…", "info");
+      try { activeAbort?.abort(new Error("cancelled")); } catch {}
     });
   </script>
 </body>

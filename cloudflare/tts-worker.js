@@ -12,6 +12,30 @@ const DEFAULT_VOICE = "en-GB-ThomasNeural";
 const SEC_MS_GEC_VERSION = "1-143.0.3650.96";
 const WIN_EPOCH_OFFSET_SECONDS = 11644473600; // 1601-01-01 to 1970-01-01
 
+// Bumped on every deploy so the client can detect which build is live and
+// whether it supports the chunked upload pipeline.
+const WORKER_VERSION = "2026-09-11-jobs-1";
+const WORKER_FEATURES = [
+  "synthesize", "library", "libraryUpload", "audioRange", "health", "backgroundJobs"
+];
+
+// Every stage of an Edge TTS call gets its own deadline. Without these a
+// silently-hung upstream socket pins the Worker request open until Cloudflare
+// tears it down, which returns no response at all -- that is what left Notion
+// rows stranded on "pending" with an empty Error field.
+const UPGRADE_TIMEOUT_MS = 15000;   // WebSocket handshake must complete
+const FIRST_AUDIO_TIMEOUT_MS = 25000; // first audio frame must arrive
+const SYNTH_TIMEOUT_MS = 45000;     // whole utterance must finish
+const INTER_CHUNK_DELAY_MS = 250;   // spacing between sequential chunk sockets
+const CHUNK_RETRIES = 1;            // retries per chunk inside one request
+// Anything longer belongs on the chunked client pipeline: one HTTP request per
+// chunk, assembled in the browser, uploaded once. A single request that has to
+// open many upstream sockets is exactly the shape that stalls.
+const MAX_CHUNKS_PER_REQUEST = 6;
+const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function sha256HexUpper(input) {
   const buf = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", buf);
@@ -57,7 +81,7 @@ function corsHeaders(origin) {
     "Access-Control-Allow-Origin": origin,
     "Vary": "Origin",
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, Range",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Range, X-Audio-Meta",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Expose-Headers": "Content-Range, Accept-Ranges, Content-Length"
   };
@@ -185,15 +209,29 @@ async function synthesize(text, voice, ratePct, pitchHz) {
     `&ConnectionId=${connectionId}`;
 
   // Cloudflare Workers outbound WebSocket: fetch with Upgrade then read .webSocket.
-  const upgradeResponse = await fetch(url, {
-    headers: {
-      "Upgrade": "websocket",
-      "Origin": "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0"
-    }
-  });
+  // The handshake itself is aborted on a deadline -- a hung upgrade used to hang
+  // the whole request forever.
+  const upgradeAbort = new AbortController();
+  const upgradeTimer = setTimeout(() => upgradeAbort.abort(), UPGRADE_TIMEOUT_MS);
+  let upgradeResponse;
+  try {
+    upgradeResponse = await fetch(url, {
+      headers: {
+        "Upgrade": "websocket",
+        "Origin": "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0"
+      },
+      signal: upgradeAbort.signal
+    });
+  } catch (err) {
+    throw new Error(
+      `Edge TTS upgrade did not complete within ${UPGRADE_TIMEOUT_MS}ms: ${err?.message || err}`
+    );
+  } finally {
+    clearTimeout(upgradeTimer);
+  }
 
   const ws = upgradeResponse.webSocket;
   if (!ws) {
@@ -211,10 +249,29 @@ async function synthesize(text, voice, ratePct, pitchHz) {
   const diag = { textFrames: [], binaryFrames: 0, totalBinaryBytes: 0 };
   const done = new Promise((resolve, reject) => {
     let receivedAnyAudio = false;
-    const timeout = setTimeout(() => {
-      reject(new Error(`Edge TTS synthesis timed out after 60s; diag=${JSON.stringify(diag)}`));
+    let settled = false;
+    const finish = (fn, arg) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      clearTimeout(firstAudioTimeout);
+      fn(arg);
+    };
+    const fail = (message) => {
+      finish(reject, new Error(`${message}; diag=${JSON.stringify(diag)}`));
       try { ws.close(1000, "timeout"); } catch {}
-    }, 60000);
+    };
+    const timeout = setTimeout(
+      () => fail(`Edge TTS synthesis timed out after ${SYNTH_TIMEOUT_MS}ms`),
+      SYNTH_TIMEOUT_MS
+    );
+    // A socket that opens but never speaks is the common throttle signature.
+    // Fail it early so the caller can retry instead of holding the request open.
+    const firstAudioTimeout = setTimeout(() => {
+      if (!receivedAnyAudio) {
+        fail(`Edge TTS sent no audio within ${FIRST_AUDIO_TIMEOUT_MS}ms (upstream throttle?)`);
+      }
+    }, FIRST_AUDIO_TIMEOUT_MS);
 
     ws.addEventListener("message", async (event) => {
       let data = event.data;
@@ -226,8 +283,7 @@ async function synthesize(text, voice, ratePct, pitchHz) {
         const path = parseTextFramePath(data);
         diag.textFrames.push(path);
         if (path === "turn.end") {
-          clearTimeout(timeout);
-          resolve();
+          finish(resolve);
           try { ws.close(1000, "done"); } catch {}
         }
       } else if (data instanceof ArrayBuffer) {
@@ -244,14 +300,12 @@ async function synthesize(text, voice, ratePct, pitchHz) {
     });
 
     ws.addEventListener("close", (ev) => {
-      clearTimeout(timeout);
-      if (receivedAnyAudio) resolve();
-      else reject(new Error(`Edge TTS closed (code=${ev?.code} reason=${ev?.reason || ""}) before any audio; diag=${JSON.stringify(diag)}`));
+      if (receivedAnyAudio) finish(resolve);
+      else finish(reject, new Error(`Edge TTS closed (code=${ev?.code} reason=${ev?.reason || ""}) before any audio; diag=${JSON.stringify(diag)}`));
     });
 
     ws.addEventListener("error", (err) => {
-      clearTimeout(timeout);
-      reject(new Error(`Edge TTS WebSocket error: ${err?.message || err}; diag=${JSON.stringify(diag)}`));
+      finish(reject, new Error(`Edge TTS WebSocket error: ${err?.message || err}; diag=${JSON.stringify(diag)}`));
     });
   });
 
@@ -411,27 +465,39 @@ function chunkText(text) {
   return chunks;
 }
 
+async function synthesizeWithRetry(text, voice, ratePct, pitchHz) {
+  let lastErr;
+  for (let attempt = 0; attempt <= CHUNK_RETRIES; attempt++) {
+    try {
+      return await synthesize(text, voice, ratePct, pitchHz);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < CHUNK_RETRIES) await sleep(1500);
+    }
+  }
+  throw lastErr;
+}
+
 async function synthesizeLong(text, voice, ratePct, pitchHz) {
   const pieces = chunkText(text);
   if (pieces.length === 1) {
-    return synthesize(pieces[0], voice, ratePct, pitchHz);
+    return synthesizeWithRetry(pieces[0], voice, ratePct, pitchHz);
   }
-  // Cap concurrent WebSocket synths per chapter to avoid burst-rate-limiting
-  // by Microsoft's IP-level throttle. Two-at-a-time still fits comfortably in
-  // the Workers 30s wall-clock budget for typical chapters (≤6 chunks).
-  const MAX_CONCURRENT = 2;
+  if (pieces.length > MAX_CHUNKS_PER_REQUEST) {
+    throw new Error(
+      `Text splits into ${pieces.length} chunks; this endpoint renders at most ` +
+      `${MAX_CHUNKS_PER_REQUEST} per request. Render it chunk-by-chunk via ` +
+      `POST /api/tts/synthesize and upload the assembled MP3 to POST /api/tts/library/upload.`
+    );
+  }
+  // Sequential, not concurrent. Parallel sockets to Edge TTS from a shared
+  // Cloudflare egress IP are what started hanging: the second socket opens and
+  // then never sends audio, so the request never returns.
   const buffers = new Array(pieces.length);
-  let cursor = 0;
-  async function worker() {
-    while (true) {
-      const i = cursor++;
-      if (i >= pieces.length) return;
-      buffers[i] = await synthesize(pieces[i], voice, ratePct, pitchHz);
-    }
+  for (let i = 0; i < pieces.length; i++) {
+    if (i > 0) await sleep(INTER_CHUNK_DELAY_MS);
+    buffers[i] = await synthesizeWithRetry(pieces[i], voice, ratePct, pitchHz);
   }
-  await Promise.all(
-    Array.from({ length: Math.min(MAX_CONCURRENT, pieces.length) }, worker)
-  );
   let total = 0;
   for (const b of buffers) total += b.byteLength;
   const merged = new Uint8Array(total);
@@ -615,6 +681,643 @@ async function handleLibraryCreate(request, env) {
   }
 }
 
+
+// --------------------------------------------------------------------------
+// Background render jobs
+//
+// A job is a whole book (or a selection of its chapters) queued for rendering
+// server-side. A Cron Trigger fires every minute and works the queue, so the
+// render continues with the browser closed and the phone asleep. Job state
+// lives in R2 next to the audio -- no extra binding to provision.
+//
+//   jobs/active/<jobId>.json        manifest + cursor (small)
+//   jobs/done/<jobId>.json          finished manifest
+//   jobs/cancel/<jobId>             tombstone requesting cancellation
+//   jobs/text/<jobId>/<n>.txt       chapter source text
+//   jobs/audio/<jobId>/<n>/<k>.mp3  rendered chunk, concatenated on completion
+// --------------------------------------------------------------------------
+const JOB_ACTIVE_PREFIX = "jobs/active/";
+const JOB_DONE_PREFIX = "jobs/done/";
+const JOB_CANCEL_PREFIX = "jobs/cancel/";
+const jobActiveKey = (id) => `${JOB_ACTIVE_PREFIX}${id}.json`;
+const jobDoneKey = (id) => `${JOB_DONE_PREFIX}${id}.json`;
+const jobCancelKey = (id) => `${JOB_CANCEL_PREFIX}${id}`;
+// Every chapter's text lives in one blob, addressed by byte range, so queueing
+// a 60-chapter book costs two subrequests rather than sixty.
+const jobTextKey = (id) => `jobs/text/${id}.bin`;
+const jobPartKey = (id, chapterIdx, chunkIdx) =>
+  `jobs/audio/${id}/${chapterIdx}/${String(chunkIdx).padStart(4, "0")}.mp3`;
+
+// A cron invocation may run for 15 minutes, but a short tick keeps progress
+// durable and stays well inside the Workers Free subrequest cap (50 per
+// invocation; every binding call counts). Whatever is left resumes next minute.
+const TICK_BUDGET_MS = 50000;
+const TICK_SUBREQUEST_BUDGET = 40;
+const JOB_LEASE_MS = 3 * 60 * 1000;
+const MAX_CHAPTER_ATTEMPTS = 3;
+const MAX_JOB_CHAPTERS = 400;
+const MAX_JOB_TEXT_CHARS = 4000000;
+
+function makeBudget() {
+  const deadline = Date.now() + TICK_BUDGET_MS;
+  let spent = 0;
+  return {
+    spend(n = 1) { spent += n; },
+    remaining() { return TICK_SUBREQUEST_BUDGET - spent; },
+    ok() { return Date.now() < deadline && spent < TICK_SUBREQUEST_BUDGET; }
+  };
+}
+
+function jobSummary(job, { includeChapters = true } = {}) {
+  const chapters = job.chapters || [];
+  const done = chapters.filter((c) => c.status === "done").length;
+  const errored = chapters.filter((c) => c.status === "error").length;
+  const current = chapters[job.cursor?.chapter ?? -1] || null;
+  return {
+    id: job.id,
+    book: job.book,
+    voice: job.voice,
+    status: job.status,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    total: chapters.length,
+    done,
+    errored,
+    lastError: job.lastError || null,
+    current: current && current.status === "running"
+      ? {
+          title: current.title,
+          index: job.cursor.chapter,
+          chunk: job.cursor.chunk,
+          chunkCount: current.chunkCount ?? null
+        }
+      : null,
+    chapters: includeChapters
+      ? chapters.map((c) => ({
+          title: c.title,
+          charCount: c.charCount,
+          status: c.status,
+          fileUrl: c.fileUrl || null,
+          error: c.error || null
+        }))
+      : undefined
+  };
+}
+
+async function loadJob(env, key) {
+  const obj = await env.AUDIO_BUCKET.get(key);
+  if (!obj) return null;
+  try {
+    return JSON.parse(await obj.text());
+  } catch {
+    return null;
+  }
+}
+
+async function saveJob(env, job) {
+  job.updatedAt = new Date().toISOString();
+  await env.AUDIO_BUCKET.put(jobActiveKey(job.id), JSON.stringify(job), {
+    httpMetadata: { contentType: "application/json" }
+  });
+}
+
+async function finishJob(env, job, status) {
+  // A chapter caught mid-render has a Notion row sitting on "pending" and audio
+  // parts in R2. Close both out rather than leaving orphans behind.
+  if (status !== "done") {
+    for (const [idx, chapter] of (job.chapters || []).entries()) {
+      if (chapter.status !== "running") continue;
+      chapter.status = "error";
+      chapter.error = `Render ${status} before this chapter finished`;
+      if (chapter.pageId) {
+        try { await markLibraryError(env, chapter.pageId, chapter.error); } catch {}
+      }
+      await deleteChapterParts(env, job.id, idx);
+    }
+  }
+  job.status = status;
+  job.updatedAt = new Date().toISOString();
+  job.leaseUntil = 0;
+  await env.AUDIO_BUCKET.put(jobDoneKey(job.id), JSON.stringify(job), {
+    httpMetadata: { contentType: "application/json" }
+  });
+  await env.AUDIO_BUCKET.delete(jobActiveKey(job.id));
+  await env.AUDIO_BUCKET.delete(jobCancelKey(job.id));
+  // Source text is only needed while rendering.
+  try {
+    await env.AUDIO_BUCKET.delete(jobTextKey(job.id));
+  } catch {}
+}
+
+async function deleteChapterParts(env, jobId, chapterIdx) {
+  try {
+    const listed = await env.AUDIO_BUCKET.list({ prefix: `jobs/audio/${jobId}/${chapterIdx}/` });
+    for (const o of listed.objects) await env.AUDIO_BUCKET.delete(o.key);
+  } catch {}
+}
+
+// Claim the least-recently-touched active job whose lease has expired. R2 has
+// no compare-and-set, but ticks are short and the lease is long, so two
+// invocations never work the same job in practice.
+async function claimJob(env) {
+  const listed = await env.AUDIO_BUCKET.list({ prefix: JOB_ACTIVE_PREFIX, limit: 10 });
+  const now = Date.now();
+  const candidates = [];
+  for (const obj of listed.objects) {
+    const job = await loadJob(env, obj.key);
+    if (!job || job.status !== "active") continue;
+    if ((job.leaseUntil || 0) > now) continue;
+    candidates.push(job);
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)));
+  const job = candidates[0];
+  job.leaseUntil = now + JOB_LEASE_MS;
+  await saveJob(env, job);
+  return job;
+}
+
+async function isCancelled(env, jobId) {
+  try {
+    return Boolean(await env.AUDIO_BUCKET.head(jobCancelKey(jobId)));
+  } catch {
+    return false;
+  }
+}
+
+// Renders as much of the cursor's chapter as the tick budget allows. Returns
+// when the budget is spent or the chapter is finished; the cursor is persisted
+// after every chunk so the next tick resumes exactly where this one stopped.
+async function advanceChapter(env, job, budget) {
+  const idx = job.cursor.chapter;
+  const chapter = job.chapters[idx];
+
+  if (chapter.status === "done" || chapter.status === "error") {
+    job.cursor = { chapter: idx + 1, chunk: 0 };
+    await saveJob(env, job);
+    budget.spend(1);
+    return;
+  }
+
+  const textObj = await env.AUDIO_BUCKET.get(jobTextKey(job.id), {
+    range: { offset: chapter.textOffset, length: chapter.textLength }
+  });
+  budget.spend(1);
+  if (!textObj) {
+    chapter.status = "error";
+    chapter.error = "Chapter text is missing from R2";
+    job.cursor = { chapter: idx + 1, chunk: 0 };
+    await saveJob(env, job);
+    budget.spend(1);
+    return;
+  }
+  const pieces = chunkText(await textObj.text());
+  chapter.chunkCount = pieces.length;
+
+  if (chapter.status === "pending") {
+    try {
+      chapter.pageId = await createLibraryPage(env, {
+        title: chapter.title,
+        book: job.book,
+        section: chapter.title,
+        voice: job.voice,
+        speed: job.rate,
+        charCount: chapter.charCount
+      });
+      budget.spend(1);
+    } catch (err) {
+      chapter.attempts = (chapter.attempts || 0) + 1;
+      chapter.error = `Notion page create failed: ${err?.message || err}`;
+      if (chapter.attempts >= MAX_CHAPTER_ATTEMPTS) {
+        chapter.status = "error";
+        job.cursor = { chapter: idx + 1, chunk: 0 };
+      }
+      await saveJob(env, job);
+      budget.spend(1);
+      return;
+    }
+    chapter.status = "running";
+    chapter.partSizes = [];
+    job.cursor = { chapter: idx, chunk: 0 };
+    await saveJob(env, job);
+    budget.spend(1);
+  }
+
+  // Synthesize chunks one at a time, persisting each to R2 as its own object.
+  while (job.cursor.chunk < pieces.length && budget.ok()) {
+    const chunkIdx = job.cursor.chunk;
+    try {
+      const mp3 = await synthesizeWithRetry(pieces[chunkIdx], job.voice, job.rate, 0);
+      budget.spend(1);
+      await env.AUDIO_BUCKET.put(jobPartKey(job.id, idx, chunkIdx), mp3, {
+        httpMetadata: { contentType: "audio/mpeg" }
+      });
+      budget.spend(1);
+      chapter.partSizes = chapter.partSizes || [];
+      chapter.partSizes[chunkIdx] = mp3.byteLength;
+      chapter.error = null;
+      chapter.attempts = 0;
+      job.cursor = { chapter: idx, chunk: chunkIdx + 1 };
+      await saveJob(env, job);
+      budget.spend(1);
+    } catch (err) {
+      chapter.attempts = (chapter.attempts || 0) + 1;
+      chapter.error = `chunk ${chunkIdx + 1}/${pieces.length}: ${err?.message || err}`;
+      if (chapter.attempts >= MAX_CHAPTER_ATTEMPTS) {
+        chapter.status = "error";
+        try {
+          if (chapter.pageId) await markLibraryError(env, chapter.pageId, chapter.error);
+        } catch {}
+        await deleteChapterParts(env, job.id, idx);
+        job.cursor = { chapter: idx + 1, chunk: 0 };
+      }
+      await saveJob(env, job);
+      budget.spend(1);
+      return; // let the next tick retry this chapter from its cursor
+    }
+  }
+
+  if (job.cursor.chunk < pieces.length) return; // out of budget mid-chapter
+
+  // Finalising reads every part back, so only start it with room to spare.
+  const finalizeCost = pieces.length + 4;
+  if (finalizeCost <= TICK_SUBREQUEST_BUDGET) {
+    if (budget.remaining() < finalizeCost) return; // finish it on a fresh tick
+  } else if (budget.remaining() < TICK_SUBREQUEST_BUDGET - 2) {
+    // A chapter with more chunks than the conservative per-tick budget can never
+    // satisfy the check above. Run it at the start of a tick instead, so it
+    // always makes progress rather than deferring forever.
+    return;
+  }
+
+  let total = 0;
+  for (const size of chapter.partSizes || []) total += size || 0;
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (let i = 0; i < pieces.length; i++) {
+    const part = await env.AUDIO_BUCKET.get(jobPartKey(job.id, idx, i));
+    budget.spend(1);
+    if (!part) throw new Error(`Rendered part ${i + 1}/${pieces.length} vanished from R2`);
+    const bytes = new Uint8Array(await part.arrayBuffer());
+    merged.set(bytes, offset);
+    offset += bytes.byteLength;
+  }
+
+  const r2Key = `library/${chapter.pageId.replace(/-/g, "")}.mp3`;
+  await env.AUDIO_BUCKET.put(r2Key, merged, {
+    httpMetadata: { contentType: "audio/mpeg" },
+    customMetadata: {
+      title: chapter.title,
+      book: job.book,
+      section: chapter.title,
+      voice: job.voice,
+      rate: String(job.rate),
+      pitch: "0",
+      charCount: String(chapter.charCount)
+    }
+  });
+  budget.spend(1);
+
+  const fileUrl = `${env.AUDIO_PUBLIC_BASE_URL}/${encodeURIComponent(r2Key)}?token=${chapter.pageId.replace(/-/g, "").slice(0, 16)}`;
+  await markLibraryReady(env, chapter.pageId, {
+    durationSec: estimateDurationSec(merged.byteLength),
+    r2Key,
+    fileUrl
+  });
+  budget.spend(1);
+
+  chapter.status = "done";
+  chapter.fileUrl = fileUrl;
+  chapter.bytes = merged.byteLength;
+  chapter.error = null;
+  delete chapter.partSizes;
+  job.cursor = { chapter: idx + 1, chunk: 0 };
+  await saveJob(env, job);
+  budget.spend(1);
+  await deleteChapterParts(env, job.id, idx);
+}
+
+async function runJobTick(env) {
+  const job = await claimJob(env);
+  if (!job) return { claimed: false };
+  const budget = makeBudget();
+  try {
+    while (job.cursor.chapter < job.chapters.length && budget.ok()) {
+      if (await isCancelled(env, job.id)) {
+        await finishJob(env, job, "cancelled");
+        return { claimed: true, id: job.id, cancelled: true };
+      }
+      budget.spend(1);
+      await advanceChapter(env, job, budget);
+    }
+    if (job.cursor.chapter >= job.chapters.length) {
+      await finishJob(env, job, "done");
+      return { claimed: true, id: job.id, finished: true };
+    }
+    job.leaseUntil = 0;
+    await saveJob(env, job);
+    return { claimed: true, id: job.id, cursor: job.cursor };
+  } catch (err) {
+    // Release the lease so the next tick retries rather than waiting it out.
+    job.lastError = String(err?.message || err);
+    job.leaseUntil = 0;
+    try { await saveJob(env, job); } catch {}
+    return { claimed: true, id: job.id, error: job.lastError };
+  }
+}
+
+// POST /api/tts/jobs — queue a book for background rendering.
+async function handleJobCreate(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonResponse(origin, { ok: false, error: "Invalid JSON body" }, 400);
+  }
+
+  const book = String(payload?.book || "").trim();
+  const voice = String(payload?.voice || DEFAULT_VOICE);
+  const rate = Number.isFinite(payload?.rate) ? Number(payload.rate) : 0;
+  const chapters = Array.isArray(payload?.chapters) ? payload.chapters : [];
+  if (!book) return jsonResponse(origin, { ok: false, error: "book is required" }, 400);
+  if (!chapters.length) return jsonResponse(origin, { ok: false, error: "chapters are required" }, 400);
+  if (chapters.length > MAX_JOB_CHAPTERS) {
+    return jsonResponse(origin, { ok: false, error: `${chapters.length} chapters exceeds the ${MAX_JOB_CHAPTERS} cap` }, 400);
+  }
+
+  const texts = [];
+  let totalChars = 0;
+  for (const [i, ch] of chapters.entries()) {
+    const text = String(ch?.text || "").trim();
+    if (!text) return jsonResponse(origin, { ok: false, error: `chapter ${i + 1} has no text` }, 400);
+    totalChars += text.length;
+    texts.push(text);
+  }
+  if (totalChars > MAX_JOB_TEXT_CHARS) {
+    return jsonResponse(origin, { ok: false, error: `${totalChars} chars exceeds the ${MAX_JOB_TEXT_CHARS} per-job cap` }, 400);
+  }
+
+  // Concatenate the chapter texts and record each one's byte range.
+  const encoder = new TextEncoder();
+  const encoded = texts.map((t) => encoder.encode(t));
+  let blobLength = 0;
+  for (const e of encoded) blobLength += e.byteLength;
+  const textBlob = new Uint8Array(blobLength);
+  const ranges = [];
+  let blobOffset = 0;
+  for (const e of encoded) {
+    textBlob.set(e, blobOffset);
+    ranges.push({ offset: blobOffset, length: e.byteLength });
+    blobOffset += e.byteLength;
+  }
+
+  const id = crypto.randomUUID().replace(/-/g, "");
+  const job = {
+    id,
+    book,
+    voice,
+    rate,
+    status: "active",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    leaseUntil: 0,
+    cursor: { chapter: 0, chunk: 0 },
+    lastError: null,
+    chapters: chapters.map((ch, i) => ({
+      title: String(ch?.title || `Section ${i + 1}`).slice(0, 200),
+      charCount: texts[i].length,
+      textOffset: ranges[i].offset,
+      textLength: ranges[i].length,
+      chunkCount: null,
+      status: "pending",
+      attempts: 0,
+      pageId: null,
+      fileUrl: null,
+      error: null
+    }))
+  };
+
+  try {
+    await env.AUDIO_BUCKET.put(jobTextKey(id), textBlob, {
+      httpMetadata: { contentType: "text/plain; charset=utf-8" }
+    });
+    await saveJob(env, job);
+  } catch (err) {
+    return jsonResponse(origin, { ok: false, error: `Could not queue job: ${err?.message || err}` }, 502);
+  }
+
+  return jsonResponse(origin, { ok: true, job: jobSummary(job) });
+}
+
+// GET /api/tts/jobs — active jobs first, then recently finished ones.
+async function handleJobList(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+  try {
+    const jobs = [];
+    const active = await env.AUDIO_BUCKET.list({ prefix: JOB_ACTIVE_PREFIX, limit: 25 });
+    for (const obj of active.objects) {
+      const job = await loadJob(env, obj.key);
+      if (job) jobs.push(jobSummary(job, { includeChapters: false }));
+    }
+    const done = await env.AUDIO_BUCKET.list({ prefix: JOB_DONE_PREFIX, limit: 10 });
+    const recent = done.objects
+      .sort((a, b) => String(b.uploaded).localeCompare(String(a.uploaded)))
+      .slice(0, 5);
+    for (const obj of recent) {
+      const job = await loadJob(env, obj.key);
+      if (job) jobs.push(jobSummary(job, { includeChapters: false }));
+    }
+    return jsonResponse(origin, { ok: true, jobs });
+  } catch (err) {
+    return jsonResponse(origin, { ok: false, error: String(err?.message || err) }, 502);
+  }
+}
+
+// GET /api/tts/jobs/<id> — one job's progress.
+async function handleJobGet(request, env, jobId) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+  const job =
+    (await loadJob(env, jobActiveKey(jobId))) || (await loadJob(env, jobDoneKey(jobId)));
+  if (!job) return jsonResponse(origin, { ok: false, error: "Job not found" }, 404);
+  return jsonResponse(origin, { ok: true, job: jobSummary(job) });
+}
+
+// POST /api/tts/jobs/<id>/cancel — the runner stops at the next chapter boundary.
+async function handleJobCancel(request, env, jobId) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+  const job = await loadJob(env, jobActiveKey(jobId));
+  if (!job) return jsonResponse(origin, { ok: false, error: "No active job with that id" }, 404);
+  await env.AUDIO_BUCKET.put(jobCancelKey(jobId), "1");
+  // If nothing holds the lease, retire it immediately.
+  if ((job.leaseUntil || 0) <= Date.now()) {
+    await finishJob(env, job, "cancelled");
+    return jsonResponse(origin, { ok: true, cancelled: true, immediate: true });
+  }
+  return jsonResponse(origin, { ok: true, cancelled: true, immediate: false });
+}
+
+// --------------------------------------------------------------------------
+// POST /api/tts/library/upload — store an MP3 the browser already assembled.
+//
+// The client renders a chapter chunk-by-chunk through /api/tts/synthesize (one
+// short request per chunk, one upstream socket each), concatenates the MP3
+// frames locally, then posts the finished file here. This request opens no
+// upstream socket at all, so it cannot stall.
+//
+// Body: raw audio/mpeg bytes.
+// X-Audio-Meta: base64url-encoded JSON { title, book, section, voice, rate,
+//               pitch, charCount, chunks }.
+// --------------------------------------------------------------------------
+function decodeMetaHeader(value) {
+  const padded = String(value)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(String(value).length / 4) * 4, "=");
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+async function handleLibraryUpload(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) {
+    return new Response("Forbidden origin", { status: 403 });
+  }
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+
+  let meta;
+  try {
+    meta = decodeMetaHeader(request.headers.get("X-Audio-Meta") || "");
+  } catch (err) {
+    return jsonResponse(
+      origin,
+      { ok: false, error: `X-Audio-Meta is missing or not base64url JSON: ${err?.message || err}` },
+      400
+    );
+  }
+
+  const title = String(meta?.title || "").trim() || "Untitled audio";
+  const book = String(meta?.book || "").trim();
+  const section = String(meta?.section || "").trim();
+  const voice = String(meta?.voice || DEFAULT_VOICE);
+  const speedPct = Number.isFinite(meta?.rate) ? Number(meta.rate) : 0;
+  const pitchHz = Number.isFinite(meta?.pitch) ? Number(meta.pitch) : 0;
+  const charCount = Number.isFinite(meta?.charCount) ? Number(meta.charCount) : 0;
+
+  const mp3 = await request.arrayBuffer();
+  if (mp3.byteLength < 1000) {
+    return jsonResponse(
+      origin,
+      { ok: false, error: `Uploaded audio is only ${mp3.byteLength} bytes — refusing to store it.` },
+      400
+    );
+  }
+  if (mp3.byteLength > MAX_UPLOAD_BYTES) {
+    return jsonResponse(
+      origin,
+      { ok: false, error: `Uploaded audio is ${mp3.byteLength} bytes, over the ${MAX_UPLOAD_BYTES}-byte cap.` },
+      413
+    );
+  }
+
+  let pageId;
+  try {
+    pageId = await createLibraryPage(env, {
+      title, book, section, voice,
+      speed: speedPct,
+      charCount
+    });
+  } catch (err) {
+    return jsonResponse(
+      origin,
+      { ok: false, error: `Notion page create failed: ${err?.message || err}` },
+      502
+    );
+  }
+
+  try {
+    const r2Key = `library/${pageId.replace(/-/g, "")}.mp3`;
+    await env.AUDIO_BUCKET.put(r2Key, mp3, {
+      httpMetadata: { contentType: "audio/mpeg" },
+      customMetadata: {
+        title,
+        book,
+        section,
+        voice,
+        rate: String(speedPct),
+        pitch: String(pitchHz),
+        charCount: String(charCount)
+      }
+    });
+    const fileUrl = `${env.AUDIO_PUBLIC_BASE_URL}/${encodeURIComponent(r2Key)}?token=${pageId.replace(/-/g, "").slice(0, 16)}`;
+    const durationSec = estimateDurationSec(mp3.byteLength);
+    await markLibraryReady(env, pageId, { durationSec, r2Key, fileUrl });
+
+    return jsonResponse(origin, {
+      ok: true,
+      pageId,
+      r2Key,
+      fileUrl,
+      bytes: mp3.byteLength,
+      durationSec
+    });
+  } catch (err) {
+    try {
+      await markLibraryError(env, pageId, String(err?.message || err));
+    } catch {}
+    return jsonResponse(
+      origin,
+      { ok: false, error: String(err?.message || err), pageId },
+      502
+    );
+  }
+}
+
 // --------------------------------------------------------------------------
 // GET /audio/<key> — serve audio from R2. The "token" query param is a weak
 // guard so library URLs aren't trivially enumerable; it must match the first
@@ -745,11 +1448,43 @@ export default {
     if (request.method === "POST" && url.pathname === "/api/tts/library") {
       return handleLibraryCreate(request, env);
     }
+    if (request.method === "POST" && url.pathname === "/api/tts/library/upload") {
+      return handleLibraryUpload(request, env);
+    }
+    if (request.method === "POST" && url.pathname === "/api/tts/jobs") {
+      return handleJobCreate(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/api/tts/jobs") {
+      return handleJobList(request, env);
+    }
+    const jobCancel = /^\/api\/tts\/jobs\/([A-Za-z0-9]+)\/cancel$/.exec(url.pathname);
+    if (request.method === "POST" && jobCancel) {
+      return handleJobCancel(request, env, jobCancel[1]);
+    }
+    const jobGet = /^\/api\/tts\/jobs\/([A-Za-z0-9]+)$/.exec(url.pathname);
+    if (request.method === "GET" && jobGet) {
+      return handleJobGet(request, env, jobGet[1]);
+    }
     if (request.method === "GET" && url.pathname === "/api/tts/library") {
       return handleLibraryList(request, env);
     }
     if (request.method === "GET" && url.pathname === "/api/tts/voices") {
       return handleVoices(request);
+    }
+    // Unauthenticated build probe: the render page uses it to confirm the
+    // deployed Worker understands the chunked upload pipeline.
+    if (request.method === "GET" && url.pathname === "/api/tts/health") {
+      return new Response(
+        JSON.stringify({ ok: true, version: WORKER_VERSION, features: WORKER_FEATURES }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "*"
+          }
+        }
+      );
     }
     if (request.method === "GET" && url.pathname.startsWith("/audio/")) {
       return handleAudioGet(request, env, url);
@@ -759,5 +1494,16 @@ export default {
       status: 404,
       headers: { "Content-Type": "application/json" }
     });
+  },
+
+  // Cron Trigger (every minute): work the background render queue. This is what
+  // lets a render continue with the browser closed.
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(
+      runJobTick(env).then(
+        (result) => console.log("tts job tick", JSON.stringify(result)),
+        (err) => console.error("tts job tick failed", String(err?.message || err))
+      )
+    );
   }
 };
