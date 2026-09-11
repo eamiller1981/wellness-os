@@ -123,6 +123,14 @@ cd cloudflare
 wrangler deploy --config wrangler.tts.jsonc
 ```
 
+Or let CI do it: `.github/workflows/deploy-tts-worker.yml` deploys the Worker whenever
+`cloudflare/tts-worker.js`, `personal-auth.js` or `wrangler.tts.jsonc` changes on `main`,
+runs the job-runner tests first, and then polls `/api/tts/health` to confirm the build
+that is actually live. It needs one repository secret, `CLOUDFLARE_API_TOKEN`, with
+**Workers Scripts: Edit** and **Account Settings: Read** (add `CLOUDFLARE_ACCOUNT_ID` too
+if you prefer a token without account-read). Redeploying never clears Worker secrets, so
+`PERSONAL_AUTH_SECRET` is untouched.
+
 Verify the build that is live (no auth required):
 
 ```bash
