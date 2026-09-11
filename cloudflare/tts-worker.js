@@ -12,6 +12,28 @@ const DEFAULT_VOICE = "en-GB-ThomasNeural";
 const SEC_MS_GEC_VERSION = "1-143.0.3650.96";
 const WIN_EPOCH_OFFSET_SECONDS = 11644473600; // 1601-01-01 to 1970-01-01
 
+// Bumped on every deploy so the client can detect which build is live and
+// whether it supports the chunked upload pipeline.
+const WORKER_VERSION = "2026-09-11-chunked-1";
+const WORKER_FEATURES = ["synthesize", "library", "libraryUpload", "audioRange", "health"];
+
+// Every stage of an Edge TTS call gets its own deadline. Without these a
+// silently-hung upstream socket pins the Worker request open until Cloudflare
+// tears it down, which returns no response at all -- that is what left Notion
+// rows stranded on "pending" with an empty Error field.
+const UPGRADE_TIMEOUT_MS = 15000;   // WebSocket handshake must complete
+const FIRST_AUDIO_TIMEOUT_MS = 25000; // first audio frame must arrive
+const SYNTH_TIMEOUT_MS = 45000;     // whole utterance must finish
+const INTER_CHUNK_DELAY_MS = 250;   // spacing between sequential chunk sockets
+const CHUNK_RETRIES = 1;            // retries per chunk inside one request
+// Anything longer belongs on the chunked client pipeline: one HTTP request per
+// chunk, assembled in the browser, uploaded once. A single request that has to
+// open many upstream sockets is exactly the shape that stalls.
+const MAX_CHUNKS_PER_REQUEST = 6;
+const MAX_UPLOAD_BYTES = 40 * 1024 * 1024;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 async function sha256HexUpper(input) {
   const buf = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", buf);
@@ -57,7 +79,7 @@ function corsHeaders(origin) {
     "Access-Control-Allow-Origin": origin,
     "Vary": "Origin",
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, Range",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type, Range, X-Audio-Meta",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Expose-Headers": "Content-Range, Accept-Ranges, Content-Length"
   };
@@ -185,15 +207,29 @@ async function synthesize(text, voice, ratePct, pitchHz) {
     `&ConnectionId=${connectionId}`;
 
   // Cloudflare Workers outbound WebSocket: fetch with Upgrade then read .webSocket.
-  const upgradeResponse = await fetch(url, {
-    headers: {
-      "Upgrade": "websocket",
-      "Origin": "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0"
-    }
-  });
+  // The handshake itself is aborted on a deadline -- a hung upgrade used to hang
+  // the whole request forever.
+  const upgradeAbort = new AbortController();
+  const upgradeTimer = setTimeout(() => upgradeAbort.abort(), UPGRADE_TIMEOUT_MS);
+  let upgradeResponse;
+  try {
+    upgradeResponse = await fetch(url, {
+      headers: {
+        "Upgrade": "websocket",
+        "Origin": "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0"
+      },
+      signal: upgradeAbort.signal
+    });
+  } catch (err) {
+    throw new Error(
+      `Edge TTS upgrade did not complete within ${UPGRADE_TIMEOUT_MS}ms: ${err?.message || err}`
+    );
+  } finally {
+    clearTimeout(upgradeTimer);
+  }
 
   const ws = upgradeResponse.webSocket;
   if (!ws) {
@@ -211,10 +247,29 @@ async function synthesize(text, voice, ratePct, pitchHz) {
   const diag = { textFrames: [], binaryFrames: 0, totalBinaryBytes: 0 };
   const done = new Promise((resolve, reject) => {
     let receivedAnyAudio = false;
-    const timeout = setTimeout(() => {
-      reject(new Error(`Edge TTS synthesis timed out after 60s; diag=${JSON.stringify(diag)}`));
+    let settled = false;
+    const finish = (fn, arg) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      clearTimeout(firstAudioTimeout);
+      fn(arg);
+    };
+    const fail = (message) => {
+      finish(reject, new Error(`${message}; diag=${JSON.stringify(diag)}`));
       try { ws.close(1000, "timeout"); } catch {}
-    }, 60000);
+    };
+    const timeout = setTimeout(
+      () => fail(`Edge TTS synthesis timed out after ${SYNTH_TIMEOUT_MS}ms`),
+      SYNTH_TIMEOUT_MS
+    );
+    // A socket that opens but never speaks is the common throttle signature.
+    // Fail it early so the caller can retry instead of holding the request open.
+    const firstAudioTimeout = setTimeout(() => {
+      if (!receivedAnyAudio) {
+        fail(`Edge TTS sent no audio within ${FIRST_AUDIO_TIMEOUT_MS}ms (upstream throttle?)`);
+      }
+    }, FIRST_AUDIO_TIMEOUT_MS);
 
     ws.addEventListener("message", async (event) => {
       let data = event.data;
@@ -226,8 +281,7 @@ async function synthesize(text, voice, ratePct, pitchHz) {
         const path = parseTextFramePath(data);
         diag.textFrames.push(path);
         if (path === "turn.end") {
-          clearTimeout(timeout);
-          resolve();
+          finish(resolve);
           try { ws.close(1000, "done"); } catch {}
         }
       } else if (data instanceof ArrayBuffer) {
@@ -244,14 +298,12 @@ async function synthesize(text, voice, ratePct, pitchHz) {
     });
 
     ws.addEventListener("close", (ev) => {
-      clearTimeout(timeout);
-      if (receivedAnyAudio) resolve();
-      else reject(new Error(`Edge TTS closed (code=${ev?.code} reason=${ev?.reason || ""}) before any audio; diag=${JSON.stringify(diag)}`));
+      if (receivedAnyAudio) finish(resolve);
+      else finish(reject, new Error(`Edge TTS closed (code=${ev?.code} reason=${ev?.reason || ""}) before any audio; diag=${JSON.stringify(diag)}`));
     });
 
     ws.addEventListener("error", (err) => {
-      clearTimeout(timeout);
-      reject(new Error(`Edge TTS WebSocket error: ${err?.message || err}; diag=${JSON.stringify(diag)}`));
+      finish(reject, new Error(`Edge TTS WebSocket error: ${err?.message || err}; diag=${JSON.stringify(diag)}`));
     });
   });
 
@@ -411,27 +463,39 @@ function chunkText(text) {
   return chunks;
 }
 
+async function synthesizeWithRetry(text, voice, ratePct, pitchHz) {
+  let lastErr;
+  for (let attempt = 0; attempt <= CHUNK_RETRIES; attempt++) {
+    try {
+      return await synthesize(text, voice, ratePct, pitchHz);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < CHUNK_RETRIES) await sleep(1500);
+    }
+  }
+  throw lastErr;
+}
+
 async function synthesizeLong(text, voice, ratePct, pitchHz) {
   const pieces = chunkText(text);
   if (pieces.length === 1) {
-    return synthesize(pieces[0], voice, ratePct, pitchHz);
+    return synthesizeWithRetry(pieces[0], voice, ratePct, pitchHz);
   }
-  // Cap concurrent WebSocket synths per chapter to avoid burst-rate-limiting
-  // by Microsoft's IP-level throttle. Two-at-a-time still fits comfortably in
-  // the Workers 30s wall-clock budget for typical chapters (≤6 chunks).
-  const MAX_CONCURRENT = 2;
+  if (pieces.length > MAX_CHUNKS_PER_REQUEST) {
+    throw new Error(
+      `Text splits into ${pieces.length} chunks; this endpoint renders at most ` +
+      `${MAX_CHUNKS_PER_REQUEST} per request. Render it chunk-by-chunk via ` +
+      `POST /api/tts/synthesize and upload the assembled MP3 to POST /api/tts/library/upload.`
+    );
+  }
+  // Sequential, not concurrent. Parallel sockets to Edge TTS from a shared
+  // Cloudflare egress IP are what started hanging: the second socket opens and
+  // then never sends audio, so the request never returns.
   const buffers = new Array(pieces.length);
-  let cursor = 0;
-  async function worker() {
-    while (true) {
-      const i = cursor++;
-      if (i >= pieces.length) return;
-      buffers[i] = await synthesize(pieces[i], voice, ratePct, pitchHz);
-    }
+  for (let i = 0; i < pieces.length; i++) {
+    if (i > 0) await sleep(INTER_CHUNK_DELAY_MS);
+    buffers[i] = await synthesizeWithRetry(pieces[i], voice, ratePct, pitchHz);
   }
-  await Promise.all(
-    Array.from({ length: Math.min(MAX_CONCURRENT, pieces.length) }, worker)
-  );
   let total = 0;
   for (const b of buffers) total += b.byteLength;
   const merged = new Uint8Array(total);
@@ -616,6 +680,130 @@ async function handleLibraryCreate(request, env) {
 }
 
 // --------------------------------------------------------------------------
+// POST /api/tts/library/upload — store an MP3 the browser already assembled.
+//
+// The client renders a chapter chunk-by-chunk through /api/tts/synthesize (one
+// short request per chunk, one upstream socket each), concatenates the MP3
+// frames locally, then posts the finished file here. This request opens no
+// upstream socket at all, so it cannot stall.
+//
+// Body: raw audio/mpeg bytes.
+// X-Audio-Meta: base64url-encoded JSON { title, book, section, voice, rate,
+//               pitch, charCount, chunks }.
+// --------------------------------------------------------------------------
+function decodeMetaHeader(value) {
+  const padded = String(value)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(String(value).length / 4) * 4, "=");
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+async function handleLibraryUpload(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  if (!isAllowedOrigin(origin)) {
+    return new Response("Forbidden origin", { status: 403 });
+  }
+  const auth = await authorizePersonalRequest(request, env);
+  if (auth) {
+    const body = await auth.text();
+    return new Response(body, {
+      status: auth.status,
+      headers: { "Content-Type": "application/json", ...corsHeaders(origin) }
+    });
+  }
+
+  let meta;
+  try {
+    meta = decodeMetaHeader(request.headers.get("X-Audio-Meta") || "");
+  } catch (err) {
+    return jsonResponse(
+      origin,
+      { ok: false, error: `X-Audio-Meta is missing or not base64url JSON: ${err?.message || err}` },
+      400
+    );
+  }
+
+  const title = String(meta?.title || "").trim() || "Untitled audio";
+  const book = String(meta?.book || "").trim();
+  const section = String(meta?.section || "").trim();
+  const voice = String(meta?.voice || DEFAULT_VOICE);
+  const speedPct = Number.isFinite(meta?.rate) ? Number(meta.rate) : 0;
+  const pitchHz = Number.isFinite(meta?.pitch) ? Number(meta.pitch) : 0;
+  const charCount = Number.isFinite(meta?.charCount) ? Number(meta.charCount) : 0;
+
+  const mp3 = await request.arrayBuffer();
+  if (mp3.byteLength < 1000) {
+    return jsonResponse(
+      origin,
+      { ok: false, error: `Uploaded audio is only ${mp3.byteLength} bytes — refusing to store it.` },
+      400
+    );
+  }
+  if (mp3.byteLength > MAX_UPLOAD_BYTES) {
+    return jsonResponse(
+      origin,
+      { ok: false, error: `Uploaded audio is ${mp3.byteLength} bytes, over the ${MAX_UPLOAD_BYTES}-byte cap.` },
+      413
+    );
+  }
+
+  let pageId;
+  try {
+    pageId = await createLibraryPage(env, {
+      title, book, section, voice,
+      speed: speedPct,
+      charCount
+    });
+  } catch (err) {
+    return jsonResponse(
+      origin,
+      { ok: false, error: `Notion page create failed: ${err?.message || err}` },
+      502
+    );
+  }
+
+  try {
+    const r2Key = `library/${pageId.replace(/-/g, "")}.mp3`;
+    await env.AUDIO_BUCKET.put(r2Key, mp3, {
+      httpMetadata: { contentType: "audio/mpeg" },
+      customMetadata: {
+        title,
+        book,
+        section,
+        voice,
+        rate: String(speedPct),
+        pitch: String(pitchHz),
+        charCount: String(charCount)
+      }
+    });
+    const fileUrl = `${env.AUDIO_PUBLIC_BASE_URL}/${encodeURIComponent(r2Key)}?token=${pageId.replace(/-/g, "").slice(0, 16)}`;
+    const durationSec = estimateDurationSec(mp3.byteLength);
+    await markLibraryReady(env, pageId, { durationSec, r2Key, fileUrl });
+
+    return jsonResponse(origin, {
+      ok: true,
+      pageId,
+      r2Key,
+      fileUrl,
+      bytes: mp3.byteLength,
+      durationSec
+    });
+  } catch (err) {
+    try {
+      await markLibraryError(env, pageId, String(err?.message || err));
+    } catch {}
+    return jsonResponse(
+      origin,
+      { ok: false, error: String(err?.message || err), pageId },
+      502
+    );
+  }
+}
+
+// --------------------------------------------------------------------------
 // GET /audio/<key> — serve audio from R2. The "token" query param is a weak
 // guard so library URLs aren't trivially enumerable; it must match the first
 // 16 hex chars of the R2 key's basename.
@@ -745,11 +933,29 @@ export default {
     if (request.method === "POST" && url.pathname === "/api/tts/library") {
       return handleLibraryCreate(request, env);
     }
+    if (request.method === "POST" && url.pathname === "/api/tts/library/upload") {
+      return handleLibraryUpload(request, env);
+    }
     if (request.method === "GET" && url.pathname === "/api/tts/library") {
       return handleLibraryList(request, env);
     }
     if (request.method === "GET" && url.pathname === "/api/tts/voices") {
       return handleVoices(request);
+    }
+    // Unauthenticated build probe: the render page uses it to confirm the
+    // deployed Worker understands the chunked upload pipeline.
+    if (request.method === "GET" && url.pathname === "/api/tts/health") {
+      return new Response(
+        JSON.stringify({ ok: true, version: WORKER_VERSION, features: WORKER_FEATURES }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "*"
+          }
+        }
+      );
     }
     if (request.method === "GET" && url.pathname.startsWith("/audio/")) {
       return handleAudioGet(request, env, url);

@@ -67,3 +67,42 @@ wrangler secret put PERSONAL_AUTH_SECRET --config wrangler.notion-budget-manager
 ```
 
 Keep the existing `NOTION_TOKEN` secret on the `notion-budget-manager` Worker.
+
+## EPUB → Audio (TTS pipeline)
+
+`audio-render.html` turns an EPUB/TXT into MP3 entries in the Audio Library. Rendering
+is orchestrated **in the browser**, not inside one long Worker request:
+
+1. The page extracts chapters and splits each one into ≤2,800-character chunks.
+2. Each chunk is a separate `POST /api/tts/synthesize` call (one Edge TTS socket per
+   request, a few seconds each), with its own timeout and retries.
+3. The browser concatenates the MP3 frames and uploads the finished file once via
+   `POST /api/tts/library/upload`, which stores it in R2 and writes the Notion row.
+
+The earlier design asked the Worker to synthesize a whole chapter in a single request,
+opening two Edge TTS sockets at a time. When a socket hung, the request never returned:
+the page sat on "Rendering…" indefinitely and the Notion row stayed `pending` with an
+empty `Error`. Every stage now has a deadline, so a failure is visible instead of silent.
+
+**The render page requires the current Worker build.** After pulling these changes:
+
+```bash
+cd cloudflare
+wrangler deploy --config wrangler.tts.jsonc
+```
+
+Verify the build that is live (no auth required):
+
+```bash
+curl -s https://tts.eamiller1981.workers.dev/api/tts/health
+# {"ok":true,"version":"2026-09-11-chunked-1","features":[...,"libraryUpload",...]}
+```
+
+If `libraryUpload` is missing from `features`, the render page shows a banner and the
+Worker still needs deploying.
+
+Operational notes:
+
+- The render loop lives in the page. Closing the tab or letting the phone sleep stops it;
+  the page now holds a screen wake lock while rendering and warns before unload.
+- Chapters left mid-render are marked `pending` in Notion and can simply be re-rendered.

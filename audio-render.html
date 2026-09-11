@@ -320,6 +320,8 @@
 
       <div class="chapter-table" id="chapter-table"></div>
 
+      <div id="worker-warning" class="status error" hidden></div>
+
       <div class="toolbar" style="margin-top: 16px;">
         <button id="render-btn" class="btn btn-primary" type="button">Render selected chapters</button>
         <button id="retry-btn" class="btn btn-small" type="button" disabled>Retry errored</button>
@@ -335,6 +337,19 @@
 
   <script>
     const TTS_BASE = "https://tts.eamiller1981.workers.dev";
+
+    // Chapters are rendered chunk-by-chunk from the browser: one short HTTP
+    // request per chunk, MP3 frames concatenated here, then a single upload of
+    // the finished file. The old design asked the Worker to synthesize a whole
+    // chapter inside one request, which opened several upstream Edge TTS sockets
+    // at once; when one of those hung the request never returned and the page
+    // sat on "Rendering…" forever with the Notion row stuck on "pending".
+    const SYNTH_CHUNK_CHARS   = 2800;   // stays under the Worker's 3000 cap
+    const CHUNK_TIMEOUT_MS    = 120000; // no request may hang indefinitely
+    const UPLOAD_TIMEOUT_MS   = 180000;
+    const HEALTH_TIMEOUT_MS   = 15000;
+    const CHUNK_RETRY_BACKOFFS_MS = [3000, 9000, 20000];
+    const INTER_CHUNK_DELAY_MS = 400;   // spacing so Edge TTS doesn't throttle
 
     const els = {
       dropZone: document.getElementById("drop-zone"),
@@ -360,6 +375,7 @@
       retryBtn: document.getElementById("retry-btn"),
       cancelBtn: document.getElementById("cancel-btn"),
       renderStatus: document.getElementById("render-status"),
+      workerWarning: document.getElementById("worker-warning"),
       progressWrap: document.getElementById("progress-wrap"),
       progressFill: document.getElementById("progress-fill"),
     };
@@ -367,6 +383,10 @@
     // chapters: [{ index, title, text, charCount, selected, status, error }]
     let chapters = [];
     let cancelRequested = false;
+    let activeAbort = null;      // aborts the in-flight request on Cancel
+    let renderRunning = false;   // guards unload + wake lock
+    let wakeLock = null;
+    let workerFeatures = null;   // null = not probed yet
 
     function setStatus(el, msg, kind) {
       el.textContent = msg || "";
@@ -906,12 +926,12 @@
       els.auditionAudio.removeAttribute("src");
       const t0 = performance.now();
       try {
-        const resp = await fetch(`${TTS_BASE}/api/tts/synthesize`, {
+        const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/synthesize`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ text: sample, voice, rate: 0 }),
-        });
+        }, CHUNK_TIMEOUT_MS);
         if (!resp.ok) {
           const errTxt = await resp.text();
           throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
@@ -937,19 +957,109 @@
     const RETRY_BACKOFFS_MS = [8000, 20000, 45000]; // 3 retries with exponential-ish backoff
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    async function renderOneChapter(ch, bookName) {
-      const resp = await fetch(`${TTS_BASE}/api/tts/library`, {
+    // Every network call gets a deadline. A request with no timeout is how a
+    // failed render turns into a silent stall instead of a visible error.
+    async function fetchWithTimeout(url, init, timeoutMs) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(new Error("timeout")), timeoutMs);
+      activeAbort = ctrl;
+      try {
+        return await fetch(url, { ...init, signal: ctrl.signal });
+      } catch (err) {
+        if (ctrl.signal.aborted && !cancelRequested) {
+          throw new Error(`timed out after ${Math.round(timeoutMs / 1000)}s`);
+        }
+        throw err;
+      } finally {
+        clearTimeout(timer);
+        if (activeAbort === ctrl) activeAbort = null;
+      }
+    }
+
+    // Mirrors the Worker's chunker: paragraph boundaries first, then sentence
+    // boundaries, then a hard slice. Each chunk is one Edge TTS utterance.
+    function chunkForSynthesis(text, target = SYNTH_CHUNK_CHARS) {
+      const normalized = String(text).replace(/\r\n/g, "\n").trim();
+      if (normalized.length <= target) return normalized ? [normalized] : [];
+      const chunks = [];
+      let buf = "";
+      for (const para of normalized.split(/\n{2,}/)) {
+        if (!para.trim()) continue;
+        if ((buf ? buf.length + 2 : 0) + para.length <= target) {
+          buf = buf ? `${buf}\n\n${para}` : para;
+          continue;
+        }
+        if (buf) { chunks.push(buf); buf = ""; }
+        if (para.length <= target) { buf = para; continue; }
+        let sBuf = "";
+        for (const sentence of para.split(/(?<=[.!?])\s+/)) {
+          if ((sBuf ? sBuf.length + 1 : 0) + sentence.length <= target) {
+            sBuf = sBuf ? `${sBuf} ${sentence}` : sentence;
+            continue;
+          }
+          if (sBuf) { chunks.push(sBuf); sBuf = ""; }
+          if (sentence.length > target) {
+            for (let i = 0; i < sentence.length; i += target) {
+              chunks.push(sentence.slice(i, i + target));
+            }
+          } else {
+            sBuf = sentence;
+          }
+        }
+        if (sBuf) buf = sBuf;
+      }
+      if (buf) chunks.push(buf);
+      return chunks;
+    }
+
+    async function synthesizeChunk(text, voice) {
+      const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/synthesize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: ch.text,
-          voice: els.voiceSelect.value,
-          rate: 0,
-          title: ch.title,
-          book: bookName,
-          section: ch.title,
-        }),
-      });
+        body: JSON.stringify({ text, voice, rate: 0 }),
+      }, CHUNK_TIMEOUT_MS);
+      if (!resp.ok) {
+        const errTxt = await resp.text();
+        throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
+      }
+      const buf = await resp.arrayBuffer();
+      if (buf.byteLength < 200) throw new Error("Edge TTS returned an empty clip");
+      return new Uint8Array(buf);
+    }
+
+    // MP3 frames concatenate byte-for-byte, which is exactly what the Worker
+    // used to do server-side.
+    function concatChunks(parts) {
+      let total = 0;
+      for (const p of parts) total += p.byteLength;
+      const merged = new Uint8Array(total);
+      let offset = 0;
+      for (const p of parts) { merged.set(p, offset); offset += p.byteLength; }
+      return merged;
+    }
+
+    function encodeMetaHeader(meta) {
+      const bytes = new TextEncoder().encode(JSON.stringify(meta));
+      let binary = "";
+      for (const b of bytes) binary += String.fromCharCode(b);
+      return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+    }
+
+    async function uploadChapterAudio(mp3, meta) {
+      const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/library/upload`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "audio/mpeg",
+          "X-Audio-Meta": encodeMetaHeader(meta),
+        },
+        body: mp3,
+      }, UPLOAD_TIMEOUT_MS);
+      if (resp.status === 404) {
+        throw new Error(
+          "TTS Worker is missing /api/tts/library/upload — redeploy it: " +
+          "cd cloudflare && wrangler deploy --config wrangler.tts.jsonc"
+        );
+      }
       if (!resp.ok) {
         const errTxt = await resp.text();
         throw new Error(`${resp.status}: ${errTxt.slice(0, 200)}`);
@@ -957,8 +1067,97 @@
       return resp.json();
     }
 
+    async function renderOneChapter(ch, bookName, onProgress) {
+      const voice = els.voiceSelect.value;
+      const pieces = chunkForSynthesis(ch.text);
+      if (!pieces.length) throw new Error("Chapter has no text to render");
+
+      const audio = [];
+      for (let i = 0; i < pieces.length; i++) {
+        if (cancelRequested) throw new Error("Cancelled");
+        if (i > 0) await sleep(INTER_CHUNK_DELAY_MS);
+        onProgress?.(i, pieces.length);
+        let lastErr = null;
+        for (let attempt = 0; attempt <= CHUNK_RETRY_BACKOFFS_MS.length; attempt++) {
+          try {
+            audio.push(await synthesizeChunk(pieces[i], voice));
+            lastErr = null;
+            break;
+          } catch (err) {
+            lastErr = err;
+            if (cancelRequested) throw new Error("Cancelled");
+            if (attempt < CHUNK_RETRY_BACKOFFS_MS.length) {
+              const backoff = CHUNK_RETRY_BACKOFFS_MS[attempt];
+              onProgress?.(i, pieces.length, `retry ${attempt + 1} in ${backoff / 1000}s · ${err.message.slice(0, 60)}`);
+              await sleep(backoff);
+            }
+          }
+        }
+        if (lastErr) throw new Error(`chunk ${i + 1}/${pieces.length}: ${lastErr.message}`);
+      }
+
+      onProgress?.(pieces.length, pieces.length, "uploading");
+      return uploadChapterAudio(concatChunks(audio), {
+        title: ch.title,
+        book: bookName,
+        section: ch.title,
+        voice,
+        rate: 0,
+        pitch: 0,
+        charCount: ch.charCount,
+        chunks: pieces.length,
+      });
+    }
+
+    // -------- Worker build probe --------
+    // The chunked pipeline needs a Worker that exposes /api/tts/library/upload.
+    // Probe once on load so a stale Worker is an upfront message, not a failure
+    // three chapters into a render.
+    async function probeWorker() {
+      try {
+        const resp = await fetchWithTimeout(`${TTS_BASE}/api/tts/health`, { method: "GET" }, HEALTH_TIMEOUT_MS);
+        if (!resp.ok) throw new Error(`health ${resp.status}`);
+        const data = await resp.json();
+        workerFeatures = Array.isArray(data.features) ? data.features : [];
+      } catch {
+        workerFeatures = null; // unknown; don't block the render on a probe failure
+        return;
+      }
+      if (!workerFeatures.includes("libraryUpload")) {
+        els.workerWarning.hidden = false;
+        els.workerWarning.textContent =
+          "The deployed TTS Worker predates the chunked render pipeline, so long " +
+          "chapters will stall. Redeploy it first: cd cloudflare && wrangler deploy --config wrangler.tts.jsonc";
+      }
+    }
+    probeWorker();
+
+    // -------- Keep the render alive --------
+    // The queue runs in this page. If the tab is closed or the phone sleeps, the
+    // loop dies mid-chapter and the entry never completes.
+    async function acquireWakeLock() {
+      try {
+        if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+      } catch { wakeLock = null; }
+    }
+    function releaseWakeLock() {
+      try { wakeLock?.release?.(); } catch {}
+      wakeLock = null;
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && renderRunning && !wakeLock) acquireWakeLock();
+    });
+    window.addEventListener("beforeunload", (e) => {
+      if (!renderRunning) return;
+      e.preventDefault();
+      e.returnValue = "A render is still running. Leaving this page cancels it.";
+      return e.returnValue;
+    });
+
     async function runQueue(queue, bookName) {
       cancelRequested = false;
+      renderRunning = true;
+      acquireWakeLock();
       els.cancelBtn.hidden = false;
       els.cancelBtn.disabled = false;
       els.renderBtn.disabled = true;
@@ -978,12 +1177,18 @@
         }
         ch.status = "running"; ch.error = null; updateRowStatus(ch);
         setStatus(els.renderStatus, `Rendering ${ch.title} (${ch.charCount.toLocaleString()} chars)… [${i + 1}/${total}]`, "info");
+        const onProgress = (chunkIdx, chunkTotal, note) => {
+          const stage = note === "uploading"
+            ? "saving to library"
+            : `chunk ${chunkIdx + 1}/${chunkTotal}${note ? ` · ${note}` : ""}`;
+          setStatus(els.renderStatus, `${ch.title} — ${stage} [${i + 1}/${total}]`, "info");
+        };
 
         let lastErr = null;
         const maxAttempts = 1 + RETRY_BACKOFFS_MS.length;
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            const data = await renderOneChapter(ch, bookName);
+            const data = await renderOneChapter(ch, bookName, onProgress);
             ch.status = "done";
             ch.pageId = data.pageId;
             lastErr = null;
@@ -991,7 +1196,8 @@
             break;
           } catch (err) {
             lastErr = err;
-            if (attempt < maxAttempts && !cancelRequested) {
+            if (cancelRequested) break;
+            if (attempt < maxAttempts) {
               const backoff = RETRY_BACKOFFS_MS[attempt - 1];
               setStatus(els.renderStatus, `Retry ${attempt}/${RETRY_BACKOFFS_MS.length} for "${ch.title}" in ${backoff / 1000}s · ${err.message.slice(0, 80)}`, "info");
               await sleep(backoff);
@@ -999,9 +1205,15 @@
           }
         }
         if (lastErr) {
-          ch.status = "error";
-          ch.error = lastErr.message;
-          errors++;
+          if (cancelRequested) {
+            // A cancelled chapter is untouched work, not a failure.
+            ch.status = "pending";
+            ch.error = null;
+          } else {
+            ch.status = "error";
+            ch.error = lastErr.message;
+            errors++;
+          }
         }
         updateRowStatus(ch);
         els.progressFill.style.width = `${Math.round(((done + errors) / total) * 100)}%`;
@@ -1020,6 +1232,8 @@
           errors ? "error" : "success"
         );
       }
+      renderRunning = false;
+      releaseWakeLock();
       els.renderBtn.disabled = false;
       els.retryBtn.disabled = !chapters.some(c => c.status === "error");
       els.cancelBtn.hidden = true;
@@ -1061,7 +1275,8 @@
     els.cancelBtn.addEventListener("click", () => {
       cancelRequested = true;
       els.cancelBtn.disabled = true;
-      setStatus(els.renderStatus, "Cancelling after current chapter…", "info");
+      setStatus(els.renderStatus, "Cancelling…", "info");
+      try { activeAbort?.abort(new Error("cancelled")); } catch {}
     });
   </script>
 </body>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "wellness-os-shell-v23";
+const CACHE_NAME = "wellness-os-shell-v24";
 const SHELL_ASSETS = [
   "./",
   "index.html",
